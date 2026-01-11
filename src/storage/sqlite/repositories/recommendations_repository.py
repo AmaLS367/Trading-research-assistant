@@ -1,0 +1,40 @@
+from typing import Optional
+from src.core.models.recommendation import Recommendation
+from src.core.models.timeframe import Timeframe
+from src.storage.sqlite.connection import DBConnection
+
+
+class RecommendationsRepository:
+    def __init__(self, db: DBConnection) -> None:
+        self.db = db
+
+    def save(self, recommendation: Recommendation) -> int:
+        query = """
+            INSERT INTO recommendations (symbol, timestamp, timeframe, brief, confidence)
+            VALUES (?, ?, ?, ?, ?)
+        """
+        with self.db.get_cursor() as cursor:
+            cursor.execute(
+                query,
+                (
+                    recommendation.symbol,
+                    recommendation.timestamp.isoformat(),
+                    recommendation.timeframe.value,
+                    recommendation.brief,
+                    recommendation.confidence,
+                ),
+            )
+            return cursor.lastrowid
+
+    def get_latest(self) -> Optional[Recommendation]:
+        query = "SELECT * FROM recommendations ORDER BY id DESC LIMIT 1"
+        with self.db.get_cursor() as cursor:
+            cursor.execute(query)
+            row = cursor.fetchone()
+            if row:
+                row_dict = dict(row)
+                from datetime import datetime
+                row_dict["timestamp"] = datetime.fromisoformat(row_dict["timestamp"])
+                row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
+                return Recommendation(**row_dict)
+            return None
