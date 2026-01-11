@@ -147,6 +147,9 @@ cython_debug/
 .cursorrules
 
 # Project-specific
+
+trading_research_assistant_context.txt
+
 # SQLite databases
 *.db
 *.sqlite
