@@ -97,9 +97,11 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
             technical_analyst=technical_analyst,
             synthesizer=synthesizer,
             recommendations_repository=recommendations_repo,
+            console=console,
         )
 
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
+        console.print()
         recommendation_id = job.run(symbol=symbol, timeframe=timeframe)
         console.print(f"[green]Analysis complete! Recommendation ID: {recommendation_id}[/green]")
         console.print()
