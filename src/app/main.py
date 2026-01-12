@@ -39,23 +39,40 @@ def show_latest() -> None:
         console.print("[yellow]No recommendations found.[/yellow]")
         return
 
-    table = Table(title="Latest Recommendation")
-    table.add_column("ID", style="cyan")
-    table.add_column("Symbol", style="magenta")
-    table.add_column("Timeframe", style="green")
-    table.add_column("Action", style="bold yellow")
-    table.add_column("Confidence", style="bold")
-    table.add_column("Brief")
+    if recommendation.action == "CALL":
+        action_color = "green"
+    elif recommendation.action == "PUT":
+        action_color = "red"
+    else:
+        action_color = "yellow"
+    action_display = f"[{action_color}]{recommendation.action}[/{action_color}]"
+
+    if recommendation.confidence >= 0.7:
+        confidence_color = "green"
+    elif recommendation.confidence >= 0.5:
+        confidence_color = "yellow"
+    else:
+        confidence_color = "red"
+    confidence_display = f"[{confidence_color}]{recommendation.confidence:.2%}[/{confidence_color}]"
+
+    table = Table(title="Latest Recommendation", show_header=True, header_style="bold magenta")
+    table.add_column("ID", style="cyan", width=8)
+    table.add_column("Symbol", style="magenta", width=10)
+    table.add_column("Timeframe", style="green", width=10)
+    table.add_column("Action", style="bold", width=8)
+    table.add_column("Confidence", style="bold", width=12)
+    table.add_column("Brief", width=60)
 
     table.add_row(
         str(recommendation.id),
         recommendation.symbol,
         recommendation.timeframe.value,
-        recommendation.action,
-        f"{recommendation.confidence:.2%}",
+        action_display,
+        confidence_display,
         recommendation.brief,
     )
     console.print(table)
+    console.print()
 
 
 def analyze(symbol: str, timeframe_str: str = "1h") -> None:
