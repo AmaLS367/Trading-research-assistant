@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
     symbol TEXT NOT NULL,
     timestamp DATETIME NOT NULL,
     timeframe TEXT NOT NULL,
+    action TEXT NOT NULL,
     brief TEXT NOT NULL,
     confidence REAL NOT NULL
 );

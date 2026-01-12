@@ -10,8 +10,8 @@ class RecommendationsRepository:
 
     def save(self, recommendation: Recommendation) -> int:
         query = """
-            INSERT INTO recommendations (symbol, timestamp, timeframe, brief, confidence)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO recommendations (symbol, timestamp, timeframe, action, brief, confidence)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         with self.db.get_cursor() as cursor:
             cursor.execute(
@@ -20,6 +20,7 @@ class RecommendationsRepository:
                     recommendation.symbol,
                     recommendation.timestamp.isoformat(),
                     recommendation.timeframe.value,
+                    recommendation.action,
                     recommendation.brief,
                     recommendation.confidence,
                 ),
@@ -39,5 +40,7 @@ class RecommendationsRepository:
                 from datetime import datetime
                 row_dict["timestamp"] = datetime.fromisoformat(row_dict["timestamp"])
                 row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
+                if "action" not in row_dict:
+                    row_dict["action"] = "WAIT"
                 return Recommendation(**row_dict)
             return None

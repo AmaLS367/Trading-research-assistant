@@ -1,13 +1,15 @@
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel
+
 from src.core.models.timeframe import Timeframe
 
 
 class Recommendation(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     symbol: str
     timestamp: datetime
     timeframe: Timeframe
+    action: str
     brief: str
     confidence: float
