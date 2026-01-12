@@ -4,6 +4,7 @@ from src.app.settings import settings
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
+from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
 from src.data_providers.forex.oanda_provider import OandaProvider
 from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
 from src.llm.ollama.ollama_client import OllamaClient
@@ -13,16 +14,30 @@ from src.storage.sqlite.repositories.recommendations_repository import Recommend
 
 
 def create_market_data_provider() -> MarketDataProvider:
+    oanda_provider: OandaProvider | None = None
+    twelve_data_provider: TwelveDataProvider | None = None
+
     if settings.oanda_api_key:
-        return OandaProvider(
+        oanda_provider = OandaProvider(
             api_key=settings.oanda_api_key,
             base_url=settings.oanda_base_url,
         )
-    elif settings.twelve_data_api_key:
-        return TwelveDataProvider(
+
+    if settings.twelve_data_api_key:
+        twelve_data_provider = TwelveDataProvider(
             api_key=settings.twelve_data_api_key,
             base_url=settings.twelve_data_base_url,
         )
+
+    if oanda_provider and twelve_data_provider:
+        return FallbackMarketDataProvider(
+            primary=oanda_provider,
+            secondary=twelve_data_provider,
+        )
+    elif oanda_provider:
+        return oanda_provider
+    elif twelve_data_provider:
+        return twelve_data_provider
     else:
         raise ValueError(
             "No market data provider configured. "
