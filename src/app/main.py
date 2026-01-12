@@ -1,15 +1,25 @@
 import argparse
 from datetime import datetime
+
 from rich.console import Console
 from rich.table import Table
 
 from src.app.settings import settings
-from src.storage.sqlite.connection import DBConnection
-from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
-from src.storage.sqlite.repositories.journal_repository import JournalRepository
-from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
+from src.app.wiring import (
+    create_market_data_provider,
+    create_news_provider,
+    create_recommendations_repository,
+    create_synthesizer,
+    create_technical_analyst,
+)
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.outcome import Outcome
+from src.core.models.timeframe import Timeframe
+from src.runtime.jobs.run_agents_job import RunAgentsJob
+from src.storage.sqlite.connection import DBConnection
+from src.storage.sqlite.repositories.journal_repository import JournalRepository
+from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
+from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 
 console = Console()
 db = DBConnection(str(settings.storage_sqlite_db_path))
@@ -33,6 +43,7 @@ def show_latest() -> None:
     table.add_column("ID", style="cyan")
     table.add_column("Symbol", style="magenta")
     table.add_column("Timeframe", style="green")
+    table.add_column("Action", style="bold yellow")
     table.add_column("Confidence", style="bold")
     table.add_column("Brief")
 
@@ -40,10 +51,44 @@ def show_latest() -> None:
         str(recommendation.id),
         recommendation.symbol,
         recommendation.timeframe.value,
+        recommendation.action,
         f"{recommendation.confidence:.2%}",
         recommendation.brief,
     )
     console.print(table)
+
+
+def analyze(symbol: str, timeframe_str: str = "1h") -> None:
+    try:
+        timeframe = Timeframe(timeframe_str)
+    except ValueError:
+        console.print(f"[red]Invalid timeframe: {timeframe_str}[/red]")
+        console.print("[yellow]Valid timeframes: 1m, 5m, 15m, 1h, 1d[/yellow]")
+        return
+
+    try:
+        market_data_provider = create_market_data_provider()
+        news_provider = create_news_provider()
+        technical_analyst = create_technical_analyst()
+        synthesizer = create_synthesizer()
+        recommendations_repo = create_recommendations_repository()
+
+        job = RunAgentsJob(
+            market_data_provider=market_data_provider,
+            news_provider=news_provider,
+            technical_analyst=technical_analyst,
+            synthesizer=synthesizer,
+            recommendations_repository=recommendations_repo,
+        )
+
+        console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
+        recommendation_id = job.run(symbol=symbol, timeframe=timeframe)
+        console.print(f"[green]Analysis complete! Recommendation ID: {recommendation_id}[/green]")
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise
 
 
 def log_open(symbol: str, action: str, expiry: int) -> None:
@@ -93,6 +138,12 @@ def main() -> None:
     subparsers.add_parser("init-db")
     subparsers.add_parser("show-latest")
 
+    analyze_parser = subparsers.add_parser("analyze")
+    analyze_parser.add_argument("--symbol", required=True, help="Symbol to analyze (e.g., EURUSD)")
+    analyze_parser.add_argument(
+        "--timeframe", default="1h", help="Timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h"
+    )
+
     open_parser = subparsers.add_parser("log-open")
     open_parser.add_argument("--symbol", required=True)
     open_parser.add_argument("--action", required=True, help="CALL/PUT")
@@ -108,6 +159,8 @@ def main() -> None:
         init_db()
     elif args.command == "show-latest":
         show_latest()
+    elif args.command == "analyze":
+        analyze(args.symbol, args.timeframe)
     elif args.command == "log-open":
         log_open(args.symbol, args.action, args.expiry)
     elif args.command == "log-outcome":
