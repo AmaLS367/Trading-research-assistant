@@ -3,6 +3,7 @@ from datetime import datetime
 
 import httpx
 from rich.console import Console
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from src.app.settings import settings
@@ -16,6 +17,7 @@ from src.app.wiring import (
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.outcome import Outcome
 from src.core.models.timeframe import Timeframe
+from src.core.services.reporter import Reporter
 from src.runtime.jobs.run_agents_job import RunAgentsJob
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
@@ -116,44 +118,87 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
         raise
 
 
-def log_open(symbol: str, action: str, expiry: int) -> None:
+def journal() -> None:
     recommendation = rec_repo.get_latest()
     if not recommendation or recommendation.id is None:
-        console.print("[red]Error: Cannot log trade without a recommendation.[/red]")
+        console.print("[red]Error: No recommendation found. Run 'analyze' first.[/red]")
         return
+
+    console.print(f"[cyan]Latest Recommendation:[/cyan]")
+    console.print(f"  Symbol: {recommendation.symbol}")
+    console.print(f"  Action: {recommendation.action}")
+    console.print(f"  Timeframe: {recommendation.timeframe.value}")
+    console.print(f"  Timestamp: {recommendation.timestamp}")
+    console.print()
+
+    took_trade = Confirm.ask("Did you take this trade?")
+
+    if not took_trade:
+        reason = Prompt.ask(
+            "Why did you skip?",
+            choices=["Market changed", "Too risky", "Missed"],
+            default="Market changed",
+        )
+
+        entry = JournalEntry(
+            recommendation_id=recommendation.id,
+            symbol=recommendation.symbol,
+            open_time=datetime.now(),
+            expiry_seconds=300,
+            user_action="SKIP",
+        )
+        entry_id = journal_repo.save(entry)
+
+        outcome = Outcome(
+            journal_entry_id=entry_id,
+            close_time=datetime.now(),
+            win_or_loss="VOID",
+            comment=reason,
+        )
+        outcome_repo.save(outcome)
+
+        console.print(f"[green]Trade skipped. Reason: {reason}[/green]")
+        return
+
+    result = Prompt.ask(
+        "What was the result?",
+        choices=["WIN", "LOSS", "DRAW"],
+        default="WIN",
+    )
+
+    quality = Prompt.ask(
+        "How did you feel about the trade?",
+        choices=["Confident", "Nervous", "Lucky"],
+        default="Confident",
+    )
 
     entry = JournalEntry(
         recommendation_id=recommendation.id,
-        symbol=symbol,
+        symbol=recommendation.symbol,
         open_time=datetime.now(),
-        expiry_seconds=expiry,
-        user_action=action,
+        expiry_seconds=300,
+        user_action=recommendation.action,
     )
     entry_id = journal_repo.save(entry)
-    console.print(f"[green]Journal entry created with ID: {entry_id}[/green]")
 
-
-def log_outcome(result: str, comment: str = "") -> None:
-    last_journal = journal_repo.get_latest()
-    if not last_journal or last_journal.id is None:
-        console.print("[red]Error: No open journal entry found to close.[/red]")
-        return
-
-    result_upper = result.upper()
-    if result_upper not in ["WIN", "LOSS", "DRAW"]:
-        console.print("[red]Error: Result must be WIN, LOSS, or DRAW.[/red]")
-        return
-
+    comment = f"Quality: {quality}"
     outcome = Outcome(
-        journal_entry_id=last_journal.id,
+        journal_entry_id=entry_id,
         close_time=datetime.now(),
-        win_or_loss=result_upper,
+        win_or_loss=result,
         comment=comment,
     )
     outcome_id = outcome_repo.save(outcome)
-    console.print(
-        f"[green]Outcome logged (ID: {outcome_id}) for Journal ID: {last_journal.id}[/green]"
-    )
+
+    console.print(f"[green]Trade logged. Outcome ID: {outcome_id}[/green]")
+
+
+def report() -> None:
+    outcomes_data = outcome_repo.get_all_with_details()
+    reporter = Reporter(outcomes_data)
+    table = reporter.generate_daily_report()
+    console.print(table)
+    console.print()
 
 
 def main() -> None:
@@ -162,21 +207,14 @@ def main() -> None:
 
     subparsers.add_parser("init-db")
     subparsers.add_parser("show-latest")
+    subparsers.add_parser("journal")
+    subparsers.add_parser("report")
 
     analyze_parser = subparsers.add_parser("analyze")
     analyze_parser.add_argument("--symbol", required=True, help="Symbol to analyze (e.g., EURUSD)")
     analyze_parser.add_argument(
         "--timeframe", default="1h", help="Timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h"
     )
-
-    open_parser = subparsers.add_parser("log-open")
-    open_parser.add_argument("--symbol", required=True)
-    open_parser.add_argument("--action", required=True, help="CALL/PUT")
-    open_parser.add_argument("--expiry", type=int, default=300, help="Seconds")
-
-    outcome_parser = subparsers.add_parser("log-outcome")
-    outcome_parser.add_argument("--result", required=True, help="WIN/LOSS/DRAW")
-    outcome_parser.add_argument("--comment", default="")
 
     args = parser.parse_args()
 
@@ -186,10 +224,10 @@ def main() -> None:
         show_latest()
     elif args.command == "analyze":
         analyze(args.symbol, args.timeframe)
-    elif args.command == "log-open":
-        log_open(args.symbol, args.action, args.expiry)
-    elif args.command == "log-outcome":
-        log_outcome(args.result, args.comment)
+    elif args.command == "journal":
+        journal()
+    elif args.command == "report":
+        report()
     else:
         parser.print_help()
 
