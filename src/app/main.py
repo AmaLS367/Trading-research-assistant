@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime
 
+import httpx
 from rich.console import Console
 from rich.table import Table
 
@@ -101,8 +102,13 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
         recommendation_id = job.run(symbol=symbol, timeframe=timeframe)
         console.print(f"[green]Analysis complete! Recommendation ID: {recommendation_id}[/green]")
+        console.print()
+        show_latest()
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
+    except httpx.HTTPStatusError as e:
+        error_msg = f"HTTP {e.response.status_code}: {e.response.text[:200] if e.response.text else 'Unknown error'}"
+        console.print(f"[red]API error: {error_msg}[/red]")
     except Exception as e:
         console.print(f"[red]Unexpected error: {e}[/red]")
         raise

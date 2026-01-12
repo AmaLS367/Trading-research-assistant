@@ -30,11 +30,19 @@ class OandaProvider(MarketDataProvider):
     def _format_datetime_for_oanda(self, dt: datetime) -> str:
         return dt.strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
 
+    def _convert_symbol_to_oanda(self, symbol: str) -> str:
+        symbol_upper = symbol.upper().strip()
+        if "_" in symbol_upper:
+            return symbol_upper
+        if len(symbol_upper) == 6:
+            return f"{symbol_upper[:3]}_{symbol_upper[3:]}"
+        return symbol_upper
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type(
-            (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError)
+            (httpx.TimeoutException, httpx.NetworkError)
         ),
     )
     def fetch_candles(
@@ -45,8 +53,9 @@ class OandaProvider(MarketDataProvider):
         from_time: datetime | None = None,
         to_time: datetime | None = None,
     ) -> list[Candle]:
+        oanda_symbol = self._convert_symbol_to_oanda(symbol)
         oanda_timeframe = self._convert_timeframe_to_oanda(timeframe)
-        url = f"{self.base_url}/v3/instruments/{symbol}/candles"
+        url = f"{self.base_url}/v3/instruments/{oanda_symbol}/candles"
 
         params: dict[str, str | int] = {
             "granularity": oanda_timeframe,
@@ -59,6 +68,12 @@ class OandaProvider(MarketDataProvider):
             params["to"] = self._format_datetime_for_oanda(to_time)
 
         response = self.client.get(url, params=params)
+        
+        if response.status_code == 400:
+            error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            error_message = error_data.get("errorMessage", "Bad Request")
+            raise ValueError(f"OANDA API error: {error_message}. Symbol: {symbol} -> {oanda_symbol}")
+        
         response.raise_for_status()
 
         data = response.json()
