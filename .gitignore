@@ -149,6 +149,7 @@ cython_debug/
 # Project-specific
 
 trading_research_assistant_context.txt
+PLANNED_COMMITS.md
 
 # SQLite databases
 *.db
