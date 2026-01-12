@@ -5,6 +5,7 @@ from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.data_providers.forex.oanda_provider import OandaProvider
+from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
 from src.llm.ollama.ollama_client import OllamaClient
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.storage.sqlite.connection import DBConnection
@@ -12,10 +13,21 @@ from src.storage.sqlite.repositories.recommendations_repository import Recommend
 
 
 def create_market_data_provider() -> MarketDataProvider:
-    return OandaProvider(
-        api_key=settings.oanda_api_key,
-        base_url=settings.oanda_base_url,
-    )
+    if settings.oanda_api_key:
+        return OandaProvider(
+            api_key=settings.oanda_api_key,
+            base_url=settings.oanda_base_url,
+        )
+    elif settings.twelve_data_api_key:
+        return TwelveDataProvider(
+            api_key=settings.twelve_data_api_key,
+            base_url=settings.twelve_data_base_url,
+        )
+    else:
+        raise ValueError(
+            "No market data provider configured. "
+            "Set either OANDA_API_KEY or TWELVE_DATA_API_KEY in environment variables."
+        )
 
 
 def create_news_provider() -> NewsProvider:
