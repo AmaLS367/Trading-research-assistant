@@ -23,7 +23,10 @@ class JournalRepository:
                     entry.user_action,
                 ),
             )
-            return cursor.lastrowid
+            row_id = cursor.lastrowid
+            if row_id is None:
+                raise RuntimeError("Failed to get lastrowid after insert")
+            return row_id
 
     def get_latest_by_symbol(self, symbol: str) -> Optional[JournalEntry]:
         query = "SELECT * FROM journal_entries WHERE symbol = ? ORDER BY id DESC LIMIT 1"

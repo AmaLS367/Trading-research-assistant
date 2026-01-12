@@ -21,4 +21,7 @@ class OutcomesRepository:
                     outcome.comment,
                 ),
             )
-            return cursor.lastrowid
+            row_id = cursor.lastrowid
+            if row_id is None:
+                raise RuntimeError("Failed to get lastrowid after insert")
+            return row_id

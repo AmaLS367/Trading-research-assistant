@@ -24,7 +24,10 @@ class RecommendationsRepository:
                     recommendation.confidence,
                 ),
             )
-            return cursor.lastrowid
+            row_id = cursor.lastrowid
+            if row_id is None:
+                raise RuntimeError("Failed to get lastrowid after insert")
+            return row_id
 
     def get_latest(self) -> Optional[Recommendation]:
         query = "SELECT * FROM recommendations ORDER BY id DESC LIMIT 1"
