@@ -18,6 +18,7 @@ IGNORE_DIRS = {
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    "docs", # Documentation files (docs/) are excluded from context generation
 }
 INCLUDE_EXT = {".py", ".toml", ".md", ".yml", ".yaml", ".Dockerfile", ".ts", ".tsx", ".json", ".sql"}
 IGNORE_FILES = {
@@ -25,6 +26,11 @@ IGNORE_FILES = {
     "yarn.lock",
     "package-lock.json",
     "trading_research_assistant_context.txt",  # Exclude the output file itself
+    ".cursorrules",
+    "README.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "LICENSE",
 }
 IGNORE_EXT = {".db", ".sqlite", ".sqlite3"}
 
@@ -33,6 +39,9 @@ def generate_context():
     output_file = "trading_research_assistant_context.txt"
 
     with open(output_file, "w", encoding="utf-8") as outfile:
+        outfile.write("# Trading Research Assistant - Project Context\n")
+        outfile.write("# Generated automatically. Documentation files (docs/) are excluded.\n\n")
+        
         for root, dirs, files in os.walk("."):
             dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.endswith(".egg-info")]
 

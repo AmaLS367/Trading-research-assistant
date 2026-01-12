@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from pathlib import Path
 from contextlib import contextmanager
 from typing import Generator
 
@@ -7,6 +8,13 @@ from typing import Generator
 class DBConnection:
     def __init__(self, db_path: str = "trading_assistant.db") -> None:
         self.db_path = db_path
+        self._ensure_db_directory()
+
+    def _ensure_db_directory(self) -> None:
+        db_path_obj = Path(self.db_path)
+        db_directory = db_path_obj.parent
+        if db_directory != Path(".") and not db_directory.exists():
+            db_directory.mkdir(parents=True, exist_ok=True)
 
     @contextmanager
     def get_cursor(self) -> Generator[sqlite3.Cursor, None, None]:

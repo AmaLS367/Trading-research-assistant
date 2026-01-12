@@ -12,14 +12,14 @@ from src.core.models.journal_entry import JournalEntry
 from src.core.models.outcome import Outcome
 
 console = Console()
-db = DBConnection(settings.db_path)
+db = DBConnection(str(settings.storage_sqlite_db_path))
 rec_repo = RecommendationsRepository(db)
 journal_repo = JournalRepository(db)
 outcome_repo = OutcomesRepository(db)
 
 
 def init_db() -> None:
-    db.run_migration(settings.migration_path)
+    db.run_migration(settings.storage_migration_path)
     console.print("[green]Database initialized and migrations applied.[/green]")
 
 
