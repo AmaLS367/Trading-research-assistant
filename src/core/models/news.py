@@ -37,3 +37,4 @@ class NewsDigest(BaseModel):
     primary_reason: Optional[str] = None
     secondary_quality: Optional[str] = None
     secondary_reason: Optional[str] = None
+    gdelt_debug: dict = {}

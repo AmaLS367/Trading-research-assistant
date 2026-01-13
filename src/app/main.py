@@ -150,6 +150,26 @@ def show_latest(show_details: bool = False) -> None:
                     if digest.dropped_reason_hint:
                         digest_parts.append(f"\nDropped reason hint: {digest.dropped_reason_hint}")
 
+                    if (digest.provider_used == "NONE" or digest.primary_quality) and digest.gdelt_debug and digest.gdelt_debug.get("passes"):
+                        digest_parts.append("\nPrimary (GDELT) diagnostics:")
+                        request_count = 0
+                        for pass_name in ["strict", "medium", "broad"]:
+                            if pass_name in digest.gdelt_debug["passes"]:
+                                requests = digest.gdelt_debug["passes"][pass_name].get("requests", [])
+                                for req in requests[:2]:
+                                    if request_count >= 3:
+                                        break
+                                    tag = req.get("tag", "unknown")
+                                    status = req.get("http_status", "?")
+                                    items = req.get("items_count", 0)
+                                    error = req.get("error")
+                                    status_str = str(status) if status else "?"
+                                    error_str = f", error: {error[:50]}" if error else ""
+                                    digest_parts.append(f"  {tag}: status={status_str}, items={items}{error_str}")
+                                    request_count += 1
+                                if request_count >= 3:
+                                    break
+
                     digest_content = "\n".join(digest_parts)
                     console.print(Panel(digest_content, title=f"News Digest (Quality: {digest.quality})", border_style="blue"))
                     console.print()

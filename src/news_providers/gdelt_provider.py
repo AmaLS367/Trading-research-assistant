@@ -94,8 +94,20 @@ class GDELTProvider(NewsProvider):
 
         return templates
 
-    def _fetch_articles_for_query(self, query: str, query_tag: str) -> list[NewsArticle]:
+    def _fetch_articles_for_query(self, query: str, query_tag: str) -> tuple[list[NewsArticle], dict]:
         articles: list[NewsArticle] = []
+        debug_info: dict = {
+            "tag": query_tag,
+            "query": query[:200] if len(query) > 200 else query,
+            "url": "",
+            "http_status": None,
+            "error": None,
+            "json_keys": None,
+            "items_count": 0,
+            "sample_title": None,
+            "json_parse_error": None,
+        }
+
         try:
             url = f"{self.base_url}/api/v2/doc/doc"
             params: dict[str, str | int] = {
@@ -107,57 +119,84 @@ class GDELTProvider(NewsProvider):
                 "sort": "datedesc",
             }
 
+            from urllib.parse import urlencode
+            query_string = urlencode(params)
+            full_url = f"{url}?{query_string}"
+            debug_info["url"] = full_url
+
             response = self.client.get(url, params=params)
+            debug_info["http_status"] = response.status_code
             response.raise_for_status()
-            data = response.json()
-            articles_data = data.get("articles", [])
 
-            for article_data in articles_data:
-                title = article_data.get("title", "").strip()
-                if not title:
-                    continue
+            try:
+                data = response.json()
+                debug_info["json_keys"] = list(data.keys())[:10] if isinstance(data, dict) else None
+                articles_data = data.get("articles", [])
+                debug_info["items_count"] = len(articles_data) if isinstance(articles_data, list) else 0
 
-                url_str = article_data.get("url", "").strip() or None
-                source = article_data.get("source", "").strip() or None
-                language = article_data.get("language", "").strip() or None
+                if articles_data and isinstance(articles_data, list) and len(articles_data) > 0:
+                    first_item = articles_data[0]
+                    if isinstance(first_item, dict):
+                        sample_title = first_item.get("title", "")
+                        if sample_title:
+                            debug_info["sample_title"] = str(sample_title)[:100]
 
-                published_at: Optional[datetime] = None
-                seendate_str = article_data.get("seendate")
-                if seendate_str:
-                    try:
-                        seendate_int = int(seendate_str)
-                        year = seendate_int // 10000
-                        month = (seendate_int // 100) % 100
-                        day = seendate_int % 100
-                        hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
-                        minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
-                        published_at = datetime(year, month, day, hour, minute)
-                    except (ValueError, TypeError):
-                        pass
+                for article_data in articles_data:
+                    if not isinstance(article_data, dict):
+                        continue
+                    title = article_data.get("title", "").strip()
+                    if not title:
+                        continue
 
-                articles.append(
-                    NewsArticle(
-                        title=title,
-                        url=url_str,
-                        source=source,
-                        published_at=published_at,
-                        language=language,
-                        relevance_score=0.0,
-                        query_tag=query_tag,
+                    url_str = article_data.get("url", "").strip() or None
+                    source = article_data.get("source", "").strip() or None
+                    language = article_data.get("language", "").strip() or None
+
+                    published_at: Optional[datetime] = None
+                    seendate_str = article_data.get("seendate")
+                    if seendate_str:
+                        try:
+                            seendate_int = int(seendate_str)
+                            year = seendate_int // 10000
+                            month = (seendate_int // 100) % 100
+                            day = seendate_int % 100
+                            hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
+                            minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
+                            published_at = datetime(year, month, day, hour, minute)
+                        except (ValueError, TypeError):
+                            pass
+
+                    articles.append(
+                        NewsArticle(
+                            title=title,
+                            url=url_str,
+                            source=source,
+                            published_at=published_at,
+                            language=language,
+                            relevance_score=0.0,
+                            query_tag=query_tag,
+                        )
                     )
-                )
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
-            pass
+            except (ValueError, TypeError, KeyError) as json_error:
+                debug_info["json_parse_error"] = str(json_error)[:200]
+        except httpx.HTTPStatusError as http_error:
+            debug_info["http_status"] = http_error.response.status_code if http_error.response else None
+            debug_info["error"] = f"HTTP {http_error.response.status_code if http_error.response else 'unknown'}: {str(http_error)[:200]}"
+        except (httpx.TimeoutException, httpx.NetworkError) as network_error:
+            debug_info["error"] = f"{type(network_error).__name__}: {str(network_error)[:200]}"
+        except Exception as e:
+            debug_info["error"] = f"{type(e).__name__}: {str(e)[:200]}"
 
-        return articles
+        return articles, debug_info
 
     def fetch_articles_with_fallback(
         self, symbol: str
-    ) -> tuple[list[NewsArticle], dict[str, dict[str, int]], dict[str, str]]:
+    ) -> tuple[list[NewsArticle], dict[str, dict[str, int]], dict[str, str], dict]:
         templates = self._get_query_templates(symbol)
         all_candidates: list[NewsArticle] = []
         pass_counts: dict[str, dict[str, int]] = {}
         queries_used: dict[str, str] = {}
+        gdelt_debug: dict = {"passes": {}}
 
         passes = ["strict", "medium", "broad"]
         threshold = 0.55
@@ -168,13 +207,16 @@ class GDELTProvider(NewsProvider):
                 continue
 
             pass_candidates: list[NewsArticle] = []
+            pass_requests: list[dict] = []
 
             for query_tag, query in templates[pass_name].items():
-                articles = self._fetch_articles_for_query(query, query_tag)
+                articles, debug_info = self._fetch_articles_for_query(query, query_tag)
                 pass_candidates.extend(articles)
                 queries_used[query_tag] = query[:100] if len(query) > 100 else query
+                pass_requests.append(debug_info)
 
             all_candidates.extend(pass_candidates)
+            gdelt_debug["passes"][pass_name] = {"requests": pass_requests}
 
             filtered_articles, _, _ = self._filter_dedup_score(all_candidates, symbol)
 
@@ -202,7 +244,7 @@ class GDELTProvider(NewsProvider):
             }
 
             if relevant_count >= min_relevant:
-                return filtered_articles, pass_counts, queries_used
+                return filtered_articles, pass_counts, queries_used, gdelt_debug
 
         final_filtered, _, _ = self._filter_dedup_score(all_candidates, symbol)
         final_filtered = [a for a in final_filtered if a.relevance_score >= threshold]
@@ -216,10 +258,10 @@ class GDELTProvider(NewsProvider):
             if final_filtered_broad:
                 final_filtered = final_filtered_broad
 
-        return final_filtered, pass_counts, queries_used
+        return final_filtered, pass_counts, queries_used, gdelt_debug
 
     def fetch_articles(self, symbol: str) -> list[NewsArticle]:
-        articles, _, _ = self.fetch_articles_with_fallback(symbol)
+        articles, _, _, _ = self.fetch_articles_with_fallback(symbol)
         return articles
 
     def _normalize_title(self, title: str) -> str:
@@ -354,7 +396,7 @@ class GDELTProvider(NewsProvider):
 
     def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         try:
-            filtered_articles, pass_counts, queries_used = self.fetch_articles_with_fallback(symbol)
+            filtered_articles, pass_counts, queries_used, gdelt_debug = self.fetch_articles_with_fallback(symbol)
 
             candidates_total = sum(counts.get("candidates", 0) for counts in pass_counts.values())
             articles_after_filter = len(filtered_articles)
@@ -387,7 +429,8 @@ class GDELTProvider(NewsProvider):
                 for pass_name in ["strict", "medium", "broad"]:
                     if pass_name in templates:
                         for query_tag, query in templates[pass_name].items():
-                            all_candidates_for_dropped.extend(self._fetch_articles_for_query(query, query_tag))
+                            articles, _ = self._fetch_articles_for_query(query, query_tag)
+                            all_candidates_for_dropped.extend(articles)
                 _, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates_for_dropped, symbol)
                 dropped_examples = dropped_examples[:3]
 
@@ -407,6 +450,7 @@ class GDELTProvider(NewsProvider):
                 dropped_reason_hint=dropped_reason_hint,
                 pass_counts=pass_counts,
                 queries_used=queries_used,
+                gdelt_debug=gdelt_debug,
             )
         except Exception as e:
             return NewsDigest(
@@ -425,6 +469,7 @@ class GDELTProvider(NewsProvider):
                 dropped_reason_hint=None,
                 pass_counts={},
                 queries_used={},
+                gdelt_debug={},
             )
 
     def get_news_summary(self, symbol: str) -> str:

@@ -302,10 +302,11 @@ def test_fetch_articles_with_fallback_multi_pass() -> None:
 
     provider.client = mock_client
 
-    articles, pass_counts, queries_used = provider.fetch_articles_with_fallback("EURUSD")
+    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback("EURUSD")
 
     assert len(articles) >= 0
     assert "strict" in pass_counts or "medium" in pass_counts or "broad" in pass_counts
+    assert "passes" in gdelt_debug
 
 
 def test_query_templates_include_fx_anchors() -> None:
@@ -317,3 +318,97 @@ def test_query_templates_include_fx_anchors() -> None:
             for query_tag, query in templates[pass_name].items():
                 assert "sourcelang:English" in query
                 assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query
+
+
+def test_fetch_articles_for_query_collects_diagnostics_empty_articles() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.json.return_value = {"timeline": [], "other_key": "value"}
+    mock_response.status_code = 200
+    mock_response.raise_for_status.return_value = None
+
+    mock_client = Mock(spec=httpx.Client)
+    mock_client.get.return_value = mock_response
+
+    provider.client = mock_client
+
+    articles, debug_info = provider._fetch_articles_for_query("test query", "test_tag")
+
+    assert len(articles) == 0
+    assert debug_info["tag"] == "test_tag"
+    assert debug_info["http_status"] == 200
+    assert debug_info["items_count"] == 0
+    assert debug_info["json_keys"] == ["timeline", "other_key"]
+    assert debug_info["error"] is None
+
+
+def test_fetch_articles_for_query_collects_diagnostics_with_articles() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.json.return_value = {
+        "articles": [
+            {"title": "EUR USD Exchange Rate Rises", "seendate": "20240101120000"},
+        ]
+    }
+    mock_response.status_code = 200
+    mock_response.raise_for_status.return_value = None
+
+    mock_client = Mock(spec=httpx.Client)
+    mock_client.get.return_value = mock_response
+
+    provider.client = mock_client
+
+    articles, debug_info = provider._fetch_articles_for_query("test query", "test_tag")
+
+    assert len(articles) == 1
+    assert debug_info["http_status"] == 200
+    assert debug_info["items_count"] == 1
+    assert debug_info["sample_title"] == "EUR USD Exchange Rate Rises"
+    assert debug_info["error"] is None
+
+
+def test_fetch_articles_for_query_collects_diagnostics_http_error() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 429
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Rate limit exceeded", request=Mock(), response=mock_response
+    )
+
+    mock_client = Mock(spec=httpx.Client)
+    mock_client.get.return_value = mock_response
+
+    provider.client = mock_client
+
+    articles, debug_info = provider._fetch_articles_for_query("test query", "test_tag")
+
+    assert len(articles) == 0
+    assert debug_info["http_status"] == 429
+    assert debug_info["error"] is not None
+    assert "429" in debug_info["error"] or "Rate limit" in debug_info["error"]
+
+
+def test_fetch_articles_with_fallback_includes_diagnostics() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.json.return_value = {"articles": []}
+    mock_response.status_code = 200
+    mock_response.raise_for_status.return_value = None
+
+    mock_client = Mock(spec=httpx.Client)
+    mock_client.get.return_value = mock_response
+
+    provider.client = mock_client
+
+    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback("EURUSD")
+
+    assert "passes" in gdelt_debug
+    assert isinstance(gdelt_debug["passes"], dict)
+    for pass_name in ["strict", "medium", "broad"]:
+        if pass_name in gdelt_debug["passes"]:
+            assert "requests" in gdelt_debug["passes"][pass_name]
+            assert isinstance(gdelt_debug["passes"][pass_name]["requests"], list)

@@ -176,6 +176,32 @@ class RunAgentsJob:
                     for example in news_digest.dropped_examples[:3]:
                         verbose_parts.append(f"  • {example}")
 
+                if news_digest.gdelt_debug and news_digest.gdelt_debug.get("passes"):
+                    verbose_parts.append("\nGDELT diagnostics (top requests):")
+                    request_count = 0
+                    for pass_name in ["strict", "medium", "broad"]:
+                        if pass_name in news_digest.gdelt_debug["passes"]:
+                            requests = news_digest.gdelt_debug["passes"][pass_name].get("requests", [])
+                            for req in requests[:2]:
+                                if request_count >= 3:
+                                    break
+                                tag = req.get("tag", "unknown")
+                                status = req.get("http_status")
+                                items = req.get("items_count", 0)
+                                error = req.get("error")
+                                if status:
+                                    if status != 200:
+                                        status_str = f"[red]{status}[/red]"
+                                    else:
+                                        status_str = f"[green]{status}[/green]"
+                                else:
+                                    status_str = "?"
+                                error_str = f", [red]error: {error[:50]}[/red]" if error else ""
+                                verbose_parts.append(f"  {tag}: status={status_str}, items={items}{error_str}")
+                                request_count += 1
+                            if request_count >= 3:
+                                break
+
                 verbose_content = "\n".join(verbose_parts)
                 truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
