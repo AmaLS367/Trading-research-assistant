@@ -120,9 +120,9 @@ Invalid output:
                     debug_payload["parse_ok"] = True
                     debug_payload["brief_warning"] = brief_warning
 
-                    action_str: str = str(recommendation_data["action"])
-                    brief_str: str = str(recommendation_data["brief"])
-                    confidence_float: float = float(recommendation_data["confidence"])
+                    action_str = str(recommendation_data["action"])
+                    brief_str = str(recommendation_data["brief"])
+                    confidence_float = float(recommendation_data["confidence"])
 
                     recommendation = Recommendation(
                         symbol=symbol,
