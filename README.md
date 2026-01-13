@@ -170,6 +170,7 @@ Comprehensive documentation is available in the [`docs/`](./docs/) directory:
 - 📖 [Overview](./docs/en/overview.md) - Project overview and key features
 - 🏗️ [Architecture](./docs/en/architecture.md) - Project structure and design patterns
 - 📚 [Usage Guide](./docs/en/usage_guide.md) - Installation and usage instructions
+- 🔧 [Troubleshooting](./docs/en/troubleshooting.md) - Common issues and solutions
 - 🔒 [Safety Policy](./docs/en/safety_policy.md) - Safety policy and risk management
 - 📋 [Import Rules](./docs/en/import_rules.md) - Import rules and dependency graph
 
@@ -178,6 +179,7 @@ Comprehensive documentation is available in the [`docs/`](./docs/) directory:
 - 📖 [Обзор](./docs/ru/overview.md) - Обзор проекта и основные возможности
 - 🏗️ [Архитектура](./docs/ru/architecture.md) - Структура проекта и паттерны проектирования
 - 📚 [Руководство по использованию](./docs/ru/usage_guide.md) - Инструкции по установке и использованию
+- 🔧 [Устранение неполадок](./docs/ru/troubleshooting.md) - Распространенные проблемы и решения
 - 🔒 [Политика безопасности](./docs/ru/safety_policy.md) - Политика безопасности и управление рисками
 - 📋 [Правила импортов](./docs/ru/import_rules.md) - Правила импортов и граф зависимостей
 

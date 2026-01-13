@@ -57,13 +57,17 @@ Based on the above information, provide your trading recommendation as JSON."""
             "parse_ok": False,
             "parse_error": None,
             "raw_output": self._truncate_string(llm_response, 6000),
-            "retry_used": False,
-            "retry_raw_output": None,
+            "extracted_json": None,
+            "repair_attempts": 0,
+            "repair_output_1": None,
+            "repair_output_2": None,
             "brief_warning": None,
         }
 
         try:
             recommendation_data, brief_warning = self._parse_llm_response(llm_response)
+            extracted_json = self._extract_json(llm_response)
+            debug_payload["extracted_json"] = self._truncate_string(extracted_json, 2000)
             debug_payload["parse_ok"] = True
             debug_payload["brief_warning"] = brief_warning
 
@@ -84,59 +88,75 @@ Based on the above information, provide your trading recommendation as JSON."""
 
         except (ValueError, json.JSONDecodeError) as parse_error:
             debug_payload["parse_error"] = str(parse_error)
+            extracted_json = self._extract_json(llm_response)
+            debug_payload["extracted_json"] = self._truncate_string(extracted_json, 2000)
 
-            repair_prompt = f"""Return ONLY valid JSON for the schema. Do not explain. Do not include markdown.
+            repair_prompt = f"""Convert this into STRICT valid JSON for schema. Return JSON only.
 
-Schema:
-{{
-    "action": "CALL" or "PUT" or "WAIT",
-    "confidence": 0.0 to 1.0,
-    "brief": "Brief explanation (single paragraph, no newlines, no curly braces)"
-}}
+Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
 
-Previous invalid output:
-{self._truncate_string(llm_response, 2000)}"""
+Invalid output:
+{self._truncate_string(llm_response, 1500)}"""
 
-            try:
-                retry_response = self.llm_provider.generate(
-                    system_prompt="Return ONLY valid JSON. No markdown. No explanations.",
-                    user_prompt=repair_prompt,
-                )
-                debug_payload["retry_used"] = True
-                debug_payload["retry_raw_output"] = self._truncate_string(retry_response, 6000)
+            repair_attempts = 0
+            last_error = parse_error
 
-                recommendation_data, brief_warning = self._parse_llm_response(retry_response)
-                debug_payload["parse_ok"] = True
-                debug_payload["brief_warning"] = brief_warning
+            for attempt in range(2):
+                try:
+                    repair_attempts += 1
+                    debug_payload["repair_attempts"] = repair_attempts
 
-                action_str: str = str(recommendation_data["action"])
-                brief_str: str = str(recommendation_data["brief"])
-                confidence_float: float = float(recommendation_data["confidence"])
+                    retry_response = self.llm_provider.generate(
+                        system_prompt="Return ONLY valid JSON. No markdown. No explanations. JSON must start with '{' and end with '}'.",
+                        user_prompt=repair_prompt,
+                    )
 
-                recommendation = Recommendation(
-                    symbol=symbol,
-                    timestamp=datetime.now(),
-                    timeframe=timeframe,
-                    action=action_str,
-                    brief=brief_str,
-                    confidence=confidence_float,
-                )
+                    if attempt == 0:
+                        debug_payload["repair_output_1"] = self._truncate_string(retry_response, 6000)
+                    else:
+                        debug_payload["repair_output_2"] = self._truncate_string(retry_response, 6000)
 
-                return recommendation, debug_payload
+                    recommendation_data, brief_warning = self._parse_llm_response(retry_response)
+                    debug_payload["parse_ok"] = True
+                    debug_payload["brief_warning"] = brief_warning
 
-            except (ValueError, json.JSONDecodeError) as retry_error:
-                debug_payload["parse_error"] = f"Initial: {parse_error}; Retry: {retry_error}"
+                    action_str: str = str(recommendation_data["action"])
+                    brief_str: str = str(recommendation_data["brief"])
+                    confidence_float: float = float(recommendation_data["confidence"])
 
-                fallback_recommendation = Recommendation(
-                    symbol=symbol,
-                    timestamp=datetime.now(),
-                    timeframe=timeframe,
-                    action="WAIT",
-                    brief="LLM JSON parse error. News and technical context not synthesized. See rationale for raw output.",
-                    confidence=0.0,
-                )
+                    recommendation = Recommendation(
+                        symbol=symbol,
+                        timestamp=datetime.now(),
+                        timeframe=timeframe,
+                        action=action_str,
+                        brief=brief_str,
+                        confidence=confidence_float,
+                    )
 
-                return fallback_recommendation, debug_payload
+                    return recommendation, debug_payload
+
+                except (ValueError, json.JSONDecodeError) as retry_error:
+                    last_error = retry_error
+                    if attempt == 0:
+                        repair_prompt = f"""Convert this into STRICT valid JSON. Return JSON only. JSON must start with '{{' and end with '}}'.
+
+Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
+
+Previous failed attempt:
+{self._truncate_string(retry_response, 1500)}"""
+
+            debug_payload["parse_error"] = f"Initial: {parse_error}; Repair 1: {last_error}"
+
+            fallback_recommendation = Recommendation(
+                symbol=symbol,
+                timestamp=datetime.now(),
+                timeframe=timeframe,
+                action="WAIT",
+                brief="LLM JSON parse error. News and technical context not synthesized. See rationale for raw output.",
+                confidence=0.0,
+            )
+
+            return fallback_recommendation, debug_payload
 
     def _truncate_string(self, text: str, max_length: int) -> str:
         if len(text) <= max_length:
@@ -161,16 +181,37 @@ Previous invalid output:
 
         return normalized, warning
 
-    def _parse_llm_response(self, response: str) -> tuple[dict[str, str | float], str | None]:
-        response_cleaned = response.strip()
+    def _extract_json(self, text: str) -> str:
+        text = text.strip()
 
-        if response_cleaned.startswith("```json"):
-            response_cleaned = response_cleaned[7:]
-        if response_cleaned.startswith("```"):
-            response_cleaned = response_cleaned[3:]
-        if response_cleaned.endswith("```"):
-            response_cleaned = response_cleaned[:-3]
-        response_cleaned = response_cleaned.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+        json_start = text.find("{")
+        if json_start < 0:
+            return text
+
+        json_end = text.rfind("}")
+        if json_end < json_start:
+            json_end = len(text) - 1
+
+        extracted = text[json_start:json_end + 1]
+
+        if not extracted.endswith("}"):
+            extracted = extracted + "}"
+
+        extracted = extracted.replace('"', '"').replace('"', '"')
+        extracted = extracted.replace(''', "'").replace(''', "'")
+
+        return extracted
+
+    def _parse_llm_response(self, response: str) -> tuple[dict[str, str | float], str | None]:
+        response_cleaned = self._extract_json(response)
 
         try:
             data = json.loads(response_cleaned)

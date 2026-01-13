@@ -273,6 +273,6 @@ core/ports -> only stdlib
 
 <div align="center">
 
-[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md)
+[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md) • [🔧 Troubleshooting](./troubleshooting.md)
 
 </div>

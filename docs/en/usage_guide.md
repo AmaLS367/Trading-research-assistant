@@ -100,6 +100,22 @@ This command will create the SQLite database and apply migrations.
 
 ## Main Commands
 
+<details>
+<summary><strong>📋 Quick Command Reference</strong></summary>
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `init-db` | Initialize database | `python src/app/main.py init-db` |
+| `analyze` | Run analysis | `python src/app/main.py analyze --symbol EURUSD --timeframe 1h` |
+| `show-latest` | View latest recommendation | `python src/app/main.py show-latest` |
+| `show-latest --details` | View with full rationales | `python src/app/main.py show-latest --details` |
+| `journal` | Log trade decision | `python src/app/main.py journal` |
+| `report` | View statistics | `python src/app/main.py report` |
+
+</details>
+
+---
+
 ### Symbol Analysis
 
 Run full symbol analysis:
@@ -138,12 +154,41 @@ When using the `--verbose` flag, the system displays detailed information at eac
 If the text is too long (more than 2000 characters), it will be truncated with a hint to use `show-latest --details` to view the full text.
 
 **What happens:**
-1. Market data retrieval (candles)
-2. Technical indicator calculation
-3. Technical analysis via LLM
-4. News context retrieval
-5. Final recommendation synthesis
-6. Save to database
+
+<details>
+<summary><strong>📊 Detailed Analysis Pipeline</strong></summary>
+
+1. **Market Data Retrieval** 📈
+   - Fetches historical candles from OANDA or Twelve Data
+   - Validates data quality and completeness
+   - Applies fallback logic if primary provider fails
+
+2. **Technical Indicator Calculation** 🔢
+   - Calculates RSI, MACD, Bollinger Bands, etc.
+   - Computes volatility metrics
+   - Detects market regime (trend/flat)
+
+3. **Technical Analysis via LLM** 🤖
+   - Sends feature snapshot to LLM
+   - Receives technical rationale
+   - Analyzes chart patterns and indicators
+
+4. **News Context Retrieval** 📰
+   - Fetches relevant news from GDELT/NewsAPI
+   - Aggregates and filters news articles
+   - Generates news digest with sentiment
+
+5. **Final Recommendation Synthesis** 🎯
+   - Combines technical and fundamental analysis
+   - Generates action (CALL/PUT/HOLD)
+   - Assigns confidence level (0.0-1.0)
+
+6. **Save to Database** 💾
+   - Persists recommendation
+   - Saves all rationales
+   - Links to analysis run metadata
+
+</details>
 
 ### View Latest Recommendation
 
@@ -221,6 +266,57 @@ Displays a table with statistics for each symbol:
 
 ## Workflow
 
+<details>
+<summary><strong>🎬 Interactive Workflow Diagram</strong></summary>
+
+```
+┌─────────────────┐
+│  Start Analysis │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Fetch Market   │
+│     Data        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Calculate       │
+│  Indicators     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  LLM Analysis   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Fetch News     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Synthesize     │
+│ Recommendation  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Save to DB     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ View & Decide   │
+└─────────────────┘
+```
+
+</details>
+
+---
+
 ### Typical Usage Scenario
 
 1. **Run analysis:**
@@ -250,50 +346,69 @@ Displays a table with statistics for each symbol:
 
 ### Automation
 
-For automatic analysis runs, you can use cron (Linux/Mac) or Task Scheduler (Windows):
+<details>
+<summary><strong>⏰ Automated Scheduling Options</strong></summary>
+
+#### Linux/macOS (cron)
 
 ```bash
-# Every hour
-0 * * * * cd /path/to/project && python src/app/main.py analyze --symbol EURUSD --timeframe 1h
+# Edit crontab
+crontab -e
+
+# Run every hour
+0 * * * * cd /path/to/project && /usr/bin/python3 src/app/main.py analyze --symbol EURUSD --timeframe 1h >> /var/log/trading_assistant.log 2>&1
+
+# Run every 4 hours
+0 */4 * * * cd /path/to/project && /usr/bin/python3 src/app/main.py analyze --symbol GBPUSD --timeframe 1h
+
+# Run daily at 9 AM
+0 9 * * * cd /path/to/project && /usr/bin/python3 src/app/main.py analyze --symbol USDJPY --timeframe 1d
 ```
 
-## Troubleshooting
+#### Windows (Task Scheduler)
 
-### Error: "No market data provider configured"
+1. Open Task Scheduler
+2. Create Basic Task
+3. Set trigger (Daily, Weekly, etc.)
+4. Set action: `python src/app/main.py analyze --symbol EURUSD --timeframe 1h`
+5. Set working directory to project root
 
-**Cause**: API keys for data providers are not configured.
+#### Systemd Service (Linux)
 
-**Solution**: Set `OANDA_API_KEY` or `TWELVE_DATA_API_KEY` in `.env` file.
+Create `/etc/systemd/system/trading-assistant.service`:
 
-### Error: "OLLAMA_MODEL must be set"
+```ini
+[Unit]
+Description=Trading Research Assistant
+After=network.target
 
-**Cause**: Ollama model is not specified.
+[Service]
+Type=oneshot
+User=your_user
+WorkingDirectory=/path/to/project
+ExecStart=/usr/bin/python3 src/app/main.py analyze --symbol EURUSD --timeframe 1h
+StandardOutput=journal
+StandardError=journal
 
-**Solution**: Set `OLLAMA_MODEL` in `.env` file and ensure Ollama is running.
+[Install]
+WantedBy=multi-user.target
+```
 
-### Error: "Insufficient candles: got X, need at least 200"
+Then create a timer:
 
-**Cause**: Insufficient historical data.
+```ini
+[Unit]
+Description=Run Trading Assistant Hourly
 
-**Solution**: 
-- Check data availability from provider
-- Ensure symbol is correct
-- Try a different timeframe
+[Timer]
+OnCalendar=hourly
+Persistent=true
 
-### Ollama Connection Error
+[Install]
+WantedBy=timers.target
+```
 
-**Cause**: Ollama is not running or not accessible.
-
-**Solution**:
-1. Ensure Ollama is running: `ollama serve`
-2. Check `OLLAMA_BASE_URL` in `.env`
-3. For remote server, ensure network accessibility
-
-### Database Locked
-
-**Cause**: Another application is using the SQLite database.
-
-**Solution**: Close other application instances or other programs using the database.
+</details>
 
 ## Tips and Recommendations
 
@@ -306,14 +421,21 @@ For automatic analysis runs, you can use cron (Linux/Mac) or Task Scheduler (Win
 
 ## Additional Information
 
-- [Project Architecture](./architecture.md)
-- [Import Rules](./import_rules.md)
-- [Safety Policy](./safety_policy.md)
+<details>
+<summary><strong>📚 Related Documentation</strong></summary>
+
+- [Project Architecture](./architecture.md) - Detailed architecture documentation
+- [Import Rules](./import_rules.md) - Module dependency rules
+- [Safety Policy](./safety_policy.md) - Risk management policies
+- [Troubleshooting Guide](./troubleshooting.md) - Common issues and solutions
+- [Project Overview](./overview.md) - Project overview and features
+
+</details>
 
 ---
 
 <div align="center">
 
-[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [🔒 Safety Policy](./safety_policy.md)
+[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [🔧 Troubleshooting](./troubleshooting.md) • [🔒 Safety Policy](./safety_policy.md)
 
 </div>

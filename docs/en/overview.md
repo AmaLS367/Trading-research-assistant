@@ -137,6 +137,7 @@ The system includes a safety policy that validates recommendations before issuin
 - 📖 [Overview](./overview.md) - This document
 - 🏗️ [Architecture](./architecture.md) - Project structure and design patterns
 - 📚 [Usage Guide](./usage_guide.md) - Installation and usage instructions
+- 🔧 [Troubleshooting](./troubleshooting.md) - Common issues and solutions
 - 🔒 [Safety Policy](./safety_policy.md) - Safety policy and risk management
 - 📋 [Import Rules](./import_rules.md) - Import rules and dependency graph
 

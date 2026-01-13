@@ -234,6 +234,6 @@ For detailed import rules and dependency graph, see [Import Rules](./import_rule
 
 <div align="center">
 
-[📖 Overview](./overview.md) • [📚 Usage Guide](./usage_guide.md) • [📋 Import Rules](./import_rules.md)
+[📖 Overview](./overview.md) • [📚 Usage Guide](./usage_guide.md) • [🔧 Troubleshooting](./troubleshooting.md) • [📋 Import Rules](./import_rules.md)
 
 </div>
