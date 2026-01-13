@@ -1,4 +1,5 @@
 import argparse
+import json
 from datetime import datetime
 
 import httpx
@@ -18,6 +19,7 @@ from src.app.wiring import (
     create_synthesizer,
     create_technical_analyst,
 )
+from src.core.models.news import NewsDigest
 from src.core.models.rationale import RationaleType
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.outcome import Outcome
@@ -103,9 +105,42 @@ def show_latest(show_details: bool = False) -> None:
             console.print()
 
         if news_rationales:
-            content = news_rationales[0].content
-            console.print(Panel(content, title="News Context", border_style="blue"))
-            console.print()
+            news_rationale = news_rationales[0]
+            if news_rationale.raw_data:
+                try:
+                    digest_data = json.loads(news_rationale.raw_data)
+                    digest = NewsDigest.model_validate(digest_data)
+
+                    quality_color = "green" if digest.quality == "HIGH" else "yellow" if digest.quality == "MEDIUM" else "red"
+                    quality_display = f"[{quality_color}]{digest.quality}[/{quality_color}]"
+
+                    digest_parts: list[str] = [f"Quality: {quality_display}"]
+                    if digest.summary:
+                        digest_parts.append(f"\nSummary: {digest.summary}")
+                    if digest.sentiment:
+                        sentiment_color = "green" if digest.sentiment == "POS" else "red" if digest.sentiment == "NEG" else "yellow"
+                        digest_parts.append(f"Sentiment: [{sentiment_color}]{digest.sentiment}[/{sentiment_color}]")
+                    if digest.impact_score is not None:
+                        digest_parts.append(f"Impact Score: {digest.impact_score:.2f}")
+                    if digest.articles:
+                        digest_parts.append("\nTop Articles:")
+                        for article in digest.articles[:3]:
+                            source_text = f" ({article.source})" if article.source else ""
+                            digest_parts.append(f"  • {article.title}{source_text}")
+                    if digest.quality == "LOW" and digest.quality_reason:
+                        digest_parts.append(f"\nReason: {digest.quality_reason}")
+
+                    digest_content = "\n".join(digest_parts)
+                    console.print(Panel(digest_content, title=f"News Digest (Quality: {digest.quality})", border_style="blue"))
+                    console.print()
+                except (json.JSONDecodeError, ValueError, KeyError):
+                    content = news_rationale.content
+                    console.print(Panel(content, title="News Context", border_style="blue"))
+                    console.print()
+            else:
+                content = news_rationale.content
+                console.print(Panel(content, title="News Context", border_style="blue"))
+                console.print()
 
         if synthesis_rationales:
             content = synthesis_rationales[0].content
@@ -241,6 +276,27 @@ def report() -> None:
     table = reporter.generate_daily_report()
     console.print(table)
     console.print()
+
+    query = """
+        SELECT id, run_id, rationale_type, content, raw_data
+        FROM rationales
+        WHERE rationale_type = ?
+        ORDER BY id ASC
+    """
+    with db.get_cursor() as cursor:
+        cursor.execute(query, (RationaleType.NEWS.value,))
+        rows = cursor.fetchall()
+        news_rationales: list = []
+        for row in rows:
+            row_dict = dict(row)
+            row_dict["rationale_type"] = RationaleType(row_dict["rationale_type"])
+            from src.core.models.rationale import Rationale
+            news_rationales.append(Rationale(**row_dict))
+
+    if news_rationales:
+        news_table = reporter.generate_news_stats(news_rationales)
+        console.print(news_table)
+        console.print()
 
 
 def main() -> None:

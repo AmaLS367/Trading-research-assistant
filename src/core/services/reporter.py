@@ -1,6 +1,10 @@
+import json
 from collections import defaultdict
 
 from rich.table import Table
+
+from src.core.models.news import NewsDigest
+from src.core.models.rationale import Rationale, RationaleType
 
 
 class Reporter:
@@ -59,5 +63,40 @@ class Reporter:
 
         if not stats_by_symbol:
             table.add_row("No data", "0", "0.0%", "0", "0", "0", "0")
+
+        return table
+
+    def generate_news_stats(self, news_rationales: list[Rationale]) -> Table:
+        table = Table(title="News Quality Statistics", show_header=True, header_style="bold magenta")
+        table.add_column("Quality", style="cyan", width=10)
+        table.add_column("Count", style="yellow", justify="right", width=12)
+        table.add_column("Percentage", style="bold green", justify="right", width=12)
+
+        quality_counts: dict[str, int] = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        total = 0
+
+        for rationale in news_rationales:
+            if rationale.rationale_type != RationaleType.NEWS:
+                continue
+            if not rationale.raw_data:
+                continue
+
+            try:
+                digest_data = json.loads(rationale.raw_data)
+                digest = NewsDigest.model_validate(digest_data)
+                quality = digest.quality
+                if quality in quality_counts:
+                    quality_counts[quality] += 1
+                    total += 1
+            except (json.JSONDecodeError, ValueError, KeyError):
+                continue
+
+        if total > 0:
+            for quality in ["HIGH", "MEDIUM", "LOW"]:
+                count = quality_counts[quality]
+                percentage = (count / total) * 100
+                table.add_row(quality, str(count), f"{percentage:.1f}%")
+        else:
+            table.add_row("No data", "0", "0.0%")
 
         return table
