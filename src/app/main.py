@@ -124,6 +124,14 @@ def show_latest(show_details: bool = False) -> None:
                         digest_parts.append(f"Impact Score: {digest.impact_score:.2f}")
                     digest_parts.append(f"\nCandidates total: {digest.candidates_total}")
                     digest_parts.append(f"After filtering: {digest.articles_after_filter}")
+
+                    if digest.pass_counts:
+                        digest_parts.append("\nPass statistics:")
+                        for pass_name in ["strict", "medium", "broad"]:
+                            if pass_name in digest.pass_counts:
+                                counts = digest.pass_counts[pass_name]
+                                digest_parts.append(f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}")
+
                     if digest.articles:
                         digest_parts.append("\nTop Articles:")
                         for article in digest.articles[:3]:

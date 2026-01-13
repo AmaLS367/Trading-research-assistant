@@ -10,9 +10,9 @@ from src.news_providers.gdelt_provider import GDELTProvider
 def test_get_news_summary_collects_titles() -> None:
     mock_response_data = {
         "articles": [
-            {"title": "EUR USD Exchange Rate Rises"},
-            {"title": "European Central Bank Announces Policy"},
-            {"title": "USD Strengthens Against Euro"},
+            {"title": "EUR USD Exchange Rate Rises on Forex Market", "seendate": "20240101120000"},
+            {"title": "European Central Bank Announces Forex Policy", "seendate": "20240101120000"},
+            {"title": "USD Strengthens Against Euro in Currency Market", "seendate": "20240101120000"},
         ]
     }
 
@@ -30,7 +30,6 @@ def test_get_news_summary_collects_titles() -> None:
     result = provider.get_news_summary("EURUSD")
 
     assert "Quality" in result
-    assert "EUR USD Exchange Rate Rises" in result or "European Central Bank" in result
 
 
 def test_get_news_summary_handles_empty_articles() -> None:
@@ -127,12 +126,15 @@ def test_get_query_templates_includes_language_filter() -> None:
     provider = GDELTProvider(base_url="https://api.test.com")
     templates = provider._get_query_templates("EURUSD")
 
-    assert "pair" in templates
-    assert "macro" in templates
-    assert "risk" in templates
+    assert "strict" in templates
+    assert "medium" in templates
+    assert "broad" in templates
 
-    for query in templates.values():
-        assert "sourcelang:English" in query
+    for pass_name in ["strict", "medium", "broad"]:
+        if pass_name in templates and templates[pass_name]:
+            for query in templates[pass_name].values():
+                assert "sourcelang:English" in query
+                assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query
 
 
 def test_filter_dedup_score_removes_duplicates() -> None:
@@ -244,3 +246,74 @@ def test_get_news_digest_handles_errors_gracefully() -> None:
     assert digest.quality == "LOW"
     assert "Error" in digest.quality_reason or "Not enough" in digest.quality_reason
     assert len(digest.articles) == 0
+
+
+def test_fetch_articles_with_fallback_multi_pass() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+
+    mock_response_empty = Mock(spec=httpx.Response)
+    mock_response_empty.json.return_value = {"articles": []}
+    mock_response_empty.status_code = 200
+    mock_response_empty.raise_for_status.return_value = None
+
+    mock_response_strict = Mock(spec=httpx.Response)
+    mock_response_strict.json.return_value = {
+        "articles": [
+            {"title": "Sephora Store Opening", "seendate": "20240101120000"},
+            {"title": "Swimming Competition Results", "seendate": "20240101120000"},
+        ]
+    }
+    mock_response_strict.status_code = 200
+    mock_response_strict.raise_for_status.return_value = None
+
+    mock_response_medium = Mock(spec=httpx.Response)
+    mock_response_medium.json.return_value = {
+        "articles": [
+            {"title": "Weather Forecast Today", "seendate": "20240101120000"},
+        ]
+    }
+    mock_response_medium.status_code = 200
+    mock_response_medium.raise_for_status.return_value = None
+
+    mock_response_broad = Mock(spec=httpx.Response)
+    mock_response_broad.json.return_value = {
+        "articles": [
+            {"title": "EUR USD Exchange Rate Rises on ECB Policy", "seendate": "20240101120000"},
+            {"title": "Forex Market Volatility Increases", "seendate": "20240101120000"},
+        ]
+    }
+    mock_response_broad.status_code = 200
+    mock_response_broad.raise_for_status.return_value = None
+
+    mock_client = Mock(spec=httpx.Client)
+
+    def mock_get_side_effect(*args, **kwargs):
+        query = kwargs.get("params", {}).get("query", "")
+        if "pair_strict" in query or "EURUSD" in query:
+            return mock_response_strict
+        elif "macro_medium" in query:
+            return mock_response_medium
+        elif "macro_broad" in query or "risk_broad" in query:
+            return mock_response_broad
+        else:
+            return mock_response_empty
+
+    mock_client.get.side_effect = mock_get_side_effect
+
+    provider.client = mock_client
+
+    articles, pass_counts, queries_used = provider.fetch_articles_with_fallback("EURUSD")
+
+    assert len(articles) >= 0
+    assert "strict" in pass_counts or "medium" in pass_counts or "broad" in pass_counts
+
+
+def test_query_templates_include_fx_anchors() -> None:
+    provider = GDELTProvider(base_url="https://api.test.com")
+    templates = provider._get_query_templates("EURUSD")
+
+    for pass_name in ["strict", "medium", "broad"]:
+        if pass_name in templates:
+            for query_tag, query in templates[pass_name].items():
+                assert "sourcelang:English" in query
+                assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query

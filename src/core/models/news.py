@@ -30,3 +30,5 @@ class NewsDigest(BaseModel):
     articles_after_filter: int = 0
     dropped_examples: list[str] = []
     dropped_reason_hint: Optional[str] = None
+    pass_counts: dict[str, dict[str, int]] = {}
+    queries_used: dict[str, str] = {}

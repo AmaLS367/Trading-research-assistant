@@ -23,118 +23,204 @@ class GDELTProvider(NewsProvider):
             return f"{symbol_upper[:3]} {symbol_upper[3:]}"
         return symbol_upper.replace("_", " ")
 
-    def _get_query_templates(self, symbol: str) -> dict[str, str]:
+    def _get_query_templates(self, symbol: str) -> dict[str, dict[str, str]]:
         symbol_upper = symbol.upper().strip()
         base_currencies = symbol_upper[:3] if len(symbol_upper) >= 3 else ""
         quote_currency = symbol_upper[3:6] if len(symbol_upper) >= 6 else ""
 
         currency_names: dict[str, dict[str, str]] = {
-            "EUR": {"name": "euro", "cb": "ECB"},
-            "USD": {"name": "dollar", "cb": "Fed"},
-            "GBP": {"name": "pound", "cb": "BoE"},
-            "JPY": {"name": "yen", "cb": "BoJ"},
-            "AUD": {"name": "australian dollar", "cb": "RBA"},
-            "CAD": {"name": "canadian dollar", "cb": "BoC"},
-            "CHF": {"name": "swiss franc", "cb": "SNB"},
-            "NZD": {"name": "new zealand dollar", "cb": "RBNZ"},
+            "EUR": {"name": "euro", "cb": "ECB", "cb_full": "European Central Bank"},
+            "USD": {"name": "dollar", "cb": "Fed", "cb_full": "Federal Reserve"},
+            "GBP": {"name": "pound", "cb": "BoE", "cb_full": "Bank of England"},
+            "JPY": {"name": "yen", "cb": "BoJ", "cb_full": "Bank of Japan"},
+            "AUD": {"name": "australian dollar", "cb": "RBA", "cb_full": "Reserve Bank of Australia"},
+            "CAD": {"name": "canadian dollar", "cb": "BoC", "cb_full": "Bank of Canada"},
+            "CHF": {"name": "swiss franc", "cb": "SNB", "cb_full": "Swiss National Bank"},
+            "NZD": {"name": "new zealand dollar", "cb": "RBNZ", "cb_full": "Reserve Bank of New Zealand"},
         }
 
-        base_info = currency_names.get(base_currencies, {"name": base_currencies.lower(), "cb": ""})
-        quote_info = currency_names.get(quote_currency, {"name": quote_currency.lower(), "cb": ""})
+        base_info = currency_names.get(base_currencies, {"name": base_currencies.lower(), "cb": "", "cb_full": ""})
+        quote_info = currency_names.get(quote_currency, {"name": quote_currency.lower(), "cb": "", "cb_full": ""})
 
-        pair_query_parts: list[str] = []
-        if base_currencies and quote_currency:
-            pair_query_parts.append(f"{base_currencies} {quote_currency}")
-            pair_query_parts.append(f"{base_info['name']} {quote_info['name']}")
-            pair_query_parts.append("forex OR fx OR currency")
-        pair_query = " AND ".join(pair_query_parts) if pair_query_parts else f"{symbol_upper} forex"
-
-        macro_query_parts: list[str] = []
-        if base_currencies or quote_currency:
-            currencies = [c for c in [base_currencies, quote_currency] if c]
-            macro_query_parts.append(" OR ".join(currencies))
-            macro_query_parts.append("(CPI OR inflation OR rates OR yields OR NFP OR GDP OR PMI)")
-            macro_query_parts.append("(forex OR fx OR currency)")
-        macro_query = " AND ".join(macro_query_parts) if macro_query_parts else f"{symbol_upper} macro"
-
-        risk_query_parts: list[str] = []
-        if base_currencies or quote_currency:
-            currencies = [c for c in [base_currencies, quote_currency] if c]
-            risk_query_parts.append(" OR ".join(currencies))
-            cb_names = [info["cb"] for info in [base_info, quote_info] if info["cb"]]
-            if cb_names:
-                risk_query_parts.append(f"({' OR '.join(cb_names)})")
-            risk_query_parts.append("(forex OR fx OR currency OR risk OR volatility)")
-        risk_query = " AND ".join(risk_query_parts) if risk_query_parts else f"{symbol_upper} risk"
-
+        fx_anchors = '(forex OR fx OR currency OR "exchange rate" OR "foreign exchange")'
         language_filter = "sourcelang:English"
 
-        return {
-            "pair": f"({pair_query}) {language_filter}",
-            "macro": f"({macro_query}) {language_filter}",
-            "risk": f"({risk_query}) {language_filter}",
+        templates: dict[str, dict[str, str]] = {
+            "strict": {},
+            "medium": {},
+            "broad": {},
         }
 
-    def fetch_articles(self, symbol: str) -> list[NewsArticle]:
+        if base_currencies and quote_currency:
+            pair_ticker = f"{base_currencies}{quote_currency}"
+            pair_slash = f"{base_currencies}/{quote_currency}"
+            base_name = base_info["name"]
+            quote_name = quote_info["name"]
+
+            templates["strict"]["pair_strict"] = (
+                f'(({pair_ticker} OR "{pair_slash}" OR ("{base_name}" AND "{quote_name}")) AND {fx_anchors}) {language_filter}'
+            )
+
+            templates["medium"]["pair_medium"] = (
+                f'(("{base_name}" AND "{quote_name}") AND {fx_anchors}) {language_filter}'
+            )
+
+        cb_terms: list[str] = []
+        if base_info["cb"]:
+            cb_terms.append(base_info["cb"])
+        if base_info["cb_full"]:
+            cb_terms.append(f'"{base_info["cb_full"]}"')
+        if quote_info["cb"]:
+            cb_terms.append(quote_info["cb"])
+        if quote_info["cb_full"]:
+            cb_terms.append(f'"{quote_info["cb_full"]}"')
+
+        macro_terms = '(CPI OR inflation OR "interest rate" OR rates OR yields OR NFP OR GDP OR PMI OR employment OR unemployment)'
+
+        if cb_terms:
+            cb_query = " OR ".join(cb_terms)
+            templates["medium"]["macro_medium"] = (
+                f'(({cb_query} OR {macro_terms}) AND {fx_anchors}) {language_filter}'
+            )
+
+        templates["broad"]["macro_broad"] = (
+            f'({macro_terms} AND {fx_anchors}) {language_filter}'
+        )
+
+        risk_terms = '("risk on" OR "risk off" OR recession OR "safe haven" OR "market volatility" OR volatility)'
+        templates["broad"]["risk_broad"] = (
+            f'({risk_terms} AND {fx_anchors}) {language_filter}'
+        )
+
+        return templates
+
+    def _fetch_articles_for_query(self, query: str, query_tag: str) -> list[NewsArticle]:
+        articles: list[NewsArticle] = []
+        try:
+            url = f"{self.base_url}/api/v2/doc/doc"
+            params: dict[str, str | int] = {
+                "query": query,
+                "mode": "artlist",
+                "format": "json",
+                "maxrecords": 15,
+                "timespan": "24h",
+                "sort": "datedesc",
+            }
+
+            response = self.client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            articles_data = data.get("articles", [])
+
+            for article_data in articles_data:
+                title = article_data.get("title", "").strip()
+                if not title:
+                    continue
+
+                url_str = article_data.get("url", "").strip() or None
+                source = article_data.get("source", "").strip() or None
+                language = article_data.get("language", "").strip() or None
+
+                published_at: Optional[datetime] = None
+                seendate_str = article_data.get("seendate")
+                if seendate_str:
+                    try:
+                        seendate_int = int(seendate_str)
+                        year = seendate_int // 10000
+                        month = (seendate_int // 100) % 100
+                        day = seendate_int % 100
+                        hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
+                        minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
+                        published_at = datetime(year, month, day, hour, minute)
+                    except (ValueError, TypeError):
+                        pass
+
+                articles.append(
+                    NewsArticle(
+                        title=title,
+                        url=url_str,
+                        source=source,
+                        published_at=published_at,
+                        language=language,
+                        relevance_score=0.0,
+                        query_tag=query_tag,
+                    )
+                )
+        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
+            pass
+
+        return articles
+
+    def fetch_articles_with_fallback(
+        self, symbol: str
+    ) -> tuple[list[NewsArticle], dict[str, dict[str, int]], dict[str, str]]:
         templates = self._get_query_templates(symbol)
         all_candidates: list[NewsArticle] = []
+        pass_counts: dict[str, dict[str, int]] = {}
+        queries_used: dict[str, str] = {}
 
-        for query_tag, query in templates.items():
-            try:
-                url = f"{self.base_url}/api/v2/doc/doc"
-                params: dict[str, str | int] = {
-                    "query": query,
-                    "mode": "artlist",
-                    "format": "json",
-                    "maxrecords": 15,
-                    "timespan": "24h",
-                    "sort": "datedesc",
-                }
+        passes = ["strict", "medium", "broad"]
+        threshold = 0.55
+        min_relevant = 2
 
-                response = self.client.get(url, params=params)
-                response.raise_for_status()
-                data = response.json()
-                articles_data = data.get("articles", [])
-
-                for article_data in articles_data:
-                    title = article_data.get("title", "").strip()
-                    if not title:
-                        continue
-
-                    url_str = article_data.get("url", "").strip() or None
-                    source = article_data.get("source", "").strip() or None
-                    language = article_data.get("language", "").strip() or None
-
-                    published_at: Optional[datetime] = None
-                    seendate_str = article_data.get("seendate")
-                    if seendate_str:
-                        try:
-                            seendate_int = int(seendate_str)
-                            year = seendate_int // 10000
-                            month = (seendate_int // 100) % 100
-                            day = seendate_int % 100
-                            hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
-                            minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
-                            published_at = datetime(year, month, day, hour, minute)
-                        except (ValueError, TypeError):
-                            pass
-
-                    all_candidates.append(
-                        NewsArticle(
-                            title=title,
-                            url=url_str,
-                            source=source,
-                            published_at=published_at,
-                            language=language,
-                            relevance_score=0.0,
-                            query_tag=query_tag,
-                        )
-                    )
-            except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
+        for pass_name in passes:
+            if pass_name not in templates or not templates[pass_name]:
                 continue
 
-        filtered_articles, _, _ = self._filter_dedup_score(all_candidates, symbol)
-        return filtered_articles
+            pass_candidates: list[NewsArticle] = []
+
+            for query_tag, query in templates[pass_name].items():
+                articles = self._fetch_articles_for_query(query, query_tag)
+                pass_candidates.extend(articles)
+                queries_used[query_tag] = query[:100] if len(query) > 100 else query
+
+            all_candidates.extend(pass_candidates)
+
+            filtered_articles, _, _ = self._filter_dedup_score(all_candidates, symbol)
+
+            relevant_high = [a for a in filtered_articles if a.relevance_score >= threshold]
+
+            if pass_name == "broad" and len(relevant_high) < min_relevant:
+                filtered_articles_broad = [
+                    a for a in filtered_articles
+                    if a.relevance_score >= 0.45
+                    and any(anchor in a.title.lower() for anchor in ["forex", "fx", "currency", "exchange rate", "foreign exchange"])
+                ]
+                if filtered_articles_broad:
+                    filtered_articles = filtered_articles_broad
+                    relevant_count = len(filtered_articles)
+                else:
+                    filtered_articles = relevant_high
+                    relevant_count = len(filtered_articles)
+            else:
+                filtered_articles = relevant_high
+                relevant_count = len(filtered_articles)
+
+            pass_counts[pass_name] = {
+                "candidates": len(pass_candidates),
+                "after_filter": len(filtered_articles),
+            }
+
+            if relevant_count >= min_relevant:
+                return filtered_articles, pass_counts, queries_used
+
+        final_filtered, _, _ = self._filter_dedup_score(all_candidates, symbol)
+        final_filtered = [a for a in final_filtered if a.relevance_score >= threshold]
+
+        if len(final_filtered) < min_relevant and "broad" in pass_counts:
+            final_filtered_broad = [
+                a for a in final_filtered
+                if a.relevance_score >= 0.45
+                and any(anchor in a.title.lower() for anchor in ["forex", "fx", "currency", "exchange rate", "foreign exchange"])
+            ]
+            if final_filtered_broad:
+                final_filtered = final_filtered_broad
+
+        return final_filtered, pass_counts, queries_used
+
+    def fetch_articles(self, symbol: str) -> list[NewsArticle]:
+        articles, _, _ = self.fetch_articles_with_fallback(symbol)
+        return articles
 
     def _normalize_title(self, title: str) -> str:
         title_lower = title.lower()
@@ -268,65 +354,9 @@ class GDELTProvider(NewsProvider):
 
     def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         try:
-            templates = self._get_query_templates(symbol)
-            all_candidates: list[NewsArticle] = []
+            filtered_articles, pass_counts, queries_used = self.fetch_articles_with_fallback(symbol)
 
-            for query_tag, query in templates.items():
-                try:
-                    url = f"{self.base_url}/api/v2/doc/doc"
-                    params: dict[str, str | int] = {
-                        "query": query,
-                        "mode": "artlist",
-                        "format": "json",
-                        "maxrecords": 15,
-                        "timespan": "24h",
-                        "sort": "datedesc",
-                    }
-
-                    response = self.client.get(url, params=params)
-                    response.raise_for_status()
-                    data = response.json()
-                    articles_data = data.get("articles", [])
-
-                    for article_data in articles_data:
-                        title = article_data.get("title", "").strip()
-                        if not title:
-                            continue
-
-                        url_str = article_data.get("url", "").strip() or None
-                        source = article_data.get("source", "").strip() or None
-                        language = article_data.get("language", "").strip() or None
-
-                        published_at: Optional[datetime] = None
-                        seendate_str = article_data.get("seendate")
-                        if seendate_str:
-                            try:
-                                seendate_int = int(seendate_str)
-                                year = seendate_int // 10000
-                                month = (seendate_int // 100) % 100
-                                day = seendate_int % 100
-                                hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
-                                minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
-                                published_at = datetime(year, month, day, hour, minute)
-                            except (ValueError, TypeError):
-                                pass
-
-                        all_candidates.append(
-                            NewsArticle(
-                                title=title,
-                                url=url_str,
-                                source=source,
-                                published_at=published_at,
-                                language=language,
-                                relevance_score=0.0,
-                                query_tag=query_tag,
-                            )
-                        )
-                except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
-                    continue
-
-            candidates_total = len(all_candidates)
-            filtered_articles, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates, symbol)
+            candidates_total = sum(counts.get("candidates", 0) for counts in pass_counts.values())
             articles_after_filter = len(filtered_articles)
             top_articles = filtered_articles[:10]
 
@@ -349,6 +379,18 @@ class GDELTProvider(NewsProvider):
                     summary_parts.append(f"- {article.title}")
             summary = " ".join(summary_parts)
 
+            dropped_examples: list[str] = []
+            dropped_reason_hint: Optional[str] = None
+            if quality == "LOW":
+                all_candidates_for_dropped: list[NewsArticle] = []
+                templates = self._get_query_templates(symbol)
+                for pass_name in ["strict", "medium", "broad"]:
+                    if pass_name in templates:
+                        for query_tag, query in templates[pass_name].items():
+                            all_candidates_for_dropped.extend(self._fetch_articles_for_query(query, query_tag))
+                _, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates_for_dropped, symbol)
+                dropped_examples = dropped_examples[:3]
+
             return NewsDigest(
                 symbol=symbol,
                 timeframe=timeframe,
@@ -361,8 +403,10 @@ class GDELTProvider(NewsProvider):
                 impact_score=None,
                 candidates_total=candidates_total,
                 articles_after_filter=articles_after_filter,
-                dropped_examples=dropped_examples if quality == "LOW" else [],
-                dropped_reason_hint=dropped_reason_hint if quality == "LOW" else None,
+                dropped_examples=dropped_examples,
+                dropped_reason_hint=dropped_reason_hint,
+                pass_counts=pass_counts,
+                queries_used=queries_used,
             )
         except Exception as e:
             return NewsDigest(
@@ -379,6 +423,8 @@ class GDELTProvider(NewsProvider):
                 articles_after_filter=0,
                 dropped_examples=[],
                 dropped_reason_hint=None,
+                pass_counts={},
+                queries_used={},
             )
 
     def get_news_summary(self, symbol: str) -> str:

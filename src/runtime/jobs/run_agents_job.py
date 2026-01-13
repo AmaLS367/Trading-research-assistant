@@ -149,6 +149,21 @@ class RunAgentsJob:
                 verbose_parts: list[str] = [news_content]
                 verbose_parts.append(f"\nCandidates total: {news_digest.candidates_total}")
                 verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
+
+                if news_digest.pass_counts:
+                    verbose_parts.append("\nPass statistics:")
+                    for pass_name in ["strict", "medium", "broad"]:
+                        if pass_name in news_digest.pass_counts:
+                            counts = news_digest.pass_counts[pass_name]
+                            verbose_parts.append(f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}")
+
+                if news_digest.queries_used:
+                    query_items = list(news_digest.queries_used.items())[:2]
+                    verbose_parts.append("\nTop queries:")
+                    for tag, query in query_items:
+                        query_short = query[:60] + "..." if len(query) > 60 else query
+                        verbose_parts.append(f"  {tag}: {query_short}")
+
                 if news_digest.quality == "LOW" and news_digest.dropped_examples:
                     verbose_parts.append("\nDropped examples:")
                     for example in news_digest.dropped_examples[:3]:
