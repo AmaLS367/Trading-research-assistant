@@ -10,13 +10,14 @@ class RecommendationsRepository:
 
     def save(self, recommendation: Recommendation) -> int:
         query = """
-            INSERT INTO recommendations (symbol, timestamp, timeframe, action, brief, confidence)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO recommendations (run_id, symbol, timestamp, timeframe, action, brief, confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         with self.db.get_cursor() as cursor:
             cursor.execute(
                 query,
                 (
+                    recommendation.run_id,
                     recommendation.symbol,
                     recommendation.timestamp.isoformat(),
                     recommendation.timeframe.value,

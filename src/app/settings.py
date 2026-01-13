@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # --- Storage ---
     storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path("db/forex_research_assistant.sqlite3")
     storage_artifacts_dir: Annotated[Path, Field(alias="STORAGE_ARTIFACTS_DIR")] = Path("artifacts")
-    storage_migration_path: Annotated[str, Field(alias="STORAGE_MIGRATION_PATH")] = "src/storage/sqlite/migrations/0001_init.sql"
+    storage_migration_path: Annotated[str, Field(alias="STORAGE_MIGRATION_PATH")] = "src/storage/sqlite/migrations"
 
     # --- Runtime ---
     runtime_mvp_symbols_raw: Annotated[str, Field(alias="RUNTIME_MVP_SYMBOLS_RAW")] = "EURUSD,GBPUSD,USDJPY"

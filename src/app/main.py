@@ -10,7 +10,9 @@ from src.app.settings import settings
 from src.app.wiring import (
     create_market_data_provider,
     create_news_provider,
+    create_rationales_repository,
     create_recommendations_repository,
+    create_runs_repository,
     create_synthesizer,
     create_technical_analyst,
 )
@@ -92,6 +94,8 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
         technical_analyst = create_technical_analyst()
         synthesizer = create_synthesizer()
         recommendations_repo = create_recommendations_repository()
+        runs_repository = create_runs_repository()
+        rationales_repository = create_rationales_repository()
 
         job = RunAgentsJob(
             market_data_provider=market_data_provider,
@@ -99,6 +103,8 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
             technical_analyst=technical_analyst,
             synthesizer=synthesizer,
             recommendations_repository=recommendations_repo,
+            runs_repository=runs_repository,
+            rationales_repository=rationales_repository,
             console=console,
         )
 

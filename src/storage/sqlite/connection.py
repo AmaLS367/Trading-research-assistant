@@ -1,5 +1,5 @@
-import sqlite3
 import os
+import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Generator
@@ -31,10 +31,23 @@ class DBConnection:
             connection.close()
 
     def run_migration(self, migration_path: str) -> None:
-        if not os.path.exists(migration_path):
+        path = Path(migration_path)
+
+        if path.is_dir():
+            sql_files = sorted(p for p in path.glob("*.sql") if p.is_file())
+            if not sql_files:
+                raise FileNotFoundError(f"No migration files found in directory: {migration_path}")
+            for sql_file in sql_files:
+                self._apply_migration_file(sql_file)
+            return
+
+        if not path.exists():
             raise FileNotFoundError(f"Migration file not found: {migration_path}")
 
-        with open(migration_path, "r", encoding="utf-8") as migration_file:
+        self._apply_migration_file(path)
+
+    def _apply_migration_file(self, file_path: Path) -> None:
+        with open(file_path, "r", encoding="utf-8") as migration_file:
             sql = migration_file.read()
 
         with self.get_cursor() as cursor:

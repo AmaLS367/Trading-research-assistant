@@ -10,7 +10,9 @@ from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
 from src.llm.ollama.ollama_client import OllamaClient
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.storage.sqlite.connection import DBConnection
+from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
+from src.storage.sqlite.repositories.runs_repository import RunsRepository
 
 
 def create_market_data_provider() -> MarketDataProvider:
@@ -71,3 +73,13 @@ def create_synthesizer() -> Synthesizer:
 def create_recommendations_repository() -> RecommendationsRepository:
     db = DBConnection(str(settings.storage_sqlite_db_path))
     return RecommendationsRepository(db)
+
+
+def create_runs_repository() -> RunsRepository:
+    db = DBConnection(str(settings.storage_sqlite_db_path))
+    return RunsRepository(db)
+
+
+def create_rationales_repository() -> RationalesRepository:
+    db = DBConnection(str(settings.storage_sqlite_db_path))
+    return RationalesRepository(db)
