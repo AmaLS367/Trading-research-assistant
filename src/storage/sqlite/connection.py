@@ -37,8 +37,12 @@ class DBConnection:
             sql_files = sorted(p for p in path.glob("*.sql") if p.is_file())
             if not sql_files:
                 raise FileNotFoundError(f"No migration files found in directory: {migration_path}")
+            self._ensure_schema_migrations_table()
             for sql_file in sql_files:
+                if self._is_migration_applied(sql_file.name):
+                    continue
                 self._apply_migration_file(sql_file)
+                self._mark_migration_applied(sql_file.name)
             return
 
         if not path.exists():
@@ -52,3 +56,25 @@ class DBConnection:
 
         with self.get_cursor() as cursor:
             cursor.executescript(sql)
+
+    def _ensure_schema_migrations_table(self) -> None:
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    filename TEXT PRIMARY KEY,
+                    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+    def _is_migration_applied(self, filename: str) -> bool:
+        query = "SELECT 1 FROM schema_migrations WHERE filename = ? LIMIT 1"
+        with self.get_cursor() as cursor:
+            cursor.execute(query, (filename,))
+            return cursor.fetchone() is not None
+
+    def _mark_migration_applied(self, filename: str) -> None:
+        query = "INSERT INTO schema_migrations (filename) VALUES (?)"
+        with self.get_cursor() as cursor:
+            cursor.execute(query, (filename,))
