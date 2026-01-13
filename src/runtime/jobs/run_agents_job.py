@@ -146,7 +146,16 @@ class RunAgentsJob:
             if self.verbose and self.console:
                 from rich.panel import Panel
 
-                truncated_content, was_truncated = self._truncate_content(news_content)
+                verbose_parts: list[str] = [news_content]
+                verbose_parts.append(f"\nCandidates total: {news_digest.candidates_total}")
+                verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
+                if news_digest.quality == "LOW" and news_digest.dropped_examples:
+                    verbose_parts.append("\nDropped examples:")
+                    for example in news_digest.dropped_examples[:3]:
+                        verbose_parts.append(f"  • {example}")
+
+                verbose_content = "\n".join(verbose_parts)
+                truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
                 if was_truncated:
                     panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"

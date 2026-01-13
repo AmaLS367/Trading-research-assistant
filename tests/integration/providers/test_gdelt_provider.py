@@ -162,7 +162,7 @@ def test_filter_dedup_score_removes_duplicates() -> None:
         ),
     ]
 
-    filtered = provider._filter_dedup_score(articles, "EURUSD")
+    filtered, _, _ = provider._filter_dedup_score(articles, "EURUSD")
 
     assert len(filtered) <= len(articles)
     titles = [a.title for a in filtered]
@@ -193,7 +193,7 @@ def test_filter_dedup_score_calculates_relevance() -> None:
         ),
     ]
 
-    filtered = provider._filter_dedup_score(articles, "EURUSD")
+    filtered, _, _ = provider._filter_dedup_score(articles, "EURUSD")
 
     assert len(filtered) > 0
     if filtered:

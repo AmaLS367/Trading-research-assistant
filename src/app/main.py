@@ -122,6 +122,8 @@ def show_latest(show_details: bool = False) -> None:
                         digest_parts.append(f"Sentiment: [{sentiment_color}]{digest.sentiment}[/{sentiment_color}]")
                     if digest.impact_score is not None:
                         digest_parts.append(f"Impact Score: {digest.impact_score:.2f}")
+                    digest_parts.append(f"\nCandidates total: {digest.candidates_total}")
+                    digest_parts.append(f"After filtering: {digest.articles_after_filter}")
                     if digest.articles:
                         digest_parts.append("\nTop Articles:")
                         for article in digest.articles[:3]:
@@ -129,6 +131,12 @@ def show_latest(show_details: bool = False) -> None:
                             digest_parts.append(f"  • {article.title}{source_text}")
                     if digest.quality == "LOW" and digest.quality_reason:
                         digest_parts.append(f"\nReason: {digest.quality_reason}")
+                    if digest.quality == "LOW" and digest.dropped_examples:
+                        digest_parts.append("\nDropped examples:")
+                        for example in digest.dropped_examples[:3]:
+                            digest_parts.append(f"  • {example}")
+                    if digest.dropped_reason_hint:
+                        digest_parts.append(f"\nDropped reason hint: {digest.dropped_reason_hint}")
 
                     digest_content = "\n".join(digest_parts)
                     console.print(Panel(digest_content, title=f"News Digest (Quality: {digest.quality})", border_style="blue"))

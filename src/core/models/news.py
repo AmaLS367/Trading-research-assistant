@@ -26,3 +26,7 @@ class NewsDigest(BaseModel):
     summary: Optional[str] = None
     sentiment: Optional[str] = None
     impact_score: Optional[float] = None
+    candidates_total: int = 0
+    articles_after_filter: int = 0
+    dropped_examples: list[str] = []
+    dropped_reason_hint: Optional[str] = None

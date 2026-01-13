@@ -1,5 +1,6 @@
 import re
 import string
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -132,7 +133,7 @@ class GDELTProvider(NewsProvider):
             except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
                 continue
 
-        filtered_articles = self._filter_dedup_score(all_candidates, symbol)
+        filtered_articles, _, _ = self._filter_dedup_score(all_candidates, symbol)
         return filtered_articles
 
     def _normalize_title(self, title: str) -> str:
@@ -141,7 +142,9 @@ class GDELTProvider(NewsProvider):
         title_normalized = " ".join(title_no_punct.split())
         return title_normalized
 
-    def _filter_dedup_score(self, articles: list[NewsArticle], symbol: str) -> list[NewsArticle]:
+    def _filter_dedup_score(
+        self, articles: list[NewsArticle], symbol: str
+    ) -> tuple[list[NewsArticle], list[str], Optional[str]]:
         symbol_upper = symbol.upper().strip()
         base_currency = symbol_upper[:3] if len(symbol_upper) >= 3 else ""
         quote_currency = symbol_upper[3:6] if len(symbol_upper) >= 6 else ""
@@ -174,21 +177,35 @@ class GDELTProvider(NewsProvider):
         now = datetime.now()
         deduplicated: list[NewsArticle] = []
         seen_normalized: set[str] = set()
+        dropped_examples: list[str] = []
+        drop_reasons: list[str] = []
 
         for article in articles:
             title = article.title.strip()
             if len(title) < 10:
+                if len(dropped_examples) < 3:
+                    dropped_examples.append(title[:80] if len(title) > 80 else title)
+                drop_reasons.append("too_short")
                 continue
 
             title_lower = title.lower()
             is_blacklisted = any(phrase in title_lower for phrase in blacklist_phrases)
             if is_blacklisted:
+                if len(dropped_examples) < 3:
+                    dropped_examples.append(title[:80] if len(title) > 80 else title)
+                drop_reasons.append("blacklisted")
                 continue
 
             normalized = self._normalize_title(title)
             if normalized in seen_normalized:
+                if len(dropped_examples) < 3:
+                    dropped_examples.append(title[:80] if len(title) > 80 else title)
+                drop_reasons.append("dedup")
                 continue
             if len(normalized) < 10:
+                if len(dropped_examples) < 3:
+                    dropped_examples.append(title[:80] if len(title) > 80 else title)
+                drop_reasons.append("too_short")
                 continue
 
             seen_normalized.add(normalized)
@@ -209,6 +226,9 @@ class GDELTProvider(NewsProvider):
             has_macro = any(keyword in title_lower for keyword in macro_keywords)
 
             if not (has_fx_anchor or has_currency_mention or has_cb_mention or has_macro):
+                if len(dropped_examples) < 3:
+                    dropped_examples.append(title[:80] if len(title) > 80 else title)
+                drop_reasons.append("no_fx_anchors")
                 continue
 
             score = 0.0
@@ -237,12 +257,78 @@ class GDELTProvider(NewsProvider):
             article.relevance_score = score
             deduplicated.append(article)
 
-        return sorted(deduplicated, key=lambda a: a.relevance_score, reverse=True)
+        filtered_sorted = sorted(deduplicated, key=lambda a: a.relevance_score, reverse=True)
+
+        dropped_reason_hint: Optional[str] = None
+        if drop_reasons:
+            most_common = Counter(drop_reasons).most_common(1)[0][0]
+            dropped_reason_hint = most_common
+
+        return filtered_sorted, dropped_examples, dropped_reason_hint
 
     def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         try:
-            articles = self.fetch_articles(symbol)
-            top_articles = articles[:10]
+            templates = self._get_query_templates(symbol)
+            all_candidates: list[NewsArticle] = []
+
+            for query_tag, query in templates.items():
+                try:
+                    url = f"{self.base_url}/api/v2/doc/doc"
+                    params: dict[str, str | int] = {
+                        "query": query,
+                        "mode": "artlist",
+                        "format": "json",
+                        "maxrecords": 15,
+                        "timespan": "24h",
+                        "sort": "datedesc",
+                    }
+
+                    response = self.client.get(url, params=params)
+                    response.raise_for_status()
+                    data = response.json()
+                    articles_data = data.get("articles", [])
+
+                    for article_data in articles_data:
+                        title = article_data.get("title", "").strip()
+                        if not title:
+                            continue
+
+                        url_str = article_data.get("url", "").strip() or None
+                        source = article_data.get("source", "").strip() or None
+                        language = article_data.get("language", "").strip() or None
+
+                        published_at: Optional[datetime] = None
+                        seendate_str = article_data.get("seendate")
+                        if seendate_str:
+                            try:
+                                seendate_int = int(seendate_str)
+                                year = seendate_int // 10000
+                                month = (seendate_int // 100) % 100
+                                day = seendate_int % 100
+                                hour = (seendate_int // 1000000) % 100 if seendate_int >= 1000000 else 0
+                                minute = (seendate_int // 10000) % 100 if seendate_int >= 1000000 else 0
+                                published_at = datetime(year, month, day, hour, minute)
+                            except (ValueError, TypeError):
+                                pass
+
+                        all_candidates.append(
+                            NewsArticle(
+                                title=title,
+                                url=url_str,
+                                source=source,
+                                published_at=published_at,
+                                language=language,
+                                relevance_score=0.0,
+                                query_tag=query_tag,
+                            )
+                        )
+                except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
+                    continue
+
+            candidates_total = len(all_candidates)
+            filtered_articles, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates, symbol)
+            articles_after_filter = len(filtered_articles)
+            top_articles = filtered_articles[:10]
 
             high_score_count = sum(1 for a in top_articles if a.relevance_score >= 0.55)
 
@@ -273,6 +359,10 @@ class GDELTProvider(NewsProvider):
                 summary=summary,
                 sentiment=None,
                 impact_score=None,
+                candidates_total=candidates_total,
+                articles_after_filter=articles_after_filter,
+                dropped_examples=dropped_examples if quality == "LOW" else [],
+                dropped_reason_hint=dropped_reason_hint if quality == "LOW" else None,
             )
         except Exception as e:
             return NewsDigest(
@@ -285,6 +375,10 @@ class GDELTProvider(NewsProvider):
                 summary="Quality LOW. Error fetching news.",
                 sentiment=None,
                 impact_score=None,
+                candidates_total=0,
+                articles_after_filter=0,
+                dropped_examples=[],
+                dropped_reason_hint=None,
             )
 
     def get_news_summary(self, symbol: str) -> str:
