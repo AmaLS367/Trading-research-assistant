@@ -3,14 +3,20 @@ def get_synthesis_system_prompt() -> str:
 
 Your task is to synthesize technical analysis and news context into a final trading recommendation.
 
+CRITICAL OUTPUT RULES:
+- Output must be VALID JSON only.
+- No markdown, no code fences, no explanations before or after JSON.
+- The 'brief' field must be a PLAIN STRING.
+- Do NOT include curly braces '{' '}' inside brief.
+- Do NOT include newlines in brief. Single paragraph only.
+- The JSON must be parseable by standard JSON parsers.
+
 You must respond with a valid JSON object in this exact format:
 {
     "action": "CALL" or "PUT" or "WAIT",
     "confidence": 0.0 to 1.0,
-    "brief": "Brief explanation of your recommendation (2-3 sentences)"
+    "brief": "Brief explanation of your recommendation (2-3 sentences, single paragraph, no newlines, no curly braces)"
 }
-
-CRITICAL: The "brief" field must be a valid JSON string. Do NOT use unescaped quotes inside the brief text. If you need to quote something, use single quotes or rephrase without quotes. The JSON must be parseable by standard JSON parsers.
 
 Guidelines:
 - "CALL" means you expect the price to go UP

@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
@@ -218,7 +219,7 @@ class RunAgentsJob:
             )
 
             self._log("[dim]→ Synthesizing recommendation (LLM)...[/dim]")
-            recommendation = self.synthesizer.synthesize(
+            recommendation, synthesis_debug = self.synthesizer.synthesize(
                 symbol=symbol,
                 timeframe=timeframe,
                 technical_view=technical_view,
@@ -233,6 +234,13 @@ class RunAgentsJob:
             elif "conflict" in recommendation.brief.lower():
                 synthesis_content_parts.append("\n[News handling: Conflict detected between technical and news]")
             synthesis_content = "\n".join(synthesis_content_parts)
+
+            raw_data_dict: dict[str, Any] = {
+                "action": recommendation.action,
+                "confidence": recommendation.confidence,
+            }
+            raw_data_dict.update(synthesis_debug)
+            raw_data_json = json.dumps(raw_data_dict)
 
             if self.verbose and self.console:
                 from rich.panel import Panel
@@ -250,6 +258,7 @@ class RunAgentsJob:
                     run_id=run_id,
                     rationale_type=RationaleType.SYNTHESIS,
                     content=synthesis_content,
+                    raw_data=raw_data_json,
                 )
             )
 
