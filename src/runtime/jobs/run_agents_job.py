@@ -43,6 +43,17 @@ class RunAgentsJob:
         if self.console:
             self.console.print(message)
 
+    def _get_provider_name(self) -> str:
+        provider_class_name = type(self.market_data_provider).__name__
+        if provider_class_name == "OandaProvider":
+            return "OANDA"
+        elif provider_class_name == "TwelveDataProvider":
+            return "Twelve Data"
+        elif provider_class_name == "FallbackMarketDataProvider":
+            return "Fallback"
+        else:
+            return provider_class_name.replace("Provider", "")
+
     def run(self, symbol: str, timeframe: Timeframe, count: int = 300) -> int:
         run = Run(
             symbol=symbol,
@@ -55,7 +66,8 @@ class RunAgentsJob:
         try:
             run_id = self.runs_repository.create(run)
 
-            self._log("[dim]→ Fetching market data from OANDA...[/dim]")
+            provider_name = self._get_provider_name()
+            self._log(f"[dim]→ Fetching market data from {provider_name}...[/dim]")
             candles = self.market_data_provider.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
