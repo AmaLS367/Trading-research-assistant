@@ -10,6 +10,7 @@ from rich.table import Table
 from src.app.settings import settings
 from src.app.wiring import (
     create_market_data_provider,
+    create_news_analyst,
     create_news_provider,
     create_rationales_repository,
     create_recommendations_repository,
@@ -125,6 +126,7 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         news_provider = create_news_provider()
         technical_analyst = create_technical_analyst()
         synthesizer = create_synthesizer()
+        news_analyst = create_news_analyst()
         recommendations_repo = create_recommendations_repository()
         runs_repository = create_runs_repository()
         rationales_repository = create_rationales_repository()
@@ -134,6 +136,7 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
             news_provider=news_provider,
             technical_analyst=technical_analyst,
             synthesizer=synthesizer,
+            news_analyst=news_analyst,
             recommendations_repository=recommendations_repo,
             runs_repository=runs_repository,
             rationales_repository=rationales_repository,

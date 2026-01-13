@@ -1,3 +1,4 @@
+from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.app.settings import settings
@@ -68,6 +69,11 @@ def create_technical_analyst() -> TechnicalAnalyst:
 def create_synthesizer() -> Synthesizer:
     llm_provider = create_llm_provider()
     return Synthesizer(llm_provider=llm_provider)
+
+
+def create_news_analyst() -> NewsAnalyst:
+    llm_provider = create_llm_provider()
+    return NewsAnalyst(llm_provider=llm_provider)
 
 
 def create_recommendations_repository() -> RecommendationsRepository:

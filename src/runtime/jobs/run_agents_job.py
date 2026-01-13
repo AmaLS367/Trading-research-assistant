@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.core.models.rationale import Rationale, RationaleType
@@ -26,6 +27,7 @@ class RunAgentsJob:
         news_provider: NewsProvider,
         technical_analyst: TechnicalAnalyst,
         synthesizer: Synthesizer,
+        news_analyst: NewsAnalyst,
         recommendations_repository: RecommendationsRepository,
         runs_repository: RunsRepository,
         rationales_repository: RationalesRepository,
@@ -36,6 +38,7 @@ class RunAgentsJob:
         self.news_provider = news_provider
         self.technical_analyst = technical_analyst
         self.synthesizer = synthesizer
+        self.news_analyst = news_analyst
         self.recommendations_repository = recommendations_repository
         self.runs_repository = runs_repository
         self.rationales_repository = rationales_repository
@@ -121,7 +124,17 @@ class RunAgentsJob:
             news_digest = self.news_provider.get_news_digest(symbol, timeframe)
             self._log("[green]✓[/green] [dim]News context retrieved[/dim]")
 
+            self._log("[dim]→ Analyzing news with LLM...[/dim]")
+            news_digest = self.news_analyst.analyze(news_digest)
+            self._log("[green]✓[/green] [dim]News analysis complete[/dim]")
+
             news_content_parts: list[str] = [f"Quality: {news_digest.quality}"]
+            if news_digest.summary:
+                news_content_parts.append(f"Summary: {news_digest.summary}")
+            if news_digest.sentiment:
+                news_content_parts.append(f"Sentiment: {news_digest.sentiment}")
+            if news_digest.impact_score is not None:
+                news_content_parts.append(f"Impact Score: {news_digest.impact_score:.2f}")
             if news_digest.quality_reason:
                 news_content_parts.append(f"Reason: {news_digest.quality_reason}")
             if news_digest.articles:
