@@ -115,6 +115,8 @@ def show_latest(show_details: bool = False) -> None:
                     quality_display = f"[{quality_color}]{digest.quality}[/{quality_color}]"
 
                     digest_parts: list[str] = [f"Quality: {quality_display}"]
+                    if digest.provider_used:
+                        digest_parts.append(f"Provider used: {digest.provider_used}")
                     if digest.summary:
                         digest_parts.append(f"\nSummary: {digest.summary}")
                     if digest.sentiment:
@@ -124,6 +126,8 @@ def show_latest(show_details: bool = False) -> None:
                         digest_parts.append(f"Impact Score: {digest.impact_score:.2f}")
                     digest_parts.append(f"\nCandidates total: {digest.candidates_total}")
                     digest_parts.append(f"After filtering: {digest.articles_after_filter}")
+                    if digest.secondary_quality:
+                        digest_parts.append(f"\nSecondary provider: NewsAPI, quality={digest.secondary_quality}, reason={digest.secondary_reason}")
 
                     if digest.pass_counts:
                         digest_parts.append("\nPass statistics:")

@@ -147,8 +147,12 @@ class RunAgentsJob:
                 from rich.panel import Panel
 
                 verbose_parts: list[str] = [news_content]
-                verbose_parts.append(f"\nCandidates total: {news_digest.candidates_total}")
+                if news_digest.provider_used:
+                    verbose_parts.append(f"\nProvider used: {news_digest.provider_used}")
+                verbose_parts.append(f"Candidates total: {news_digest.candidates_total}")
                 verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
+                if news_digest.provider_used == "NEWSAPI" and news_digest.primary_quality:
+                    verbose_parts.append(f"Fallback triggered: primary {news_digest.primary_quality} -> tried NewsAPI")
 
                 if news_digest.pass_counts:
                     verbose_parts.append("\nPass statistics:")

@@ -32,3 +32,8 @@ class NewsDigest(BaseModel):
     dropped_reason_hint: Optional[str] = None
     pass_counts: dict[str, dict[str, int]] = {}
     queries_used: dict[str, str] = {}
+    provider_used: Optional[str] = None
+    primary_quality: Optional[str] = None
+    primary_reason: Optional[str] = None
+    secondary_quality: Optional[str] = None
+    secondary_reason: Optional[str] = None

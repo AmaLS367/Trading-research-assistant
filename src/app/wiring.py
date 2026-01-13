@@ -10,6 +10,8 @@ from src.data_providers.forex.oanda_provider import OandaProvider
 from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
 from src.llm.ollama.ollama_client import OllamaClient
 from src.news_providers.gdelt_provider import GDELTProvider
+from src.news_providers.multi_news_provider import MultiNewsProvider
+from src.news_providers.newsapi_provider import NewsAPIProvider
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
@@ -49,7 +51,19 @@ def create_market_data_provider() -> MarketDataProvider:
 
 
 def create_news_provider() -> NewsProvider:
-    return GDELTProvider(base_url=settings.gdelt_base_url)
+    gdelt_provider = GDELTProvider(base_url=settings.gdelt_base_url)
+
+    newsapi_provider: NewsAPIProvider | None = None
+    if settings.newsapi_api_key:
+        newsapi_provider = NewsAPIProvider(
+            api_key=settings.newsapi_api_key,
+            base_url=settings.newsapi_base_url,
+        )
+
+    if newsapi_provider:
+        return MultiNewsProvider(primary=gdelt_provider, secondary=newsapi_provider)
+    else:
+        return MultiNewsProvider(primary=gdelt_provider, secondary=None)
 
 
 def create_llm_provider() -> LlmProvider:
