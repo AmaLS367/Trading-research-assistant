@@ -1,4 +1,14 @@
-# Safety Policy
+<div align="center">
+
+# 🔒 Safety Policy
+
+**Risk management and recommendation validation**
+
+[![Safety](https://img.shields.io/badge/Safety-Policy%20Enabled-FF6B6B)](./safety_policy.md)
+
+</div>
+
+---
 
 ## Overview
 
@@ -106,3 +116,11 @@ Planned safety improvements:
 - [ ] Integration with risk management policies
 - [ ] Automatic position size limiting
 - [ ] Warnings about unusual market conditions
+
+---
+
+<div align="center">
+
+[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md)
+
+</div>

@@ -1,4 +1,15 @@
-# Architecture
+<div align="center">
+
+# 🏗️ Architecture
+
+**Clean Architecture with Ports & Adapters pattern**
+
+[![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
+[![Pattern](https://img.shields.io/badge/Pattern-Ports%20%26%20Adapters-FF6B6B)](./architecture.md)
+
+</div>
+
+---
 
 ## General Concept
 
@@ -85,7 +96,8 @@ Domain services:
 #### Agents:
 - `TechnicalAnalyst` — technical analysis via LLM
 - `Synthesizer` — final recommendation synthesis
-- `NewsSentimentAnalyst` — news analysis (planned)
+- `NewsAnalyst` — news analysis and aggregation
+- `NewsSentimentAnalyst` — news sentiment analysis
 
 **Dependencies**: `core.ports.llm_provider` (interface), `core.models`, `features.snapshots`
 
@@ -194,7 +206,9 @@ This allows:
 
 ## Import Rules
 
-For detailed import rules and dependency graph, see [Import Rules](import_rules.md).
+For detailed import rules and dependency graph, see [Import Rules](./import_rules.md).
+
+---
 
 ## Extending the System
 
@@ -215,3 +229,11 @@ For detailed import rules and dependency graph, see [Import Rules](import_rules.
 1. Add calculation to `features/indicators/`
 2. Update `FeatureSnapshot` if needed
 3. Agents automatically receive new data
+
+---
+
+<div align="center">
+
+[📖 Overview](./overview.md) • [📚 Usage Guide](./usage_guide.md) • [📋 Import Rules](./import_rules.md)
+
+</div>

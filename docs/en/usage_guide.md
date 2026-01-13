@@ -1,4 +1,15 @@
-# Usage Guide
+<div align="center">
+
+# 📚 Usage Guide
+
+**Installation and usage instructions**
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![uv](https://img.shields.io/badge/uv-Latest-FFD43B?logo=python&logoColor=black)](https://github.com/astral-sh/uv)
+
+</div>
+
+---
 
 ## Installation
 
@@ -17,16 +28,7 @@
 # Base dependencies (required)
 uv sync
 
-# With LLM support
-uv sync --extra llm
-
-# With UI support
-uv sync --extra ui
-
-# All optional dependencies
-uv sync --all-extras
-
-# With dev dependencies
+# With dev dependencies (testing, linting)
 uv sync --extra dev
 ```
 
@@ -36,8 +38,8 @@ uv sync --extra dev
 # Base dependencies
 pip install -e .
 
-# With optional groups
-pip install -e ".[llm,ui,dev]"
+# With dev dependencies
+pip install -e ".[dev]"
 ```
 
 ## Configuration
@@ -304,6 +306,14 @@ For automatic analysis runs, you can use cron (Linux/Mac) or Task Scheduler (Win
 
 ## Additional Information
 
-- [Project Architecture](architecture.md)
-- [Import Rules](import_rules.md)
-- [Safety Policy](safety_policy.md)
+- [Project Architecture](./architecture.md)
+- [Import Rules](./import_rules.md)
+- [Safety Policy](./safety_policy.md)
+
+---
+
+<div align="center">
+
+[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [🔒 Safety Policy](./safety_policy.md)
+
+</div>
