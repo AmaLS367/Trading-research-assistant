@@ -102,16 +102,19 @@ class RunAgentsJob:
             )
 
             self._log("[dim]→ Running technical analysis (LLM)...[/dim]")
-            technical_view = self.technical_analyst.analyze(snapshot)
+            technical_view = self.technical_analyst.analyze(snapshot, symbol, timeframe)
             self._log("[green]✓[/green] [dim]Technical analysis complete[/dim]")
             if self.verbose and self.console:
                 from rich.panel import Panel
+
+                display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol
+                panel_title = f"Technical Rationale ({display_symbol} {timeframe.value})"
 
                 truncated_content, was_truncated = self._truncate_content(technical_view)
                 panel_content = truncated_content
                 if was_truncated:
                     panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
-                self.console.print(Panel(panel_content, title="Technical Rationale", border_style="cyan"))
+                self.console.print(Panel(panel_content, title=panel_title, border_style="cyan"))
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,

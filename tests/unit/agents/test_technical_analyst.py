@@ -33,6 +33,8 @@ def create_test_candles(count: int, base_price: float = 1.1000) -> list[Candle]:
 
 
 def test_technical_analyst_analyze() -> None:
+    from src.core.models.timeframe import Timeframe
+
     mock_llm = Mock(spec=LlmProvider)
     mock_llm.generate.return_value = "Market shows bullish momentum with RSI above 70."
 
@@ -46,13 +48,63 @@ def test_technical_analyst_analyze() -> None:
         indicators=indicators,
     )
 
-    result = analyst.analyze(snapshot)
+    result = analyst.analyze(snapshot, "EURUSD", Timeframe.H1)
 
     assert result == "Market shows bullish momentum with RSI above 70."
     mock_llm.generate.assert_called_once()
     call_args = mock_llm.generate.call_args
     assert "system_prompt" in call_args.kwargs
     assert "user_prompt" in call_args.kwargs
+    assert "EUR/USD" in call_args.kwargs["system_prompt"]
+    assert "1h" in call_args.kwargs["system_prompt"]
+
+
+def test_technical_analyst_output_guard_wrong_pair() -> None:
+    from src.core.models.timeframe import Timeframe
+
+    mock_llm = Mock(spec=LlmProvider)
+    mock_llm.generate.return_value = "The EUR/USD pair shows bullish momentum with RSI above 70."
+
+    analyst = TechnicalAnalyst(mock_llm)
+
+    candles = create_test_candles(250)
+    indicators = calculate_features(candles)
+    snapshot = FeatureSnapshot(
+        timestamp=datetime.now(),
+        candles=candles,
+        indicators=indicators,
+    )
+
+    result = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
+
+    assert "Analysis scope: GBP/USD" in result
+    assert "model mentioned other instruments" in result
+    assert "ignore those references" in result
+    assert "GBP/USD" in result
+    assert "EUR/USD" not in result
+
+
+def test_technical_analyst_output_guard_correct_pair() -> None:
+    from src.core.models.timeframe import Timeframe
+
+    mock_llm = Mock(spec=LlmProvider)
+    mock_llm.generate.return_value = "The GBP/USD pair shows bullish momentum with RSI above 70."
+
+    analyst = TechnicalAnalyst(mock_llm)
+
+    candles = create_test_candles(250)
+    indicators = calculate_features(candles)
+    snapshot = FeatureSnapshot(
+        timestamp=datetime.now(),
+        candles=candles,
+        indicators=indicators,
+    )
+
+    result = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
+
+    assert result == "The GBP/USD pair shows bullish momentum with RSI above 70."
+    assert "Analysis scope" not in result
+    assert "ignore those references" not in result
 
 
 def test_ollama_client_generate() -> None:
