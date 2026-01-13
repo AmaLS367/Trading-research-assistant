@@ -84,6 +84,8 @@ class NewsAPIProvider(NewsProvider):
             articles_data = data.get("articles", [])
 
             for article_data in articles_data:
+                if not isinstance(article_data, dict):
+                    continue
                 title = article_data.get("title", "").strip()
                 if not title:
                     continue
@@ -96,7 +98,8 @@ class NewsAPIProvider(NewsProvider):
                 published_str = article_data.get("publishedAt")
                 if published_str:
                     try:
-                        published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                        if isinstance(published_str, str):
+                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
                     except (ValueError, TypeError, AttributeError):
                         pass
 
@@ -154,7 +157,8 @@ class NewsAPIProvider(NewsProvider):
             "current exchange rate",
         ]
 
-        now = datetime.now()
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         deduplicated: list[NewsArticle] = []
         seen_normalized: set[str] = set()
         dropped_examples: list[str] = []
@@ -228,7 +232,11 @@ class NewsAPIProvider(NewsProvider):
                 score += 0.2
 
             if article.published_at:
-                age_hours = (now - article.published_at).total_seconds() / 3600.0
+                if article.published_at.tzinfo is None:
+                    published_at_aware = article.published_at.replace(tzinfo=timezone.utc)
+                else:
+                    published_at_aware = article.published_at
+                age_hours = (now - published_at_aware).total_seconds() / 3600.0
                 if age_hours < 4.0:
                     score += 0.1
 
