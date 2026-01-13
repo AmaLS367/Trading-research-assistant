@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     # --- Ollama ---
     ollama_base_url: Annotated[str, Field(alias="OLLAMA_BASE_URL")] = "http://localhost:11434"
+    ollama_remote_base_url: Annotated[str | None, Field(alias="OLLAMA_REMOTE_BASE_URL")] = None
     ollama_model: Annotated[str, Field(alias="OLLAMA_MODEL")] = ""
 
     # --- Storage ---
