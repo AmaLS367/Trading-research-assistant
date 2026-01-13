@@ -143,8 +143,6 @@ class RunAgentsJob:
                     news_content_parts.append(f"- {article.title}")
             news_content = "\n".join(news_content_parts)
 
-            news_summary_for_synthesizer = news_digest.summary or "No news found via GDELT."
-
             if self.verbose and self.console:
                 from rich.panel import Panel
 
@@ -167,17 +165,25 @@ class RunAgentsJob:
                 symbol=symbol,
                 timeframe=timeframe,
                 technical_view=technical_view,
-                news_summary=news_summary_for_synthesizer,
+                news_digest=news_digest,
             )
             recommendation.run_id = run_id
             self._log("[green]✓[/green] [dim]Recommendation synthesized[/dim]")
+
+            synthesis_content_parts: list[str] = [recommendation.brief]
+            if "news ignored" in recommendation.brief.lower() or "quality LOW" in recommendation.brief:
+                synthesis_content_parts.append("\n[News handling: News ignored due to low quality]")
+            elif "conflict" in recommendation.brief.lower():
+                synthesis_content_parts.append("\n[News handling: Conflict detected between technical and news]")
+            synthesis_content = "\n".join(synthesis_content_parts)
+
             if self.verbose and self.console:
                 from rich.panel import Panel
 
-                synthesis_content = f"Action: {recommendation.action}\n"
-                synthesis_content += f"Confidence: {recommendation.confidence:.2%}\n\n"
-                synthesis_content += recommendation.brief
-                truncated_content, was_truncated = self._truncate_content(synthesis_content)
+                verbose_content = f"Action: {recommendation.action}\n"
+                verbose_content += f"Confidence: {recommendation.confidence:.2%}\n\n"
+                verbose_content += synthesis_content
+                truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
                 if was_truncated:
                     panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
@@ -186,7 +192,7 @@ class RunAgentsJob:
                 Rationale(
                     run_id=run_id,
                     rationale_type=RationaleType.SYNTHESIS,
-                    content=recommendation.brief,
+                    content=synthesis_content,
                 )
             )
 

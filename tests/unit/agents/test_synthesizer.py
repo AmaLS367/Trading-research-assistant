@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.agents.synthesizer import Synthesizer
+from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.core.ports.llm_provider import LlmProvider
 
@@ -20,11 +21,20 @@ def test_synthesizer_creates_recommendation() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     recommendation = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="RSI is 75, indicating overbought conditions.",
-        news_summary="No major news events.",
+        news_digest=news_digest,
     )
 
     assert recommendation.symbol == "EURUSD"
@@ -46,11 +56,20 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="GBPUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     recommendation = synthesizer.synthesize(
         symbol="GBPUSD",
         timeframe=Timeframe.H1,
         technical_view="Price below SMA 200.",
-        news_summary="Negative news.",
+        news_digest=news_digest,
     )
 
     assert recommendation.action == "PUT"
@@ -68,12 +87,21 @@ def test_synthesizer_validates_action() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     with pytest.raises(ValueError, match="Invalid action"):
         synthesizer.synthesize(
             symbol="EURUSD",
             timeframe=Timeframe.H1,
             technical_view="Test",
-            news_summary="Test",
+            news_digest=news_digest,
         )
 
 
@@ -88,12 +116,21 @@ def test_synthesizer_validates_confidence_range() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     with pytest.raises(ValueError, match="Confidence must be between"):
         synthesizer.synthesize(
             symbol="EURUSD",
             timeframe=Timeframe.H1,
             technical_view="Test",
-            news_summary="Test",
+            news_digest=news_digest,
         )
 
 
@@ -107,12 +144,21 @@ def test_synthesizer_handles_missing_fields() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     with pytest.raises(ValueError, match="missing 'brief' field"):
         synthesizer.synthesize(
             symbol="EURUSD",
             timeframe=Timeframe.H1,
             technical_view="Test",
-            news_summary="Test",
+            news_digest=news_digest,
         )
 
 
@@ -122,10 +168,19 @@ def test_synthesizer_handles_invalid_json() -> None:
 
     synthesizer = Synthesizer(mock_llm)
 
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+
     with pytest.raises(ValueError, match="Failed to parse LLM response"):
         synthesizer.synthesize(
             symbol="EURUSD",
             timeframe=Timeframe.H1,
             technical_view="Test",
-            news_summary="Test",
+            news_digest=news_digest,
         )

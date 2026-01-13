@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from src.agents.prompts.synthesis_prompts import get_synthesis_system_prompt
+from src.core.models.news import NewsDigest
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.core.ports.llm_provider import LlmProvider
@@ -16,15 +17,33 @@ class Synthesizer:
         symbol: str,
         timeframe: Timeframe,
         technical_view: str,
-        news_summary: str,
+        news_digest: NewsDigest,
     ) -> Recommendation:
         system_prompt = get_synthesis_system_prompt()
+
+        news_section_parts: list[str] = []
+        if news_digest.quality == "LOW":
+            news_section_parts.append("News Quality: LOW (ignore news, rely on technical analysis)")
+        else:
+            news_section_parts.append(f"News Quality: {news_digest.quality}")
+            if news_digest.sentiment:
+                news_section_parts.append(f"News Sentiment: {news_digest.sentiment}")
+            if news_digest.impact_score is not None:
+                news_section_parts.append(f"News Impact Score: {news_digest.impact_score:.2f}")
+            if news_digest.summary:
+                news_section_parts.append(f"News Summary: {news_digest.summary}")
+            if news_digest.articles:
+                news_section_parts.append("Top News Headlines:")
+                for article in news_digest.articles[:5]:
+                    news_section_parts.append(f"- {article.title}")
+
+        news_section = "\n".join(news_section_parts) if news_section_parts else "No news available"
 
         user_prompt = f"""Technical Analysis:
 {technical_view}
 
 News Context:
-{news_summary}
+{news_section}
 
 Based on the above information, provide your trading recommendation as JSON."""
 
