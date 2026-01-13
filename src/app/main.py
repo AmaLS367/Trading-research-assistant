@@ -3,6 +3,7 @@ from datetime import datetime
 
 import httpx
 from rich.console import Console
+from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
@@ -16,6 +17,7 @@ from src.app.wiring import (
     create_synthesizer,
     create_technical_analyst,
 )
+from src.core.models.rationale import RationaleType
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.outcome import Outcome
 from src.core.models.timeframe import Timeframe
@@ -31,6 +33,7 @@ db = DBConnection(str(settings.storage_sqlite_db_path))
 rec_repo = RecommendationsRepository(db)
 journal_repo = JournalRepository(db)
 outcome_repo = OutcomesRepository(db)
+rationales_repo = create_rationales_repository()
 
 
 def init_db() -> None:
@@ -38,7 +41,7 @@ def init_db() -> None:
     console.print("[green]Database initialized and migrations applied.[/green]")
 
 
-def show_latest() -> None:
+def show_latest(show_details: bool = False) -> None:
     recommendation = rec_repo.get_latest()
     if not recommendation:
         console.print("[yellow]No recommendations found.[/yellow]")
@@ -79,8 +82,37 @@ def show_latest() -> None:
     console.print(table)
     console.print()
 
+    if show_details:
+        if recommendation.run_id is None:
+            console.print("[yellow]Details are not available for this recommendation (no run_id). This may be an older entry created before the run tracking system was implemented.[/yellow]")
+            return
 
-def analyze(symbol: str, timeframe_str: str = "1h") -> None:
+        rationales = rationales_repo.get_by_run_id(recommendation.run_id)
+        if not rationales:
+            console.print("[yellow]No rationales found for this run.[/yellow]")
+            return
+
+        technical_rationales = [r for r in rationales if r.rationale_type == RationaleType.TECHNICAL]
+        news_rationales = [r for r in rationales if r.rationale_type == RationaleType.NEWS]
+        synthesis_rationales = [r for r in rationales if r.rationale_type == RationaleType.SYNTHESIS]
+
+        if technical_rationales:
+            content = technical_rationales[0].content
+            console.print(Panel(content, title="Technical Analysis", border_style="cyan"))
+            console.print()
+
+        if news_rationales:
+            content = news_rationales[0].content
+            console.print(Panel(content, title="News Context", border_style="blue"))
+            console.print()
+
+        if synthesis_rationales:
+            content = synthesis_rationales[0].content
+            console.print(Panel(content, title="AI Synthesis", border_style="green"))
+            console.print()
+
+
+def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> None:
     try:
         timeframe = Timeframe(timeframe_str)
     except ValueError:
@@ -106,6 +138,7 @@ def analyze(symbol: str, timeframe_str: str = "1h") -> None:
             runs_repository=runs_repository,
             rationales_repository=rationales_repository,
             console=console,
+            verbose=verbose,
         )
 
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
@@ -212,14 +245,21 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("init-db")
-    subparsers.add_parser("show-latest")
     subparsers.add_parser("journal")
     subparsers.add_parser("report")
+
+    show_latest_parser = subparsers.add_parser("show-latest")
+    show_latest_parser.add_argument(
+        "--details", action="store_true", help="Show detailed rationale for the latest recommendation"
+    )
 
     analyze_parser = subparsers.add_parser("analyze")
     analyze_parser.add_argument("--symbol", required=True, help="Symbol to analyze (e.g., EURUSD)")
     analyze_parser.add_argument(
         "--timeframe", default="1h", help="Timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h"
+    )
+    analyze_parser.add_argument(
+        "--verbose", action="store_true", help="Show detailed analysis output during execution"
     )
 
     args = parser.parse_args()
@@ -227,9 +267,9 @@ def main() -> None:
     if args.command == "init-db":
         init_db()
     elif args.command == "show-latest":
-        show_latest()
+        show_latest(show_details=args.details)
     elif args.command == "analyze":
-        analyze(args.symbol, args.timeframe)
+        analyze(args.symbol, args.timeframe, verbose=args.verbose)
     elif args.command == "journal":
         journal()
     elif args.command == "report":

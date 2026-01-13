@@ -16,6 +16,7 @@ from src.storage.sqlite.repositories.runs_repository import RunsRepository
 
 if TYPE_CHECKING:
     from rich.console import Console
+    from rich.panel import Panel
 
 
 class RunAgentsJob:
@@ -29,6 +30,7 @@ class RunAgentsJob:
         runs_repository: RunsRepository,
         rationales_repository: RationalesRepository,
         console: "Console | None" = None,
+        verbose: bool = False,
     ) -> None:
         self.market_data_provider = market_data_provider
         self.news_provider = news_provider
@@ -38,10 +40,17 @@ class RunAgentsJob:
         self.runs_repository = runs_repository
         self.rationales_repository = rationales_repository
         self.console = console
+        self.verbose = verbose
 
     def _log(self, message: str) -> None:
         if self.console:
             self.console.print(message)
+
+    def _truncate_content(self, content: str, max_length: int = 2000) -> tuple[str, bool]:
+        if len(content) <= max_length:
+            return content, False
+        truncated = content[:max_length].rsplit("\n", 1)[0]
+        return truncated, True
 
     def _get_provider_name(self) -> str:
         provider_class_name = type(self.market_data_provider).__name__
@@ -92,6 +101,14 @@ class RunAgentsJob:
             self._log("[dim]→ Running technical analysis (LLM)...[/dim]")
             technical_view = self.technical_analyst.analyze(snapshot)
             self._log("[green]✓[/green] [dim]Technical analysis complete[/dim]")
+            if self.verbose and self.console:
+                from rich.panel import Panel
+
+                truncated_content, was_truncated = self._truncate_content(technical_view)
+                panel_content = truncated_content
+                if was_truncated:
+                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                self.console.print(Panel(panel_content, title="Technical Rationale", border_style="cyan"))
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,
@@ -103,6 +120,14 @@ class RunAgentsJob:
             self._log("[dim]→ Fetching news context...[/dim]")
             news_summary = self.news_provider.get_news_summary(symbol)
             self._log("[green]✓[/green] [dim]News context retrieved[/dim]")
+            if self.verbose and self.console:
+                from rich.panel import Panel
+
+                truncated_content, was_truncated = self._truncate_content(news_summary)
+                panel_content = truncated_content
+                if was_truncated:
+                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                self.console.print(Panel(panel_content, title="News Digest", border_style="blue"))
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,
@@ -120,6 +145,17 @@ class RunAgentsJob:
             )
             recommendation.run_id = run_id
             self._log("[green]✓[/green] [dim]Recommendation synthesized[/dim]")
+            if self.verbose and self.console:
+                from rich.panel import Panel
+
+                synthesis_content = f"Action: {recommendation.action}\n"
+                synthesis_content += f"Confidence: {recommendation.confidence:.2%}\n\n"
+                synthesis_content += recommendation.brief
+                truncated_content, was_truncated = self._truncate_content(synthesis_content)
+                panel_content = truncated_content
+                if was_truncated:
+                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                self.console.print(Panel(panel_content, title="Synthesis Logic", border_style="green"))
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,

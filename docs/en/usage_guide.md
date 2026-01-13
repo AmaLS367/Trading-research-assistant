@@ -109,6 +109,7 @@ python src/app/main.py analyze --symbol EURUSD --timeframe 1h
 **Parameters:**
 - `--symbol` (required) — trading symbol (e.g., EURUSD, GBPUSD)
 - `--timeframe` (optional) — timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d). Default: 1h
+- `--verbose` (optional) — show detailed analysis output during execution (technical analysis, news, synthesis)
 
 **Examples:**
 
@@ -121,7 +122,18 @@ python src/app/main.py analyze --symbol GBPUSD --timeframe 15m
 
 # Analyze USDJPY on daily timeframe
 python src/app/main.py analyze --symbol USDJPY --timeframe 1d
+
+# Analyze with detailed output
+python src/app/main.py analyze --symbol EURUSD --timeframe 1h --verbose
 ```
+
+**--verbose mode:**
+When using the `--verbose` flag, the system displays detailed information at each stage:
+- **Technical Rationale** — full text of technical analysis from LLM
+- **News Digest** — aggregated news context
+- **Synthesis Logic** — recommendation synthesis logic with action, confidence, and brief rationale
+
+If the text is too long (more than 2000 characters), it will be truncated with a hint to use `show-latest --details` to view the full text.
 
 **What happens:**
 1. Market data retrieval (candles)
@@ -137,6 +149,13 @@ python src/app/main.py analyze --symbol USDJPY --timeframe 1d
 python src/app/main.py show-latest
 ```
 
+Or with detailed information:
+
+```bash
+python src/app/main.py show-latest --details
+```
+
+**Without --details flag:**
 Displays the last saved recommendation with color coding:
 - 🟢 Green — CALL (buy)
 - 🔴 Red — PUT (sell)
@@ -146,6 +165,14 @@ Confidence is also color-coded:
 - 🟢 Green — high confidence (≥70%)
 - 🟡 Yellow — medium confidence (50-70%)
 - 🔴 Red — low confidence (<50%)
+
+**With --details flag:**
+After the recommendation table, displays saved rationales from the database:
+- **Technical Analysis** — technical analysis performed by LLM
+- **News Context** — news context used in analysis
+- **AI Synthesis** — final recommendation rationale
+
+If the recommendation doesn't have a `run_id` (old entries created before the run tracking system was implemented), an appropriate message is displayed.
 
 ### Trade Journal
 
