@@ -229,10 +229,8 @@ class RunAgentsJob:
             self._log("[green]✓[/green] [dim]Recommendation synthesized[/dim]")
 
             synthesis_content_parts: list[str] = [recommendation.brief]
-            if "news ignored" in recommendation.brief.lower() or "quality LOW" in recommendation.brief:
-                synthesis_content_parts.append("\n[News handling: News ignored due to low quality]")
-            elif "conflict" in recommendation.brief.lower():
-                synthesis_content_parts.append("\n[News handling: Conflict detected between technical and news]")
+            if news_digest.quality == "LOW":
+                synthesis_content_parts.append("\n[System Note: News ignored due to LOW quality]")
             synthesis_content = "\n".join(synthesis_content_parts)
 
             raw_data_dict: dict[str, Any] = {

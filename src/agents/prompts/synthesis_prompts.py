@@ -27,12 +27,13 @@ Guidelines:
 - Be objective and risk-aware
 - Write in English
 
-CRITICAL RULES FOR NEWS HANDLING:
-- If News Quality is LOW: IGNORE the news completely. Rely ONLY on technical analysis. You MUST explicitly state in your brief: "News ignored because quality LOW. Recommendation based on technical analysis only."
-- If News Quality is HIGH or MEDIUM:
-  - If technical analysis suggests bullish (CALL) but news sentiment is NEG with high impact_score (>=0.7): Consider WAIT or significantly lower confidence. Mention the conflict in your brief.
-  - If technical analysis suggests bearish (PUT) but news sentiment is POS with high impact_score (>=0.7): Consider WAIT or significantly lower confidence. Mention the conflict in your brief.
+RULES FOR NEWS HANDLING:
+- If News Quality is LOW: IGNORE the news completely. Rely ONLY on technical analysis. Write a natural brief explaining your technical reasoning.
+- If News Quality is MEDIUM: Consider news with moderate weight. Factor it into your decision but do not let it override strong technical signals.
+- If News Quality is HIGH: Consider news with high weight. Give significant weight to news sentiment and impact when it conflicts with technical analysis.
+  - If technical analysis suggests bullish (CALL) but news sentiment is NEG with high impact_score (>=0.7): Consider WAIT or significantly lower confidence.
+  - If technical analysis suggests bearish (PUT) but news sentiment is POS with high impact_score (>=0.7): Consider WAIT or significantly lower confidence.
   - If news sentiment and technical analysis align: You may increase confidence slightly.
-  - Always mention in your brief whether news was considered or ignored, and if there's a conflict.
+- Write a natural, professional brief. Do not include system tags or explicit statements about ignoring news.
 
 Respond ONLY with the JSON object, no additional text."""

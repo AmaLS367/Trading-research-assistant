@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from src.core.models.candle import Candle
+from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
 from src.runtime.jobs.run_agents_job import RunAgentsJob
@@ -42,24 +43,47 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
     synthesizer = Mock()
     from src.core.models.recommendation import Recommendation
 
-    synthesizer.synthesize.return_value = Recommendation(
-        symbol="EURUSD",
-        timestamp=datetime.now(),
-        timeframe=Timeframe.H1,
-        action="CALL",
-        brief="Test recommendation",
-        confidence=0.7,
+    synthesizer.synthesize.return_value = (
+        Recommendation(
+            symbol="EURUSD",
+            timestamp=datetime.now(),
+            timeframe=Timeframe.H1,
+            action="CALL",
+            brief="Test recommendation",
+            confidence=0.7,
+        ),
+        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
     )
 
     recommendations_repo = Mock()
     recommendations_repo.save.return_value = 1
+
+    runs_repo = Mock()
+    runs_repo.create.return_value = 1
+
+    rationales_repo = Mock()
+
+    news_analyst = Mock()
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+    news_analyst.analyze.return_value = news_digest
+    news_provider.get_news_digest.return_value = news_digest
 
     job = RunAgentsJob(
         market_data_provider=fallback_provider,
         news_provider=news_provider,
         technical_analyst=technical_analyst,
         synthesizer=synthesizer,
+        news_analyst=news_analyst,
         recommendations_repository=recommendations_repo,
+        runs_repository=runs_repo,
+        rationales_repository=rationales_repo,
     )
 
     with pytest.warns(UserWarning, match="failed.*Falling back"):
@@ -95,7 +119,18 @@ def test_job_uses_primary_when_successful() -> None:
     fallback_provider = FallbackMarketDataProvider(primary=primary, secondary=secondary)
 
     news_provider = Mock()
-    news_provider.get_news_summary.return_value = "No news"
+    news_digest = NewsDigest(
+        symbol="EURUSD",
+        timeframe=Timeframe.H1,
+        window_hours=24,
+        articles=[],
+        quality="MEDIUM",
+        quality_reason="Test",
+    )
+    news_provider.get_news_digest.return_value = news_digest
+
+    news_analyst = Mock()
+    news_analyst.analyze.return_value = news_digest
 
     technical_analyst = Mock()
     technical_analyst.analyze.return_value = "Technical view: bullish"
@@ -103,24 +138,35 @@ def test_job_uses_primary_when_successful() -> None:
     synthesizer = Mock()
     from src.core.models.recommendation import Recommendation
 
-    synthesizer.synthesize.return_value = Recommendation(
-        symbol="EURUSD",
-        timestamp=datetime.now(),
-        timeframe=Timeframe.H1,
-        action="CALL",
-        brief="Test recommendation",
-        confidence=0.7,
+    synthesizer.synthesize.return_value = (
+        Recommendation(
+            symbol="EURUSD",
+            timestamp=datetime.now(),
+            timeframe=Timeframe.H1,
+            action="CALL",
+            brief="Test recommendation",
+            confidence=0.7,
+        ),
+        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
     )
 
     recommendations_repo = Mock()
     recommendations_repo.save.return_value = 1
+
+    runs_repo = Mock()
+    runs_repo.create.return_value = 1
+
+    rationales_repo = Mock()
 
     job = RunAgentsJob(
         market_data_provider=fallback_provider,
         news_provider=news_provider,
         technical_analyst=technical_analyst,
         synthesizer=synthesizer,
+        news_analyst=news_analyst,
         recommendations_repository=recommendations_repo,
+        runs_repository=runs_repo,
+        rationales_repository=rationales_repo,
     )
 
     recommendation_id = job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
