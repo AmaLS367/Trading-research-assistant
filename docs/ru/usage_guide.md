@@ -145,6 +145,24 @@ python src/app/main.py analyze --symbol USDJPY --timeframe 1d
 python src/app/main.py analyze --symbol EURUSD --timeframe 1h --verbose
 ```
 
+**Проверка артефактов:**
+
+После запуска анализа артефакты сохраняются в `artifacts/run_{run_id}/`:
+- `recommendation.json` — JSON с данными рекомендации
+- `rationales.md` — Markdown файл со всеми обоснованиями (Technical, News, Synthesis)
+
+Для просмотра артефактов:
+```bash
+# Список всех директорий запусков
+ls artifacts/
+
+# Просмотр рекомендации для конкретного запуска
+cat artifacts/run_123/recommendation.json
+
+# Просмотр обоснований для конкретного запуска
+cat artifacts/run_123/rationales.md
+```
+
 **Режим --verbose:**
 При использовании флага `--verbose` система выводит детальную информацию на каждом этапе:
 - **Technical Rationale** — полный текст технического анализа от LLM

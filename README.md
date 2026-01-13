@@ -28,6 +28,8 @@
 
 Trading Research Assistant is a production-ready automated financial market analysis system that uses Large Language Models (LLM) to generate trading recommendations based on technical and fundamental analysis. Built with clean architecture principles and designed for extensibility.
 
+⚠️ **Demo Only**: This system is for research and analysis purposes only. All recommendations require manual execution. Not financial advice.
+
 ### Key Features
 
 - 📊 **Technical Analysis** - Automatic indicator calculation and chart analysis via LLM

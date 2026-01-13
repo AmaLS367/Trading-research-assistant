@@ -57,6 +57,9 @@ app → runtime → (features, agents, storage, providers, llm) → core
 #### `core/services/`
 Доменные сервисы:
 - `Orchestrator` — оркестрация пайплайна анализа
+  - Выполняет джобы в последовательности: Market Data → Features → Technical Analysis → News → News Analysis → Synthesis → Persistence
+  - Управляет жизненным циклом Run (PENDING → SUCCESS/FAILED)
+  - Возвращает `run_id` для отслеживания артефактов
 - `Reporter` — генерация отчетов
 - `Scheduler` — планирование задач
 
@@ -164,18 +167,34 @@ app → runtime → (features, agents, storage, providers, llm) → core
 
 ## Поток выполнения анализа
 
+### Пайплайн Orchestrator
+
+`Orchestrator` выполняет пайплайн анализа:
+
 ```
-1. CLI (main.py)
-   └─> analyze(symbol, timeframe)
-       └─> wiring.py создает компоненты
-           └─> RunAgentsJob.run()
-               ├─> FetchMarketDataJob → получает свечи
-               ├─> BuildFeaturesJob → вычисляет индикаторы
-               ├─> TechnicalAnalyst → анализирует через LLM
-               ├─> FetchNewsJob → получает новости
-               ├─> Synthesizer → синтезирует рекомендацию
-               └─> PersistRecommendationJob → сохраняет в БД
+1. Создать Run (статус PENDING)
+2. FetchMarketDataJob → проверить JobResult.ok
+3. BuildFeaturesJob → проверить JobResult.ok
+4. TechnicalAnalyst.analyze() → прямой вызов (не джоб)
+5. FetchNewsJob → проверить JobResult.ok
+6. NewsAnalyst.analyze() → прямой вызов (не джоб)
+7. Synthesizer.synthesize() → прямой вызов (не джоб)
+8. PersistRecommendationJob → проверить JobResult.ok
+9. Обновить Run на SUCCESS или FAILED
+10. Вернуть run_id (для отслеживания артефактов)
 ```
+
+Если любой джоб провалился (`JobResult.ok = False`), пайплайн останавливается, Run помечается как FAILED, и возвращается `run_id`.
+
+### Артефакты
+
+Каждый запуск создает артефакты в `artifacts/run_{run_id}/`:
+- `recommendation.json` — данные рекомендации
+- `rationales.md` — markdown со всеми обоснованиями (Technical, News, Synthesis)
+
+### Устаревший поток (RunAgentsJob)
+
+Старый `RunAgentsJob` сохранен для параллельного существования во время перехода.
 
 ## Dependency Injection
 

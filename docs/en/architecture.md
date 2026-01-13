@@ -57,6 +57,9 @@ Business rules and policies:
 #### `core/services/`
 Domain services:
 - `Orchestrator` — analysis pipeline orchestration
+  - Executes jobs in sequence: Market Data → Features → Technical Analysis → News → News Analysis → Synthesis → Persistence
+  - Manages Run lifecycle (PENDING → SUCCESS/FAILED)
+  - Returns `run_id` for artifact tracking
 - `Reporter` — report generation
 - `Scheduler` — task scheduling
 
@@ -130,12 +133,16 @@ Domain services:
 
 #### Components:
 - `jobs/` — execution tasks:
-  - `FetchMarketDataJob` — market data retrieval
-  - `FetchNewsJob` — news retrieval
-  - `BuildFeaturesJob` — feature calculation
-  - `RunAgentsJob` — agent execution
-  - `PersistRecommendationJob` — recommendation persistence
-- `loop/` — execution loops (e.g., `MinuteLoop`)
+  - `JobResult[T]` — generic result type with `ok`, `value`, `error` fields
+  - `FetchMarketDataJob` — market data retrieval (returns `JobResult[list[Candle]]`)
+  - `FetchNewsJob` — news retrieval (returns `JobResult[NewsDigest]`, falls back to LOW quality on error)
+  - `BuildFeaturesJob` — feature calculation (returns `JobResult[tuple[FeatureSnapshot, Signal]]`)
+  - `PersistRecommendationJob` — recommendation persistence (saves to DB and artifacts)
+  - `RunAgentsJob` — legacy agent execution (kept for parallel existence)
+- `loop/` — execution loops:
+  - `MinuteLoop` — runs analysis for each symbol on minute boundaries
+
+**Job System**: All jobs return `JobResult` objects instead of raising exceptions. Orchestrator checks `ok` flag and handles failures gracefully.
 
 **Rule**: `runtime` is the only place where concrete implementations can be wired together.
 
@@ -164,18 +171,34 @@ Domain services:
 
 ## Analysis Execution Flow
 
+### Orchestrator Pipeline
+
+The `Orchestrator` executes the analysis pipeline:
+
 ```
-1. CLI (main.py)
-   └─> analyze(symbol, timeframe)
-       └─> wiring.py creates components
-           └─> RunAgentsJob.run()
-               ├─> FetchMarketDataJob → retrieves candles
-               ├─> BuildFeaturesJob → calculates indicators
-               ├─> TechnicalAnalyst → analyzes via LLM
-               ├─> FetchNewsJob → retrieves news
-               ├─> Synthesizer → synthesizes recommendation
-               └─> PersistRecommendationJob → saves to DB
+1. Create Run (PENDING status)
+2. FetchMarketDataJob → check JobResult.ok
+3. BuildFeaturesJob → check JobResult.ok
+4. TechnicalAnalyst.analyze() → direct call (not a job)
+5. FetchNewsJob → check JobResult.ok
+6. NewsAnalyst.analyze() → direct call (not a job)
+7. Synthesizer.synthesize() → direct call (not a job)
+8. PersistRecommendationJob → check JobResult.ok
+9. Update Run to SUCCESS or FAILED
+10. Return run_id (for artifact tracking)
 ```
+
+If any job fails (`JobResult.ok = False`), the pipeline stops, Run is marked as FAILED, and `run_id` is returned.
+
+### Artifacts
+
+Each run creates artifacts in `artifacts/run_{run_id}/`:
+- `recommendation.json` — recommendation data
+- `rationales.md` — markdown with all rationales (Technical, News, Synthesis)
+
+### Legacy Flow (RunAgentsJob)
+
+The old `RunAgentsJob` is kept for parallel existence during transition.
 
 ## Dependency Injection
 

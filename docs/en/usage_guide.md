@@ -145,6 +145,24 @@ python src/app/main.py analyze --symbol USDJPY --timeframe 1d
 python src/app/main.py analyze --symbol EURUSD --timeframe 1h --verbose
 ```
 
+**Checking Artifacts:**
+
+After running analysis, artifacts are saved in `artifacts/run_{run_id}/`:
+- `recommendation.json` — JSON with recommendation data
+- `rationales.md` — Markdown file with all rationales (Technical, News, Synthesis)
+
+To view artifacts:
+```bash
+# List all run directories
+ls artifacts/
+
+# View recommendation for a specific run
+cat artifacts/run_123/recommendation.json
+
+# View rationales for a specific run
+cat artifacts/run_123/rationales.md
+```
+
 **--verbose mode:**
 When using the `--verbose` flag, the system displays detailed information at each stage:
 - **Technical Rationale** — full text of technical analysis from LLM
