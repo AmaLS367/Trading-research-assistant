@@ -145,6 +145,7 @@ cython_debug/
 *~
 .DS_Store
 .cursorrules
+.cursor/
 
 # Project-specific
 
