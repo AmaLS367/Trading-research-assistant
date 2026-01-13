@@ -118,12 +118,24 @@ class RunAgentsJob:
             )
 
             self._log("[dim]→ Fetching news context...[/dim]")
-            news_summary = self.news_provider.get_news_summary(symbol)
+            news_digest = self.news_provider.get_news_digest(symbol, timeframe)
             self._log("[green]✓[/green] [dim]News context retrieved[/dim]")
+
+            news_content_parts: list[str] = [f"Quality: {news_digest.quality}"]
+            if news_digest.quality_reason:
+                news_content_parts.append(f"Reason: {news_digest.quality_reason}")
+            if news_digest.articles:
+                news_content_parts.append("Top headlines:")
+                for article in news_digest.articles[:5]:
+                    news_content_parts.append(f"- {article.title}")
+            news_content = "\n".join(news_content_parts)
+
+            news_summary_for_synthesizer = news_digest.summary or "No news found via GDELT."
+
             if self.verbose and self.console:
                 from rich.panel import Panel
 
-                truncated_content, was_truncated = self._truncate_content(news_summary)
+                truncated_content, was_truncated = self._truncate_content(news_content)
                 panel_content = truncated_content
                 if was_truncated:
                     panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
@@ -132,7 +144,8 @@ class RunAgentsJob:
                 Rationale(
                     run_id=run_id,
                     rationale_type=RationaleType.NEWS,
-                    content=news_summary,
+                    content=news_content,
+                    raw_data=news_digest.model_dump_json(),
                 )
             )
 
@@ -141,7 +154,7 @@ class RunAgentsJob:
                 symbol=symbol,
                 timeframe=timeframe,
                 technical_view=technical_view,
-                news_summary=news_summary,
+                news_summary=news_summary_for_synthesizer,
             )
             recommendation.run_id = run_id
             self._log("[green]✓[/green] [dim]Recommendation synthesized[/dim]")
