@@ -10,6 +10,8 @@ You must respond with a valid JSON object in this exact format:
     "brief": "Brief explanation of your recommendation (2-3 sentences)"
 }
 
+CRITICAL: The "brief" field must be a valid JSON string. Do NOT use unescaped quotes inside the brief text. If you need to quote something, use single quotes or rephrase without quotes. The JSON must be parseable by standard JSON parsers.
+
 Guidelines:
 - "CALL" means you expect the price to go UP
 - "PUT" means you expect the price to go DOWN

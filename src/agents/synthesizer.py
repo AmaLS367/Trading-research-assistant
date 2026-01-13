@@ -67,6 +67,48 @@ Based on the above information, provide your trading recommendation as JSON."""
             confidence=confidence_float,
         )
 
+    def _try_fix_json(self, json_str: str) -> str | None:
+        fixed = json_str
+        
+        if not fixed.strip().startswith("{"):
+            json_start = fixed.find("{")
+            if json_start >= 0:
+                fixed = fixed[json_start:]
+        
+        if not fixed.strip().endswith("}"):
+            json_end = fixed.rfind("}")
+            if json_end >= 0:
+                fixed = fixed[:json_end + 1]
+        
+        try:
+            json.loads(fixed)
+            return fixed
+        except json.JSONDecodeError:
+            pass
+        
+        import re
+        
+        try:
+            fixed_escapes = fixed.replace("\\'", "'")
+            json.loads(fixed_escapes)
+            return fixed_escapes
+        except (json.JSONDecodeError, Exception):
+            pass
+        
+        try:
+            fixed_quotes = re.sub(
+                r'(?<!\\)"(?=.*":\s*")',
+                lambda m: '\\"',
+                fixed,
+                count=1
+            )
+            json.loads(fixed_quotes)
+            return fixed_quotes
+        except (json.JSONDecodeError, Exception):
+            pass
+        
+        return None
+
     def _parse_llm_response(self, response: str) -> dict[str, str | float]:
         response_cleaned = response.strip()
 
@@ -81,7 +123,35 @@ Based on the above information, provide your trading recommendation as JSON."""
         try:
             data = json.loads(response_cleaned)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse LLM response as JSON: {e}") from e
+            try:
+                fixed_response = self._try_fix_json(response_cleaned)
+                if fixed_response:
+                    data = json.loads(fixed_response)
+                else:
+                    raise
+            except (json.JSONDecodeError, ValueError):
+                error_pos = getattr(e, "pos", None)
+                error_line = getattr(e, "lineno", None)
+                error_col = getattr(e, "colno", None)
+                
+                context_start = max(0, (error_pos - 150) if error_pos else 0)
+                context_end = min(len(response_cleaned), (error_pos + 150) if error_pos else len(response_cleaned))
+                context = response_cleaned[context_start:context_end]
+                
+                error_details = f" at position {error_pos}" if error_pos else ""
+                if error_line and error_col:
+                    error_details += f" (line {error_line}, column {error_col})"
+                
+                error_msg = f"Failed to parse LLM response as JSON{error_details}: {e}"
+                if context:
+                    error_msg += f"\nContext around error:\n{context}"
+                if len(response_cleaned) > 0:
+                    error_msg += f"\nFull response length: {len(response_cleaned)} chars"
+                    error_msg += f"\nFirst 200 chars: {response_cleaned[:200]}"
+                    if len(response_cleaned) > 200:
+                        error_msg += f"\nLast 200 chars: {response_cleaned[-200:]}"
+                
+                raise ValueError(error_msg) from e
 
         if "action" not in data:
             raise ValueError("LLM response missing 'action' field")
