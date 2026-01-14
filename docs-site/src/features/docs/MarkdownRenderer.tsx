@@ -2,22 +2,95 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Link as LinkIcon } from 'lucide-react';
 import { useState } from 'react';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, cn } from '@/lib/utils';
 import MermaidBlock from './MermaidBlock';
+import Toast from '@/components/ui/Toast';
 
 interface MarkdownRendererProps {
   content: string;
   currentLang: string;
   currentSlug: string;
+  onShowToast?: (message: string) => void;
 }
 
 export default function MarkdownRenderer({
   content,
   currentLang,
   currentSlug,
+  onShowToast,
 }: MarkdownRendererProps) {
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const isOverview = currentSlug.includes('overview');
+
+  function showToast(message: string) {
+    setToastMessage(message);
+    if (onShowToast) {
+      onShowToast(message);
+    }
+  }
+
+  function generateId(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  }
+
+  function extractHeroContent(markdown: string): {
+    title: string;
+    subtitle: string;
+    badges: string;
+    remainingContent: string;
+  } | null {
+    if (!isOverview) return null;
+
+    const h1Match = markdown.match(/^#\s+(.+)$/m);
+    if (!h1Match) return null;
+
+    const title = h1Match[1].replace(/^📊\s*/, '').trim();
+    const afterH1 = markdown.slice(h1Match.index! + h1Match[0].length).trim();
+
+    const subtitleMatch = afterH1.match(/^\*\*(.+?)\*\*/);
+    const subtitle = subtitleMatch ? subtitleMatch[1].trim() : '';
+
+    const divMatch = afterH1.match(/<div[^>]*>([\s\S]*?)<\/div>/);
+    let badges = '';
+    if (divMatch) {
+      badges = divMatch[1].trim();
+    }
+
+    let remainingStart = 0;
+    const hrMatch = afterH1.match(/^---/m);
+    if (hrMatch) {
+      remainingStart = hrMatch.index! + hrMatch[0].length;
+      const nextLine = afterH1.indexOf('\n', remainingStart);
+      if (nextLine !== -1) {
+        remainingStart = nextLine + 1;
+      }
+    } else {
+      const doubleNewline = afterH1.indexOf('\n\n');
+      if (doubleNewline !== -1) {
+        remainingStart = doubleNewline + 2;
+      } else {
+        const singleNewline = afterH1.indexOf('\n');
+        if (singleNewline !== -1) {
+          remainingStart = singleNewline + 1;
+        }
+      }
+    }
+
+    const remainingContent = afterH1.slice(remainingStart).trim();
+
+    return { title, subtitle, badges, remainingContent };
+  }
+
+  const heroContent = extractHeroContent(content);
+  const renderContent = heroContent ? heroContent.remainingContent : content;
+
   const sanitizeSchema: any = {
     tagNames: [
       'details',
@@ -63,20 +136,104 @@ export default function MarkdownRenderer({
     },
   };
 
+  async function handleAnchorClick(text: string, e: React.MouseEvent) {
+    e.preventDefault();
+    const id = generateId(text);
+    const url = `${window.location.origin}${window.location.pathname}#${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  }
+
+  function HeadingComponent(
+    props: React.HTMLAttributes<HTMLHeadingElement>,
+    level: 2 | 3
+  ) {
+    const { children, className, ...rest } = props;
+    const text = String(children);
+    const id = generateId(text);
+
+    return (
+      <div className="group relative flex items-center gap-2">
+        <button
+          onClick={(e) => handleAnchorClick(text, e)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Copy link to heading"
+        >
+          <LinkIcon className="h-4 w-4" />
+        </button>
+        {level === 2 ? (
+          <h2
+            {...rest}
+            id={id}
+            className={cn(
+              className,
+              'scroll-mt-20 text-2xl font-semibold mt-12 mb-4 text-foreground border-b border-border pb-2 flex-1'
+            )}
+          >
+            {children}
+          </h2>
+        ) : (
+          <h3
+            {...rest}
+            id={id}
+            className={cn(
+              className,
+              'scroll-mt-20 text-xl font-semibold mt-8 mb-3 text-foreground flex-1'
+            )}
+          >
+            {children}
+          </h3>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="prose prose-slate max-w-none">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
-        components={{
-          code: CodeBlock,
-          a: (props) => LinkComponent(props, currentLang, currentSlug),
-          img: ImageComponent,
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
+    <>
+      {heroContent && (
+        <div className="mb-12 pb-8 border-b border-border">
+          <h1 className="text-4xl font-bold mb-4 text-foreground">
+            {heroContent.title}
+          </h1>
+          {heroContent.subtitle && (
+            <p className="text-xl text-muted-foreground mb-6">
+              {heroContent.subtitle}
+            </p>
+          )}
+          {heroContent.badges && (
+            <div
+              className="flex flex-wrap gap-2 mb-6"
+              dangerouslySetInnerHTML={{ __html: heroContent.badges }}
+            />
+          )}
+        </div>
+      )}
+      <div className="prose prose-slate max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+          components={{
+            code: CodeBlock,
+            a: (props) => LinkComponent(props, currentLang, currentSlug),
+            img: ImageComponent,
+            h2: (props) => HeadingComponent(props, 2),
+            h3: (props) => HeadingComponent(props, 3),
+          }}
+        >
+          {renderContent}
+        </ReactMarkdown>
+      </div>
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+    </>
   );
 }
 

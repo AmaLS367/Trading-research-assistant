@@ -4,6 +4,7 @@ import { useDocs } from '@/lib/docs-context';
 import DocsLayout from '@/components/layout/DocsLayout';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import PrevNext from '@/components/layout/PrevNext';
+import TOC from '@/components/layout/TOC';
 import MarkdownRenderer from '@/features/docs/MarkdownRenderer';
 import { Loader2 } from 'lucide-react';
 
@@ -76,6 +77,7 @@ export default function DocsPage() {
       ) : content ? (
         <article className="animate-fade-in">
           <Breadcrumbs />
+          <TOC isMobile={true} />
           <MarkdownRenderer
             content={content.markdown}
             currentLang={currentLang}
