@@ -190,3 +190,9 @@ desktop.ini
 
 # Pre-commit
 .pre-commit-config.yaml.bak
+
+# Docs site
+docs-site/node_modules/
+docs-site/dist/
+docs-site/public/docs/
+docs-site/public/docs-manifest.json
