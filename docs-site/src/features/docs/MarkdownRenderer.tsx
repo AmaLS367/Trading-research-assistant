@@ -206,6 +206,7 @@ export default function MarkdownRenderer({
             code: CodeBlock,
             a: (props) => LinkComponent(props, currentLang, currentSlug),
             img: ImageComponent,
+            table: TableWrapper,
             h2: (props) => HeadingComponent(props, 2),
             h3: (props) => HeadingComponent(props, 3),
           }}
@@ -226,36 +227,45 @@ export default function MarkdownRenderer({
 function CodeBlock({
   children,
   className,
+  inline,
 }: {
   children?: React.ReactNode;
   className?: string;
+  inline?: boolean;
   [key: string]: any;
 }) {
   const match = /language-(\w+)/.exec(className || '');
   const lang = match ? match[1] : '';
-  const code = String(children).replace(/\n$/, '');
+  const codeText = String(children).replace(/\n$/, '');
 
-  if (lang === 'mermaid') {
-    return <MermaidBlock code={code} />;
+  if (inline === true) {
+    return <code className={className}>{children}</code>;
   }
 
-  // Heuristic for file chips: short, 1-2 lines, no language, looks like token/path/command
-  const lines = code.split('\n').filter(line => line.trim().length > 0);
-  const isShortLines = lines.length <= 2;
-  const totalLength = code.trim().length;
-  const isShort = totalLength <= 80;
-  const hasNoSpaces = !code.includes(' ') || lines.every(line => !line.includes(' '));
-  const looksLikeToken = /^[\w./_\-]+$/m.test(code.trim());
-  
-  if (!lang && isShortLines && isShort && hasNoSpaces && looksLikeToken) {
+  if (lang === 'mermaid') {
+    return <MermaidBlock code={codeText} />;
+  }
+
+  // For code blocks with language, always use CodeBlockWithCopy
+  if (lang) {
+    return <CodeBlockWithCopy code={codeText} lang={lang} />;
+  }
+
+  // For code blocks without language, check if single line
+  const lines = codeText.split('\n');
+  const trimmedCode = codeText.trim();
+
+  // If single line and not empty, render as plain text (monospaced but not as code block)
+  if (lines.length === 1 && trimmedCode.length > 0) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-sm font-mono bg-muted text-foreground border border-border">
-        {code.trim()}
+      <span className="font-mono text-sm text-foreground">
+        {trimmedCode}
       </span>
     );
   }
 
-  return <CodeBlockWithCopy code={code} lang={lang} />;
+  // Multi-line blocks without language still use CodeBlockWithCopy
+  return <CodeBlockWithCopy code={codeText} lang={lang} />;
 }
 
 function CodeBlockWithCopy({ code, lang }: { code: string; lang: string }) {
@@ -416,6 +426,17 @@ function LinkComponent(
     <a href={href} className="text-primary hover:underline" {...rest}>
       {children}
     </a>
+  );
+}
+
+function TableWrapper(props: React.TableHTMLAttributes<HTMLTableElement>) {
+  const { children, ...rest } = props;
+  return (
+    <div className="overflow-x-auto my-4">
+      <table {...rest} className="min-w-full">
+        {children}
+      </table>
+    </div>
   );
 }
 

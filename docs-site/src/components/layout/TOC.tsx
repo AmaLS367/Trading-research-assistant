@@ -22,6 +22,7 @@ export default function TOC({ isMobile = false }: TOCProps) {
   const [items, setItems] = useState<TOCItem[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const retryFrameRef = useRef<number | null>(null);
 
   // Extract slug from location
   const pathMatch = location.pathname.match(/\/(?:en|ru|es|de|fr|ja|ko|zh)\/(.+)/);
@@ -58,18 +59,7 @@ export default function TOC({ isMobile = false }: TOCProps) {
       return tocItems;
     }
 
-    // Clear previous state
-    setItems([]);
-    setActiveId('');
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-
-    const timeoutId = setTimeout(() => {
-      const tocItems = collectHeadings();
-      setItems(tocItems);
-
+    function setupObserver(tocItems: TOCItem[]) {
       if (tocItems.length === 0) return;
 
       if (observerRef.current) {
@@ -99,10 +89,46 @@ export default function TOC({ isMobile = false }: TOCProps) {
       });
 
       observerRef.current = observer;
-    }, 100);
+    }
+
+    // Clear previous state
+    setItems([]);
+    setActiveId('');
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (retryFrameRef.current !== null) {
+      cancelAnimationFrame(retryFrameRef.current);
+      retryFrameRef.current = null;
+    }
+
+    let retryCount = 0;
+    const maxRetries = 20;
+
+    function attemptCollection() {
+      const tocItems = collectHeadings();
+      
+      if (tocItems.length > 0 || retryCount >= maxRetries) {
+        setItems(tocItems);
+        if (tocItems.length > 0) {
+          setupObserver(tocItems);
+        }
+        retryFrameRef.current = null;
+        return;
+      }
+
+      retryCount++;
+      retryFrameRef.current = requestAnimationFrame(attemptCollection);
+    }
+
+    retryFrameRef.current = requestAnimationFrame(attemptCollection);
 
     return () => {
-      clearTimeout(timeoutId);
+      if (retryFrameRef.current !== null) {
+        cancelAnimationFrame(retryFrameRef.current);
+        retryFrameRef.current = null;
+      }
       if (observerRef.current) {
         observerRef.current.disconnect();
         observerRef.current = null;
