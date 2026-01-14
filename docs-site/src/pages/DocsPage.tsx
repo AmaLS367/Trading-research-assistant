@@ -10,12 +10,13 @@ import { Loader2 } from 'lucide-react';
 export default function DocsPage() {
   const { lang } = useParams();
   const location = useLocation();
-  const { languages, currentLang, setCurrentLang, getPageContent, navigation } = useDocs();
+  const { languages, currentLang, setCurrentLang, getPageContent, getMainDocumentSlug, navigation } = useDocs();
   const [content, setContent] = useState<{ markdown: string; title: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const slug = location.pathname.replace(`/${lang}/`, '').replace(/^\//, '') || navigation[0]?.items[0]?.slug || 'overview';
+  const pathSlug = location.pathname.replace(`/${lang}/`, '').replace(/^\//, '');
+  const slug = pathSlug || navigation[0]?.items[0]?.slug || 'overview';
 
   useEffect(() => {
     if (lang && languages.includes(lang) && lang !== currentLang) {
@@ -39,6 +40,23 @@ export default function DocsPage() {
     }
     loadContent();
   }, [slug, getPageContent, currentLang]);
+
+  useEffect(() => {
+    async function handleLanguageRedirect() {
+      if (lang && !languages.includes(lang)) {
+        return;
+      }
+      
+      if (!pathSlug && lang) {
+        const mainSlug = await getMainDocumentSlug();
+        if (mainSlug) {
+          window.location.hash = `#/${lang}/${mainSlug}`;
+        }
+      }
+    }
+    
+    handleLanguageRedirect();
+  }, [lang, languages, pathSlug, getMainDocumentSlug]);
 
   if (lang && !languages.includes(lang)) {
     return <Navigate to={`/${languages[0] || 'en'}`} replace />;

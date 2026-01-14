@@ -12,6 +12,43 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
 }
 
 function renderMarkdown(markdown: string): React.ReactNode[] {
+  const { processed, details } = preprocessDetails(markdown);
+  return renderMarkdownContent(processed, details);
+}
+
+interface DetailsData {
+  summary: string;
+  content: string;
+  placeholder: string;
+}
+
+function preprocessDetails(markdown: string): { processed: string; details: DetailsData[] } {
+  const detailsRegex = /<details>([\s\S]*?)<\/details>/gi;
+  let result = markdown;
+  const detailsList: DetailsData[] = [];
+  let match;
+  let counter = 0;
+
+  while ((match = detailsRegex.exec(markdown)) !== null) {
+    const fullMatch = match[0];
+    const innerContent = match[1];
+    
+    const summaryMatch = innerContent.match(/<summary>([\s\S]*?)<\/summary>/is);
+    const summary = summaryMatch ? summaryMatch[1].trim() : '';
+    const content = summaryMatch 
+      ? innerContent.slice(summaryMatch.index! + summaryMatch[0].length).trim()
+      : innerContent.trim();
+    
+    const placeholder = `__DETAILS_PLACEHOLDER_${counter}__`;
+    detailsList.push({ summary, content, placeholder });
+    result = result.replace(fullMatch, placeholder);
+    counter++;
+  }
+
+  return { processed: result, details: detailsList };
+}
+
+function renderMarkdownContent(markdown: string, details: DetailsData[] = []): React.ReactNode[] {
   const lines = markdown.split('\n');
   const elements: React.ReactNode[] = [];
   let i = 0;
@@ -19,6 +56,68 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    const detailsPlaceholderMatch = line.match(/__DETAILS_PLACEHOLDER_(\d+)__/);
+    if (detailsPlaceholderMatch) {
+      const placeholderIndex = parseInt(detailsPlaceholderMatch[1], 10);
+      const detailsData = details[placeholderIndex];
+      if (detailsData) {
+        elements.push(
+          <DetailsBlock
+            key={key++}
+            summary={detailsData.summary}
+            content={detailsData.content}
+          />
+        );
+        i++;
+        continue;
+      }
+    }
+
+    if (line.trim().startsWith('<div')) {
+      const divStartMatch = line.match(/<div\s+([^>]*)>/i);
+      if (divStartMatch) {
+        const attrs = divStartMatch[1];
+        const alignMatch = attrs.match(/align\s*=\s*["']([^"']+)["']/i);
+        const align = alignMatch ? alignMatch[1] : '';
+        
+        let divContent = '';
+        let divEndFound = false;
+        let j = i;
+        
+        while (j < lines.length) {
+          const currentLine = lines[j];
+          divContent += (j > i ? '\n' : '') + currentLine;
+          
+          if (currentLine.includes('</div>')) {
+            divEndFound = true;
+            const divMatch = divContent.match(/<div\s+[^>]*>([\s\S]*?)<\/div>/i);
+            if (divMatch) {
+              const innerContent = divMatch[1];
+              elements.push(
+                <div key={key++} className={align === 'center' ? 'text-center' : ''} style={align === 'center' ? { textAlign: 'center' } : undefined}>
+                  {renderMarkdownContent(innerContent, details)}
+                </div>
+              );
+              i = j;
+              break;
+            }
+          }
+          j++;
+        }
+        
+        if (divEndFound) {
+          i++;
+          continue;
+        }
+      }
+    }
+
+    if (line.trim() === '<br />' || line.trim() === '<br>') {
+      elements.push(<br key={key++} />);
+      i++;
+      continue;
+    }
 
     if (line.startsWith('```')) {
       const lang = line.slice(3).trim();
@@ -89,7 +188,8 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
     } else if (line.trim() === '') {
       elements.push(<div key={key++} className="h-4" />);
     } else if (line.trim()) {
-      elements.push(<p key={key++} className="my-3 text-foreground leading-7">{parseInline(line)}</p>);
+      const processedLine = processInlineHtml(line);
+      elements.push(<p key={key++} className="my-3 text-foreground leading-7">{processedLine}</p>);
     }
     i++;
   }
@@ -97,17 +197,21 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
   return elements;
 }
 
-function parseInline(text: string): React.ReactNode {
+function processInlineHtml(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let key = 0;
 
   while (remaining) {
+    const imgMatch = remaining.match(/<img\s+([^>]*)>/i);
+    const spanMatch = remaining.match(/<span\s+([^>]*)>([\s\S]*?)<\/span>/i);
     const codeMatch = remaining.match(/`([^`]+)`/);
     const boldMatch = remaining.match(/\*\*([^*]+)\*\*/);
     const linkMatch = remaining.match(/\[([^\]]+)\]\(([^)]+)\)/);
 
     const matches = [
+      imgMatch ? { type: 'img', match: imgMatch, index: imgMatch.index! } : null,
+      spanMatch ? { type: 'span', match: spanMatch, index: spanMatch.index! } : null,
       codeMatch ? { type: 'code', match: codeMatch, index: codeMatch.index! } : null,
       boldMatch ? { type: 'bold', match: boldMatch, index: boldMatch.index! } : null,
       linkMatch ? { type: 'link', match: linkMatch, index: linkMatch.index! } : null,
@@ -123,18 +227,60 @@ function parseInline(text: string): React.ReactNode {
       parts.push(remaining.slice(0, first.index));
     }
 
-    if (first.type === 'code') {
+    if (first.type === 'img') {
+      const attrs = first.match[1];
+      const srcMatch = attrs.match(/src\s*=\s*["']([^"']+)["']/i);
+      const altMatch = attrs.match(/alt\s*=\s*["']([^"']+)["']/i);
+      parts.push(
+        <img
+          key={key++}
+          src={srcMatch ? srcMatch[1] : ''}
+          alt={altMatch ? altMatch[1] : ''}
+          className="max-w-full h-auto my-4"
+        />
+      );
+    } else if (first.type === 'span') {
+      const innerContent = first.match[2];
+      parts.push(
+        <span key={key++} dangerouslySetInnerHTML={{ __html: innerContent }} />
+      );
+    } else if (first.type === 'code') {
       parts.push(<code key={key++} className="px-1.5 py-0.5 rounded bg-muted font-mono text-sm">{first.match[1]}</code>);
     } else if (first.type === 'bold') {
       parts.push(<strong key={key++} className="font-semibold">{first.match[1]}</strong>);
     } else if (first.type === 'link') {
-      parts.push(<a key={key++} href={first.match[2]} className="text-primary hover:underline" target={first.match[2].startsWith('http') ? '_blank' : undefined}>{first.match[1]}</a>);
+      parts.push(<a key={key++} href={first.match[2]} className="text-primary hover:underline" target={first.match[2].startsWith('http') ? '_blank' : undefined} rel={first.match[2].startsWith('http') ? 'noopener noreferrer' : undefined}>{first.match[1]}</a>);
     }
 
     remaining = remaining.slice(first.index + first.match[0].length);
   }
 
   return parts.length === 1 ? parts[0] : parts;
+}
+
+function parseInline(text: string): React.ReactNode {
+  return processInlineHtml(text);
+}
+
+function DetailsBlock({ summary, content }: { summary: string; content: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details 
+      className="my-4 rounded-lg border border-border bg-muted/50"
+      open={isOpen}
+      onToggle={(e) => {
+        setIsOpen((e.target as HTMLDetailsElement).open);
+      }}
+    >
+      <summary className="cursor-pointer px-4 py-3 font-medium text-foreground hover:bg-accent transition-colors">
+        {parseInline(summary)}
+      </summary>
+      <div className="px-4 py-3 border-t border-border">
+        {renderMarkdownContent(content)}
+      </div>
+    </details>
+  );
 }
 
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
