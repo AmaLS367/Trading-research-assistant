@@ -76,7 +76,11 @@ export default function DocsPage() {
       ) : content ? (
         <article className="animate-fade-in">
           <Breadcrumbs />
-          <MarkdownRenderer content={content.markdown} />
+          <MarkdownRenderer
+            content={content.markdown}
+            currentLang={currentLang}
+            currentSlug={slug}
+          />
           <PrevNext currentSlug={slug} />
         </article>
       ) : null}

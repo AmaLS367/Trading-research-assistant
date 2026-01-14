@@ -9,9 +9,9 @@ export default function Home() {
   const firstPage = navigation[0]?.items[0]?.slug || 'overview';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       <Navbar />
-      <main className="mx-auto max-w-4xl px-4 py-24 text-center">
+      <main className="mx-auto max-w-4xl px-4 py-24 text-center relative z-10">
         <div className="animate-fade-in">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-sm text-muted-foreground">
             <BookOpen className="h-4 w-4" />
