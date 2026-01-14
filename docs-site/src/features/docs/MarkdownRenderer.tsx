@@ -156,17 +156,19 @@ export default function MarkdownRenderer({
     const text = String(children);
     const id = generateId(text);
 
-    const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+    const headingProps: React.HTMLAttributes<HTMLHeadingElement> = {
+      ...rest,
+      id,
+      className: cn(className, 'scroll-mt-20'),
+    };
 
     return (
       <div className="group relative">
-        <HeadingTag
-          {...rest}
-          id={id}
-          className={cn(className, 'scroll-mt-20')}
-        >
-          {children}
-        </HeadingTag>
+        {level === 2 ? (
+          <h2 {...headingProps}>{children}</h2>
+        ) : (
+          <h3 {...headingProps}>{children}</h3>
+        )}
         <button
           onClick={(e) => handleAnchorClick(text, e)}
           className="absolute -left-6 top-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"

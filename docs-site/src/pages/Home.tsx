@@ -10,7 +10,6 @@ import {
   Layers,
   ShieldCheck,
   Terminal,
-  Star,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDocs } from '@/lib/docs-context';
