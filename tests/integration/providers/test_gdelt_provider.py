@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from unittest.mock import Mock
 
 import httpx
@@ -8,7 +9,7 @@ from src.news_providers.gdelt_provider import GDELTProvider
 
 
 def test_get_news_summary_collects_titles() -> None:
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "articles": [
             {"title": "EUR USD Exchange Rate Rises on Forex Market", "seendate": "20240101120000"},
             {"title": "European Central Bank Announces Forex Policy", "seendate": "20240101120000"},
@@ -33,7 +34,7 @@ def test_get_news_summary_collects_titles() -> None:
 
 
 def test_get_news_summary_handles_empty_articles() -> None:
-    mock_response_data = {"articles": []}
+    mock_response_data: dict[str, list[dict[str, Any]]] = {"articles": []}
 
     mock_response = Mock(spec=httpx.Response)
     mock_response.json.return_value = mock_response_data
@@ -52,7 +53,7 @@ def test_get_news_summary_handles_empty_articles() -> None:
 
 
 def test_get_news_summary_handles_missing_articles_key() -> None:
-    mock_response_data = {}
+    mock_response_data: dict[str, Any] = {}
 
     mock_response = Mock(spec=httpx.Response)
     mock_response.json.return_value = mock_response_data
@@ -205,9 +206,8 @@ def test_filter_dedup_score_calculates_relevance() -> None:
 
 def test_get_news_digest_determines_quality_high() -> None:
     provider = GDELTProvider(base_url="https://api.test.com")
-    from src.core.models.news import NewsArticle
 
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "articles": [
             {"title": f"EUR USD News Article {i} with ECB and CPI", "seendate": "20240101120000"}
             for i in range(10)
@@ -315,7 +315,7 @@ def test_query_templates_include_fx_anchors() -> None:
 
     for pass_name in ["strict", "medium", "broad"]:
         if pass_name in templates:
-            for query_tag, query in templates[pass_name].items():
+            for _query_tag, query in templates[pass_name].items():
                 assert "sourcelang:English" in query
                 assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query
 

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, List
+from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -85,9 +85,9 @@ class Settings(BaseSettings):
             return value
         return Path(str(value))
 
-    def mvp_symbols(self) -> List[str]:
+    def mvp_symbols(self) -> list[str]:
         raw_parts = self.runtime_mvp_symbols_raw.split(",")
-        normalized_symbols: List[str] = []
+        normalized_symbols: list[str] = []
         for part in raw_parts:
             cleaned_value = part.strip().upper()
             if not cleaned_value:

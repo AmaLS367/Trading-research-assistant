@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from unittest.mock import Mock
 
 import httpx
@@ -8,7 +9,7 @@ from src.news_providers.newsapi_provider import NewsAPIProvider
 
 
 def test_get_news_summary_collects_titles() -> None:
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "articles": [
             {
                 "title": "EUR USD Exchange Rate Rises on Forex Market",
@@ -42,7 +43,7 @@ def test_get_news_summary_collects_titles() -> None:
 
 
 def test_get_news_summary_handles_empty_articles() -> None:
-    mock_response_data = {"articles": []}
+    mock_response_data: dict[str, list[dict[str, Any]]] = {"articles": []}
 
     mock_response = Mock(spec=httpx.Response)
     mock_response.json.return_value = mock_response_data
@@ -176,7 +177,7 @@ def test_filter_dedup_score_calculates_relevance() -> None:
 def test_get_news_digest_determines_quality() -> None:
     provider = NewsAPIProvider(api_key="test_key", base_url="https://api.test.com")
 
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "articles": [
             {
                 "title": f"EUR USD News Article {i} with ECB and CPI",
@@ -225,7 +226,7 @@ def test_get_news_digest_handles_errors_gracefully() -> None:
 def test_fetch_articles_for_query_parses_newsapi_response() -> None:
     provider = NewsAPIProvider(api_key="test_key", base_url="https://api.test.com")
 
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "articles": [
             {
                 "title": "EUR USD Exchange Rate Rises",

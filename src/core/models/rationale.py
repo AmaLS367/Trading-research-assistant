@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -11,8 +10,8 @@ class RationaleType(str, Enum):
 
 
 class Rationale(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     run_id: int
     rationale_type: RationaleType
     content: str
-    raw_data: Optional[str] = None
+    raw_data: str | None = None

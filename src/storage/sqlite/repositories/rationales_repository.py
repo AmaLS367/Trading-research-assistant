@@ -1,4 +1,3 @@
-from typing import Optional
 
 from src.core.models.rationale import Rationale, RationaleType
 from src.storage.sqlite.connection import DBConnection

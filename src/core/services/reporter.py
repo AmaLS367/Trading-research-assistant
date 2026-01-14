@@ -46,10 +46,7 @@ class Reporter:
             total_trades = stats["wins"] + stats["losses"] + stats["draws"]
             skipped = stats["skipped"]
 
-            if total_trades > 0:
-                winrate = (stats["wins"] / total_trades) * 100
-            else:
-                winrate = 0.0
+            winrate = stats["wins"] / total_trades * 100 if total_trades > 0 else 0.0
 
             table.add_row(
                 symbol,

@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel
 
 
 class JournalEntry(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     recommendation_id: int
     symbol: str
     open_time: datetime

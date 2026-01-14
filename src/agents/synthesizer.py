@@ -62,6 +62,8 @@ Based on the above information, provide your trading recommendation as JSON."""
             "repair_output_1": None,
             "repair_output_2": None,
             "brief_warning": None,
+            "retry_used": False,
+            "retry_raw_output": None,
         }
 
         try:
@@ -105,6 +107,7 @@ Invalid output:
                 try:
                     repair_attempts += 1
                     debug_payload["repair_attempts"] = repair_attempts
+                    debug_payload["retry_used"] = True
 
                     retry_response = self.llm_provider.generate(
                         system_prompt="Return ONLY valid JSON. No markdown. No explanations. JSON must start with '{' and end with '}'.",
@@ -137,6 +140,7 @@ Invalid output:
 
                 except (ValueError, json.JSONDecodeError) as retry_error:
                     last_error = retry_error
+                    debug_payload["retry_raw_output"] = self._truncate_string(retry_response, 6000)
                     if attempt == 0:
                         repair_prompt = f"""Convert this into STRICT valid JSON. Return JSON only. JSON must start with '{{' and end with '}}'.
 

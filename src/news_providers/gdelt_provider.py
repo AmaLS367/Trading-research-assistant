@@ -1,8 +1,6 @@
-import re
-import string
 from collections import Counter
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -94,9 +92,9 @@ class GDELTProvider(NewsProvider):
 
         return templates
 
-    def _fetch_articles_for_query(self, query: str, query_tag: str) -> tuple[list[NewsArticle], dict]:
+    def _fetch_articles_for_query(self, query: str, query_tag: str) -> tuple[list[NewsArticle], dict[str, Any]]:
         articles: list[NewsArticle] = []
-        debug_info: dict = {
+        debug_info: dict[str, Any] = {
             "tag": query_tag,
             "query": query[:200] if len(query) > 200 else query,
             "url": "",
@@ -152,7 +150,7 @@ class GDELTProvider(NewsProvider):
                     source = article_data.get("source", "").strip() or None
                     language = article_data.get("language", "").strip() or None
 
-                    published_at: Optional[datetime] = None
+                    published_at: datetime | None = None
                     seendate_str = article_data.get("seendate")
                     if seendate_str:
                         try:
@@ -191,12 +189,12 @@ class GDELTProvider(NewsProvider):
 
     def fetch_articles_with_fallback(
         self, symbol: str
-    ) -> tuple[list[NewsArticle], dict[str, dict[str, int]], dict[str, str], dict]:
+    ) -> tuple[list[NewsArticle], dict[str, dict[str, int]], dict[str, str], dict[str, Any]]:
         templates = self._get_query_templates(symbol)
         all_candidates: list[NewsArticle] = []
         pass_counts: dict[str, dict[str, int]] = {}
         queries_used: dict[str, str] = {}
-        gdelt_debug: dict = {"passes": {}}
+        gdelt_debug: dict[str, Any] = {"passes": {}}
 
         passes = ["strict", "medium", "broad"]
         threshold = 0.55
@@ -207,7 +205,7 @@ class GDELTProvider(NewsProvider):
                 continue
 
             pass_candidates: list[NewsArticle] = []
-            pass_requests: list[dict] = []
+            pass_requests: list[dict[str, Any]] = []
 
             for query_tag, query in templates[pass_name].items():
                 articles, debug_info = self._fetch_articles_for_query(query, query_tag)
@@ -272,7 +270,7 @@ class GDELTProvider(NewsProvider):
 
     def _filter_dedup_score(
         self, articles: list[NewsArticle], symbol: str
-    ) -> tuple[list[NewsArticle], list[str], Optional[str]]:
+    ) -> tuple[list[NewsArticle], list[str], str | None]:
         symbol_upper = symbol.upper().strip()
         base_currency = symbol_upper[:3] if len(symbol_upper) >= 3 else ""
         quote_currency = symbol_upper[3:6] if len(symbol_upper) >= 6 else ""
@@ -387,7 +385,7 @@ class GDELTProvider(NewsProvider):
 
         filtered_sorted = sorted(deduplicated, key=lambda a: a.relevance_score, reverse=True)
 
-        dropped_reason_hint: Optional[str] = None
+        dropped_reason_hint: str | None = None
         if drop_reasons:
             most_common = Counter(drop_reasons).most_common(1)[0][0]
             dropped_reason_hint = most_common
@@ -422,7 +420,7 @@ class GDELTProvider(NewsProvider):
             summary = " ".join(summary_parts)
 
             dropped_examples: list[str] = []
-            dropped_reason_hint: Optional[str] = None
+            dropped_reason_hint: str | None = None
             if quality == "LOW":
                 all_candidates_for_dropped: list[NewsArticle] = []
                 templates = self._get_query_templates(symbol)

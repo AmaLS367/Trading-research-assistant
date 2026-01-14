@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -14,10 +13,10 @@ class RunStatus(str, Enum):
 
 
 class Run(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     symbol: str
     timeframe: Timeframe
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     status: RunStatus
-    error_message: Optional[str] = None
+    error_message: str | None = None

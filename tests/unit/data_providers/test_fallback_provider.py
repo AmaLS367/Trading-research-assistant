@@ -84,13 +84,12 @@ def test_fallback_provider_raises_when_both_fail() -> None:
 
     fallback = FallbackMarketDataProvider(primary=primary, secondary=secondary)
 
-    with pytest.warns(UserWarning):
-        with pytest.raises(RuntimeError, match="Both providers failed"):
-            fallback.fetch_candles(
-                symbol="EURUSD",
-                timeframe=Timeframe.H1,
-                count=100,
-            )
+    with pytest.warns(UserWarning), pytest.raises(RuntimeError, match="Both providers failed"):
+        fallback.fetch_candles(
+            symbol="EURUSD",
+            timeframe=Timeframe.H1,
+            count=100,
+        )
 
     primary.fetch_candles.assert_called_once()
     secondary.fetch_candles.assert_called_once()

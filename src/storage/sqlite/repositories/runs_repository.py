@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
@@ -37,7 +36,7 @@ class RunsRepository:
         run_id: int,
         status: str,
         end_time: datetime,
-        error_message: Optional[str],
+        error_message: str | None,
     ) -> None:
         query = """
             UPDATE runs
@@ -55,7 +54,7 @@ class RunsRepository:
                 ),
             )
 
-    def get_by_id(self, run_id: int) -> Optional[Run]:
+    def get_by_id(self, run_id: int) -> Run | None:
         query = """
             SELECT id, symbol, timeframe, start_time, end_time, status, error_message
             FROM runs

@@ -1,8 +1,5 @@
-import re
-import string
 from collections import Counter
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import UTC, datetime
 
 import httpx
 
@@ -94,7 +91,7 @@ class NewsAPIProvider(NewsProvider):
                 source_obj = article_data.get("source", {})
                 source = source_obj.get("name", "").strip() if isinstance(source_obj, dict) else None
 
-                published_at: Optional[datetime] = None
+                published_at: datetime | None = None
                 published_str = article_data.get("publishedAt")
                 if published_str:
                     try:
@@ -127,7 +124,7 @@ class NewsAPIProvider(NewsProvider):
 
     def _filter_dedup_score(
         self, articles: list[NewsArticle], symbol: str
-    ) -> tuple[list[NewsArticle], list[str], Optional[str]]:
+    ) -> tuple[list[NewsArticle], list[str], str | None]:
         symbol_upper = symbol.upper().strip()
         base_currency = symbol_upper[:3] if len(symbol_upper) >= 3 else ""
         quote_currency = symbol_upper[3:6] if len(symbol_upper) >= 6 else ""
@@ -157,8 +154,7 @@ class NewsAPIProvider(NewsProvider):
             "current exchange rate",
         ]
 
-        from datetime import timezone
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deduplicated: list[NewsArticle] = []
         seen_normalized: set[str] = set()
         dropped_examples: list[str] = []
@@ -233,7 +229,7 @@ class NewsAPIProvider(NewsProvider):
 
             if article.published_at:
                 if article.published_at.tzinfo is None:
-                    published_at_aware = article.published_at.replace(tzinfo=timezone.utc)
+                    published_at_aware = article.published_at.replace(tzinfo=UTC)
                 else:
                     published_at_aware = article.published_at
                 age_hours = (now - published_at_aware).total_seconds() / 3600.0
@@ -247,7 +243,7 @@ class NewsAPIProvider(NewsProvider):
 
         filtered_sorted = sorted(deduplicated, key=lambda a: a.relevance_score, reverse=True)
 
-        dropped_reason_hint: Optional[str] = None
+        dropped_reason_hint: str | None = None
         if drop_reasons:
             most_common = Counter(drop_reasons).most_common(1)[0][0]
             dropped_reason_hint = most_common

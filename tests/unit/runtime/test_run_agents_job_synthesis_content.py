@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 from src.core.models.candle import Candle
 from src.core.models.news import NewsDigest
-from src.core.models.recommendation import Recommendation
 from src.core.models.rationale import RationaleType
+from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.runtime.jobs.run_agents_job import RunAgentsJob
 

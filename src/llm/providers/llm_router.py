@@ -19,8 +19,11 @@ class LlmRouter:
 
         if use_remote:
             if self._remote_provider is None:
+                remote_url = settings.ollama_remote_base_url
+                if remote_url is None:
+                    raise ValueError("OLLAMA_REMOTE_BASE_URL is not set")
                 self._remote_provider = OllamaClient(
-                    base_url=settings.ollama_remote_base_url,
+                    base_url=remote_url,
                     model=settings.ollama_model,
                 )
             return self._remote_provider

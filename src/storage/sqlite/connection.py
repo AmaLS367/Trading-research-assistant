@@ -1,8 +1,7 @@
-import os
 import sqlite3
-from pathlib import Path
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
+from pathlib import Path
 
 
 class DBConnection:
@@ -51,7 +50,7 @@ class DBConnection:
         self._apply_migration_file(path)
 
     def _apply_migration_file(self, file_path: Path) -> None:
-        with open(file_path, "r", encoding="utf-8") as migration_file:
+        with open(file_path, encoding="utf-8") as migration_file:
             sql = migration_file.read()
 
         with self.get_cursor() as cursor:

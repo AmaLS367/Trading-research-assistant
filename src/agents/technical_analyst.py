@@ -32,10 +32,9 @@ class TechnicalAnalyst:
 
         found_other_pair = False
         for pair_display, pair_ticker in other_pairs:
-            if pair_display in text_upper or pair_ticker in text_upper:
-                if symbol.upper() != pair_ticker:
-                    found_other_pair = True
-                    break
+            if (pair_display in text_upper or pair_ticker in text_upper) and symbol.upper() != pair_ticker:
+                found_other_pair = True
+                break
 
         if found_other_pair:
             guard_prefix = f"Analysis scope: {display_symbol}. Note: model mentioned other instruments; ignore those references.\n\n"

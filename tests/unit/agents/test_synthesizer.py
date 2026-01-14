@@ -2,8 +2,6 @@ import json
 from datetime import datetime
 from unittest.mock import Mock
 
-import pytest
-
 from src.agents.synthesizer import Synthesizer
 from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
@@ -205,7 +203,7 @@ def test_synthesizer_handles_invalid_json_with_fallback() -> None:
 
 def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.side_effect = ["This is not JSON", "Also not JSON"]
+    mock_llm.generate.side_effect = ["This is not JSON", "Also not JSON", "Still not JSON"]
 
     synthesizer = Synthesizer(mock_llm)
 

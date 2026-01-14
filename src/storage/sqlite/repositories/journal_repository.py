@@ -1,4 +1,4 @@
-from typing import Optional
+
 from src.core.models.journal_entry import JournalEntry
 from src.storage.sqlite.connection import DBConnection
 
@@ -28,7 +28,7 @@ class JournalRepository:
                 raise RuntimeError("Failed to get lastrowid after insert")
             return row_id
 
-    def get_latest_by_symbol(self, symbol: str) -> Optional[JournalEntry]:
+    def get_latest_by_symbol(self, symbol: str) -> JournalEntry | None:
         query = "SELECT * FROM journal_entries WHERE symbol = ? ORDER BY id DESC LIMIT 1"
         with self.db.get_cursor() as cursor:
             cursor.execute(query, (symbol,))
@@ -40,7 +40,7 @@ class JournalRepository:
                 return JournalEntry(**row_dict)
             return None
 
-    def get_latest(self) -> Optional[JournalEntry]:
+    def get_latest(self) -> JournalEntry | None:
         query = "SELECT * FROM journal_entries ORDER BY id DESC LIMIT 1"
         with self.db.get_cursor() as cursor:
             cursor.execute(query)

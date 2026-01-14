@@ -19,10 +19,10 @@ from src.app.wiring import (
     create_synthesizer,
     create_technical_analyst,
 )
-from src.core.models.news import NewsDigest
-from src.core.models.rationale import RationaleType
 from src.core.models.journal_entry import JournalEntry
+from src.core.models.news import NewsDigest
 from src.core.models.outcome import Outcome
+from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
 from src.core.services.reporter import Reporter
 from src.runtime.jobs.run_agents_job import RunAgentsJob
@@ -241,7 +241,7 @@ def journal() -> None:
         console.print("[red]Error: No recommendation found. Run 'analyze' first.[/red]")
         return
 
-    console.print(f"[cyan]Latest Recommendation:[/cyan]")
+    console.print("[cyan]Latest Recommendation:[/cyan]")
     console.print(f"  Symbol: {recommendation.symbol}")
     console.print(f"  Action: {recommendation.action}")
     console.print(f"  Timeframe: {recommendation.timeframe.value}")
@@ -323,14 +323,15 @@ def report() -> None:
         WHERE rationale_type = ?
         ORDER BY id ASC
     """
+    from src.core.models.rationale import Rationale
+
     with db.get_cursor() as cursor:
         cursor.execute(query, (RationaleType.NEWS.value,))
         rows = cursor.fetchall()
-        news_rationales: list = []
+        news_rationales: list[Rationale] = []
         for row in rows:
             row_dict = dict(row)
             row_dict["rationale_type"] = RationaleType(row_dict["rationale_type"])
-            from src.core.models.rationale import Rationale
             news_rationales.append(Rationale(**row_dict))
 
     if news_rationales:

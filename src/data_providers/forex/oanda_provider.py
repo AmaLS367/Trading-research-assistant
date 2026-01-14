@@ -68,12 +68,12 @@ class OandaProvider(MarketDataProvider):
             params["to"] = self._format_datetime_for_oanda(to_time)
 
         response = self.client.get(url, params=params)
-        
+
         if response.status_code == 400:
             error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
             error_message = error_data.get("errorMessage", "Bad Request")
             raise ValueError(f"OANDA API error: {error_message}. Symbol: {symbol} -> {oanda_symbol}")
-        
+
         response.raise_for_status()
 
         data = response.json()

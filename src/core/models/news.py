@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -8,10 +8,10 @@ from src.core.models.timeframe import Timeframe
 
 class NewsArticle(BaseModel):
     title: str
-    url: Optional[str] = None
-    source: Optional[str] = None
-    published_at: Optional[datetime] = None
-    language: Optional[str] = None
+    url: str | None = None
+    source: str | None = None
+    published_at: datetime | None = None
+    language: str | None = None
     relevance_score: float
     query_tag: str
 
@@ -23,18 +23,18 @@ class NewsDigest(BaseModel):
     articles: list[NewsArticle]
     quality: str
     quality_reason: str
-    summary: Optional[str] = None
-    sentiment: Optional[str] = None
-    impact_score: Optional[float] = None
+    summary: str | None = None
+    sentiment: str | None = None
+    impact_score: float | None = None
     candidates_total: int = 0
     articles_after_filter: int = 0
     dropped_examples: list[str] = []
-    dropped_reason_hint: Optional[str] = None
+    dropped_reason_hint: str | None = None
     pass_counts: dict[str, dict[str, int]] = {}
     queries_used: dict[str, str] = {}
-    provider_used: Optional[str] = None
-    primary_quality: Optional[str] = None
-    primary_reason: Optional[str] = None
-    secondary_quality: Optional[str] = None
-    secondary_reason: Optional[str] = None
-    gdelt_debug: dict = {}
+    provider_used: str | None = None
+    primary_quality: str | None = None
+    primary_reason: str | None = None
+    secondary_quality: str | None = None
+    secondary_reason: str | None = None
+    gdelt_debug: dict[str, Any] = {}

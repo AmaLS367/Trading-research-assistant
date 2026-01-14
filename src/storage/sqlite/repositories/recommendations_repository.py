@@ -1,4 +1,4 @@
-from typing import Optional
+
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.storage.sqlite.connection import DBConnection
@@ -31,7 +31,7 @@ class RecommendationsRepository:
                 raise RuntimeError("Failed to get lastrowid after insert")
             return row_id
 
-    def get_latest(self) -> Optional[Recommendation]:
+    def get_latest(self) -> Recommendation | None:
         query = "SELECT * FROM recommendations ORDER BY id DESC LIMIT 1"
         with self.db.get_cursor() as cursor:
             cursor.execute(query)

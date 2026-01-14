@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from unittest.mock import Mock
 
 import httpx
@@ -9,7 +10,7 @@ from src.data_providers.forex.oanda_provider import OandaProvider
 
 
 def test_fetch_candles_parses_oanda_response() -> None:
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "candles": [
             {
                 "time": "2024-01-01T12:00:00.000000000Z",
@@ -66,7 +67,7 @@ def test_fetch_candles_parses_oanda_response() -> None:
 
 
 def test_fetch_candles_skips_incomplete_candles() -> None:
-    mock_response_data = {
+    mock_response_data: dict[str, Any] = {
         "candles": [
             {
                 "time": "2024-01-01T12:00:00.000000000Z",
@@ -114,7 +115,7 @@ def test_fetch_candles_skips_incomplete_candles() -> None:
 
 
 def test_fetch_candles_with_date_range() -> None:
-    mock_response_data = {"candles": []}
+    mock_response_data: dict[str, list[dict[str, Any]]] = {"candles": []}
 
     mock_response = Mock(spec=httpx.Response)
     mock_response.json.return_value = mock_response_data

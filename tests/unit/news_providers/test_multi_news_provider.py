@@ -1,4 +1,3 @@
-from datetime import datetime
 from unittest.mock import Mock
 
 from src.core.models.news import NewsArticle, NewsDigest

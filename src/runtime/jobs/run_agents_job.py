@@ -18,7 +18,6 @@ from src.storage.sqlite.repositories.runs_repository import RunsRepository
 
 if TYPE_CHECKING:
     from rich.console import Console
-    from rich.panel import Panel
 
 
 class RunAgentsJob:

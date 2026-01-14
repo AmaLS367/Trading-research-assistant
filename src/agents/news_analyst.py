@@ -47,13 +47,16 @@ Provide your analysis as JSON."""
 
             analysis_data = self._parse_llm_response(llm_response, [article.title for article in digest.articles])
 
-            digest.summary = analysis_data.get("summary", "Failed to parse LLM output")
-            sentiment_str = analysis_data.get("sentiment", "NEU")
+            summary_value = analysis_data.get("summary", "Failed to parse LLM output")
+            digest.summary = str(summary_value) if summary_value is not None else "Failed to parse LLM output"
+            sentiment_value = analysis_data.get("sentiment", "NEU")
+            sentiment_str = str(sentiment_value) if sentiment_value is not None else "NEU"
             if sentiment_str not in ["POS", "NEG", "NEU"]:
                 sentiment_str = "NEU"
             digest.sentiment = sentiment_str
-            impact_score = analysis_data.get("impact_score", 0.0)
-            digest.impact_score = max(0.0, min(1.0, float(impact_score)))
+            impact_score_value = analysis_data.get("impact_score", 0.0)
+            impact_score = float(impact_score_value) if isinstance(impact_score_value, (int, float)) else 0.0
+            digest.impact_score = max(0.0, min(1.0, impact_score))
 
         except Exception:
             digest.summary = "Failed to parse LLM output"
@@ -75,8 +78,8 @@ Provide your analysis as JSON."""
 
         try:
             data = json.loads(response_cleaned)
-        except json.JSONDecodeError:
-            raise ValueError("Failed to parse LLM response as JSON")
+        except json.JSONDecodeError as err:
+            raise ValueError("Failed to parse LLM response as JSON") from err
 
         if "summary" not in data:
             raise ValueError("LLM response missing 'summary' field")
@@ -92,4 +95,10 @@ Provide your analysis as JSON."""
         else:
             data["evidence_titles"] = []
 
-        return data
+        result: dict[str, str | float | list[str]] = {
+            "summary": str(data["summary"]),
+            "sentiment": str(data["sentiment"]),
+            "impact_score": float(data["impact_score"]),
+            "evidence_titles": data["evidence_titles"],
+        }
+        return result

@@ -28,7 +28,7 @@ class OutcomesRepository:
 
     def get_all_with_details(self) -> list[dict[str, str | int | None]]:
         query = """
-            SELECT 
+            SELECT
                 o.id,
                 o.journal_entry_id,
                 o.close_time,
