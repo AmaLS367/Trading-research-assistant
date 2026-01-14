@@ -3,6 +3,7 @@ from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.runtime.jobs.job_result import JobResult
 from src.storage.sqlite.repositories.candles_repository import CandlesRepository
+from src.utils.logging import get_logger
 
 
 class FetchMarketDataJob:
@@ -13,6 +14,7 @@ class FetchMarketDataJob:
     ) -> None:
         self.market_data_provider = market_data_provider
         self.candles_repository = candles_repository
+        self.logger = get_logger(__name__)
 
     def run(
         self,
@@ -42,6 +44,7 @@ class FetchMarketDataJob:
             return JobResult(ok=True, value=candles, error="")
 
         except Exception as e:
+            self.logger.exception(f"Market data provider error for {symbol} {timeframe.value}: {e}")
             return JobResult(
                 ok=False,
                 value=None,

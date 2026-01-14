@@ -16,6 +16,7 @@ from src.runtime.jobs.fetch_news_job import FetchNewsJob
 from src.runtime.jobs.persist_recommendation_job import PersistRecommendationJob
 from src.storage.artifacts.artifact_store import ArtifactStore
 from src.storage.sqlite.repositories.candles_repository import CandlesRepository
+from src.utils.logging import get_logger
 
 
 class RuntimeOrchestrator:
@@ -38,6 +39,7 @@ class RuntimeOrchestrator:
         self.news_analyst = news_analyst
         self.synthesizer = synthesizer
         self.candles_repository = candles_repository
+        self.logger = get_logger(__name__)
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
         run = Run(
@@ -47,6 +49,7 @@ class RuntimeOrchestrator:
             status=RunStatus.PENDING,
         )
         run_id = self.storage.runs.create(run)
+        self.logger.info(f"Starting run {run_id} for {symbol} on {timeframe.value}")
 
         try:
             fetch_market_data_job = FetchMarketDataJob(
@@ -58,6 +61,9 @@ class RuntimeOrchestrator:
                 count=300,
             )
             if not market_result.ok:
+                self.logger.error(
+                    f"Run {run_id} failed at market data fetch: {market_result.error}"
+                )
                 self._mark_run_failed(run_id, market_result.error)
                 return run_id
 
@@ -148,9 +154,11 @@ class RuntimeOrchestrator:
                 return run_id
 
             self._mark_run_success(run_id)
+            self.logger.info(f"Run {run_id} completed successfully")
             return run_id
 
         except Exception as e:
+            self.logger.exception(f"Run {run_id} failed with exception: {e}")
             self._mark_run_failed(run_id, str(e))
             return run_id
 
