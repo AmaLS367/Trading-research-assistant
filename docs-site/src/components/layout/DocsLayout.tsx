@@ -26,12 +26,12 @@ export default function DocsLayout({ children }: DocsLayoutProps) {
         />
 
         <main className="flex-1 min-w-0">
-          <div className="mx-auto max-w-[1000px] px-4 py-8 md:px-8 lg:px-12">
-            <div className="flex gap-12">
-              <div className="flex-1 min-w-0">
+          <div className="mx-auto max-w-[1400px] px-4 py-8 md:px-8 lg:px-12">
+            <div className="flex gap-32">
+              <div className="flex-1 min-w-0 max-w-[900px]">
                 {children}
               </div>
-              <div className="hidden xl:block w-64 shrink-0">
+              <div className="hidden xl:block w-64 shrink-0 pl-12">
                 <TOC />
               </div>
             </div>

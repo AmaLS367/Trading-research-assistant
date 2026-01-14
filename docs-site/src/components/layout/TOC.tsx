@@ -162,7 +162,7 @@ export default function TOC({ isMobile = false }: TOCProps) {
 
   return (
     <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto">
-      <div className="border-l border-border pl-6">
+      <div className="border-l border-border pl-12">
         <h3 className="text-sm font-semibold text-foreground mb-3">On this page</h3>
         <nav className="space-y-1">
           {items.map((item) => (
