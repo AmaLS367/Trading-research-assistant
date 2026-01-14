@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
@@ -5,6 +7,8 @@ from src.app.settings import settings
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
+from src.core.ports.orchestrator import OrchestratorProtocol
+from src.core.ports.storage import Storage
 from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
 from src.data_providers.forex.oanda_provider import OandaProvider
 from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
@@ -12,10 +16,13 @@ from src.llm.ollama.ollama_client import OllamaClient
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.news_providers.multi_news_provider import MultiNewsProvider
 from src.news_providers.newsapi_provider import NewsAPIProvider
+from src.runtime.orchestrator import RuntimeOrchestrator
+from src.storage.artifacts.artifact_store import ArtifactStore
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 from src.storage.sqlite.repositories.runs_repository import RunsRepository
+from src.storage.sqlite.storage import SqliteStorage
 
 
 def create_market_data_provider() -> MarketDataProvider:
@@ -103,3 +110,32 @@ def create_runs_repository() -> RunsRepository:
 def create_rationales_repository() -> RationalesRepository:
     db = DBConnection(str(settings.storage_sqlite_db_path))
     return RationalesRepository(db)
+
+
+def create_storage() -> Storage:
+    db = DBConnection(str(settings.storage_sqlite_db_path))
+    return SqliteStorage(db)
+
+
+def create_artifact_store() -> ArtifactStore:
+    artifacts_dir = Path(settings.storage_artifacts_dir)
+    return ArtifactStore(artifacts_dir)
+
+
+def create_orchestrator() -> OrchestratorProtocol:
+    storage = create_storage()
+    artifact_store = create_artifact_store()
+    market_data_provider = create_market_data_provider()
+    news_provider = create_news_provider()
+    technical_analyst = create_technical_analyst()
+    news_analyst = create_news_analyst()
+    synthesizer = create_synthesizer()
+    return RuntimeOrchestrator(
+        storage=storage,
+        artifact_store=artifact_store,
+        market_data_provider=market_data_provider,
+        news_provider=news_provider,
+        technical_analyst=technical_analyst,
+        news_analyst=news_analyst,
+        synthesizer=synthesizer,
+    )

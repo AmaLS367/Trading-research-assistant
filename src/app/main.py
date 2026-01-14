@@ -10,14 +10,8 @@ from rich.table import Table
 
 from src.app.settings import settings
 from src.app.wiring import (
-    create_market_data_provider,
-    create_news_analyst,
-    create_news_provider,
+    create_orchestrator,
     create_rationales_repository,
-    create_recommendations_repository,
-    create_runs_repository,
-    create_synthesizer,
-    create_technical_analyst,
 )
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.news import NewsDigest
@@ -25,7 +19,6 @@ from src.core.models.outcome import Outcome
 from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
 from src.core.services.reporter import Reporter
-from src.runtime.jobs.run_agents_job import RunAgentsJob
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
 from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
@@ -235,32 +228,12 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         return
 
     try:
-        market_data_provider = create_market_data_provider()
-        news_provider = create_news_provider()
-        technical_analyst = create_technical_analyst()
-        synthesizer = create_synthesizer()
-        news_analyst = create_news_analyst()
-        recommendations_repo = create_recommendations_repository()
-        runs_repository = create_runs_repository()
-        rationales_repository = create_rationales_repository()
-
-        job = RunAgentsJob(
-            market_data_provider=market_data_provider,
-            news_provider=news_provider,
-            technical_analyst=technical_analyst,
-            synthesizer=synthesizer,
-            news_analyst=news_analyst,
-            recommendations_repository=recommendations_repo,
-            runs_repository=runs_repository,
-            rationales_repository=rationales_repository,
-            console=console,
-            verbose=verbose,
-        )
+        orchestrator = create_orchestrator()
 
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
         console.print()
-        recommendation_id = job.run(symbol=symbol, timeframe=timeframe)
-        console.print(f"[green]Analysis complete! Recommendation ID: {recommendation_id}[/green]")
+        run_id = orchestrator.run_analysis(symbol=symbol, timeframe=timeframe)
+        console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")
         console.print()
         show_latest()
     except ValueError as e:
