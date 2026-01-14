@@ -1,13 +1,9 @@
-<div align="center">
-
 # 📚 Руководство по использованию
 
 **Инструкции по установке и использованию**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/uv-Latest-FFD43B?logo=python&logoColor=black)](https://github.com/astral-sh/uv)
-
-</div>
 
 ---
 
@@ -454,8 +450,4 @@ WantedBy=timers.target
 
 ---
 
-<div align="center">
-
-[📖 Обзор](./overview.md) • [🏗️ Архитектура](./architecture.md) • [🔧 Устранение неполадок](./troubleshooting.md) • [🔒 Политика безопасности](./safety_policy.md)
-
-</div>
+[📖 Обзор](./overview.md) | [🏗️ Архитектура](./architecture.md) | [🔧 Устранение неполадок](./troubleshooting.md) | [🔒 Политика безопасности](./safety_policy.md)

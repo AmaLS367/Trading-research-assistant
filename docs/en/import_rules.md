@@ -1,12 +1,8 @@
-<div align="center">
-
 # 📋 Import Rules and Dependency Graph
 
 **Module dependency rules and architecture constraints**
 
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
-
-</div>
 
 ---
 
@@ -271,8 +267,4 @@ core/ports -> only stdlib
 
 ---
 
-<div align="center">
-
-[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md) • [🔧 Troubleshooting](./troubleshooting.md)
-
-</div>
+[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [📚 Usage Guide](./usage_guide.md) | [🔧 Troubleshooting](./troubleshooting.md)

@@ -1,13 +1,9 @@
-<div align="center">
-
 # 📚 Usage Guide
 
 **Installation and usage instructions**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/uv-Latest-FFD43B?logo=python&logoColor=black)](https://github.com/astral-sh/uv)
-
-</div>
 
 ---
 
@@ -452,8 +448,4 @@ WantedBy=timers.target
 
 ---
 
-<div align="center">
-
-[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [🔧 Troubleshooting](./troubleshooting.md) • [🔒 Safety Policy](./safety_policy.md)
-
-</div>
+[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [🔧 Troubleshooting](./troubleshooting.md) | [🔒 Safety Policy](./safety_policy.md)

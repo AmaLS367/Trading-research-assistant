@@ -1,13 +1,9 @@
-<div align="center">
-
 # 🏗️ Архитектура
 
 **Чистая архитектура с паттерном Порты и Адаптеры**
 
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
 [![Pattern](https://img.shields.io/badge/Pattern-Ports%20%26%20Adapters-FF6B6B)](./architecture.md)
-
-</div>
 
 ---
 
@@ -251,8 +247,4 @@ def create_technical_analyst() -> TechnicalAnalyst:
 
 ---
 
-<div align="center">
-
-[📖 Обзор](./overview.md) • [📚 Руководство по использованию](./usage_guide.md) • [🔧 Устранение неполадок](./troubleshooting.md) • [📋 Правила импортов](./import_rules.md)
-
-</div>
+[📖 Обзор](./overview.md) | [📚 Руководство по использованию](./usage_guide.md) | [🔧 Устранение неполадок](./troubleshooting.md) | [📋 Правила импортов](./import_rules.md)

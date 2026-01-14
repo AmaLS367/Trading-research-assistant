@@ -1,13 +1,9 @@
-<div align="center">
-
 # 🔧 Руководство по устранению неполадок
 
 **Распространенные проблемы и решения**
 
 [![Support](https://img.shields.io/badge/Support-Troubleshooting-FF6B6B)](./troubleshooting.md)
 [![Status](https://img.shields.io/badge/Status-Active-success)](./troubleshooting.md)
-
-</div>
 
 ---
 
@@ -654,8 +650,4 @@ curl http://localhost:11434/api/tags
 
 ---
 
-<div align="center">
-
-[📖 Обзор](./overview.md) • [📚 Руководство по использованию](./usage_guide.md) • [🏗️ Архитектура](./architecture.md)
-
-</div>
+[📖 Обзор](./overview.md) | [📚 Руководство по использованию](./usage_guide.md) | [🏗️ Архитектура](./architecture.md)

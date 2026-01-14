@@ -1,5 +1,3 @@
-<div align="center">
-
 # 📊 Trading Research Assistant - Обзор
 
 **Система автоматизированного анализа финансовых рынков на основе LLM**
@@ -7,8 +5,6 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/uv-Latest-FFD43B?logo=python&logoColor=black)](https://github.com/astral-sh/uv)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
-
-</div>
 
 ---
 
@@ -33,8 +29,6 @@
 
 ## 🛠️ Технологический стек
 
-<div align="center">
-
 | Категория             | Технология                     |
 | -------------------- | ------------------------------ |
 | **Язык**              | Python 3.11+                   |
@@ -47,8 +41,6 @@
 | **LLM провайдер**     | Ollama (локальный или удаленный) |
 | **CLI интерфейс**     | Rich 13.0+                      |
 | **База данных**        | SQLite 3                        |
-
-</div>
 
 ---
 
@@ -152,8 +144,4 @@ src/
 
 ---
 
-<div align="center">
-
-[📖 Назад к README](../../README.md) • [🏗️ Архитектура](./architecture.md) • [📚 Руководство по использованию](./usage_guide.md)
-
-</div>
+[📖 Назад к README](../../README.md) | [🏗️ Архитектура](./architecture.md) | [📚 Руководство по использованию](./usage_guide.md)

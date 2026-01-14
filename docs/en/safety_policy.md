@@ -1,12 +1,8 @@
-<div align="center">
-
 # 🔒 Safety Policy
 
 **Risk management and recommendation validation**
 
-[![Safety](https://img.shields.io/badge/Safety-Policy%20Enabled-FF6B6B)](./safety_policy.md)
-
-</div>
+[![Safety](https://img.shields.io/badge/Safety-Policy%20Enabled-FF6B6B)](./safety_policy.md
 
 ---
 
@@ -119,8 +115,4 @@ Planned safety improvements:
 
 ---
 
-<div align="center">
-
-[📖 Overview](./overview.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md) • [🔧 Troubleshooting](./troubleshooting.md)
-
-</div>
+[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [📚 Usage Guide](./usage_guide.md) | [🔧 Troubleshooting](./troubleshooting.md)

@@ -1,13 +1,9 @@
-<div align="center">
-
 # 🔧 Troubleshooting Guide
 
 **Common issues and solutions**
 
 [![Support](https://img.shields.io/badge/Support-Troubleshooting-FF6B6B)](./troubleshooting.md)
 [![Status](https://img.shields.io/badge/Status-Active-success)](./troubleshooting.md)
-
-</div>
 
 ---
 
@@ -654,8 +650,4 @@ If you're still experiencing issues:
 
 ---
 
-<div align="center">
-
-[📖 Overview](./overview.md) • [📚 Usage Guide](./usage_guide.md) • [🏗️ Architecture](./architecture.md)
-
-</div>
+[📖 Overview](./overview.md) | [📚 Usage Guide](./usage_guide.md) | [🏗️ Architecture](./architecture.md)

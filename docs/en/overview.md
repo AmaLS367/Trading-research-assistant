@@ -1,5 +1,3 @@
-<div align="center">
-
 # 📊 Trading Research Assistant - Overview
 
 **LLM-powered automated financial market analysis system**
@@ -7,8 +5,6 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/uv-Latest-FFD43B?logo=python&logoColor=black)](https://github.com/astral-sh/uv)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
-
-</div>
 
 ---
 
@@ -33,8 +29,6 @@
 
 ## 🛠️ Technology Stack
 
-<div align="center">
-
 | Category             | Technology                     |
 | -------------------- | ------------------------------ |
 | **Language**         | Python 3.11+                   |
@@ -47,8 +41,6 @@
 | **LLM Provider**     | Ollama (local or remote)        |
 | **CLI Interface**    | Rich 13.0+                      |
 | **Database**         | SQLite 3                        |
-
-</div>
 
 ---
 
@@ -152,8 +144,4 @@ The system includes a safety policy that validates recommendations before issuin
 
 ---
 
-<div align="center">
-
-[📖 Back to README](../../README.md) • [🏗️ Architecture](./architecture.md) • [📚 Usage Guide](./usage_guide.md)
-
-</div>
+[📖 Back to README](../../README.md) | [🏗️ Architecture](./architecture.md) | [📚 Usage Guide](./usage_guide.md)

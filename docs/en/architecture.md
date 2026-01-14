@@ -1,13 +1,9 @@
-<div align="center">
-
 # 🏗️ Architecture
 
 **Clean Architecture with Ports & Adapters pattern**
 
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-4ECDC4)](./architecture.md)
 [![Pattern](https://img.shields.io/badge/Pattern-Ports%20%26%20Adapters-FF6B6B)](./architecture.md)
-
-</div>
 
 ---
 
@@ -255,8 +251,4 @@ For detailed import rules and dependency graph, see [Import Rules](./import_rule
 
 ---
 
-<div align="center">
-
-[📖 Overview](./overview.md) • [📚 Usage Guide](./usage_guide.md) • [🔧 Troubleshooting](./troubleshooting.md) • [📋 Import Rules](./import_rules.md)
-
-</div>
+[📖 Overview](./overview.md) | [📚 Usage Guide](./usage_guide.md) | [🔧 Troubleshooting](./troubleshooting.md) | [📋 Import Rules](./import_rules.md)
