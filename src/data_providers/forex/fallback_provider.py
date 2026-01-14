@@ -37,8 +37,7 @@ class FallbackMarketDataProvider(MarketDataProvider):
 
             primary_name = self.primary.__class__.__name__
             warning_msg = (
-                f"{primary_name} failed: {e}. "
-                f"Falling back to {self.secondary.__class__.__name__}."
+                f"{primary_name} failed: {e}. Falling back to {self.secondary.__class__.__name__}."
             )
             warnings.warn(warning_msg, UserWarning, stacklevel=2)
 

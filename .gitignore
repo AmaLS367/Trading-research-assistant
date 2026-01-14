@@ -151,6 +151,9 @@ cython_debug/
 
 trading_research_assistant_context.txt
 batch_analysis_output.txt
+PLANNED_COMMITS.md
+Planned_Commits.md
+planned_commits.md
 
 # SQLite databases
 *.db

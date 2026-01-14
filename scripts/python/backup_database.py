@@ -11,7 +11,7 @@ sys.path.insert(0, str(project_root))
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 
 console = Console()
 

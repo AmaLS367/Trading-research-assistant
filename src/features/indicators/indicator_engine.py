@@ -32,9 +32,7 @@ def calculate_features(candles: list[Candle]) -> dict[str, float]:
     rsi = ta.momentum.RSIIndicator(close=df["close"], window=14)
     features["rsi"] = float(rsi.rsi().iloc[-1])
 
-    bollinger = ta.volatility.BollingerBands(
-        close=df["close"], window=20, window_dev=2
-    )
+    bollinger = ta.volatility.BollingerBands(close=df["close"], window=20, window_dev=2)
     features["bb_upper"] = float(bollinger.bollinger_hband().iloc[-1])
     features["bb_middle"] = float(bollinger.bollinger_mavg().iloc[-1])
     features["bb_lower"] = float(bollinger.bollinger_lband().iloc[-1])

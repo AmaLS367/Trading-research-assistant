@@ -32,7 +32,9 @@ class TechnicalAnalyst:
 
         found_other_pair = False
         for pair_display, pair_ticker in other_pairs:
-            if (pair_display in text_upper or pair_ticker in text_upper) and symbol.upper() != pair_ticker:
+            if (
+                pair_display in text_upper or pair_ticker in text_upper
+            ) and symbol.upper() != pair_ticker:
                 found_other_pair = True
                 break
 

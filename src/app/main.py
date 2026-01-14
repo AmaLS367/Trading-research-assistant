@@ -87,7 +87,9 @@ def show_latest(show_details: bool = False) -> None:
 
     if show_details:
         if recommendation.run_id is None:
-            console.print("[yellow]Details are not available for this recommendation (no run_id). This may be an older entry created before the run tracking system was implemented.[/yellow]")
+            console.print(
+                "[yellow]Details are not available for this recommendation (no run_id). This may be an older entry created before the run tracking system was implemented.[/yellow]"
+            )
             return
 
         rationales = rationales_repo.get_by_run_id(recommendation.run_id)
@@ -95,9 +97,13 @@ def show_latest(show_details: bool = False) -> None:
             console.print("[yellow]No rationales found for this run.[/yellow]")
             return
 
-        technical_rationales = [r for r in rationales if r.rationale_type == RationaleType.TECHNICAL]
+        technical_rationales = [
+            r for r in rationales if r.rationale_type == RationaleType.TECHNICAL
+        ]
         news_rationales = [r for r in rationales if r.rationale_type == RationaleType.NEWS]
-        synthesis_rationales = [r for r in rationales if r.rationale_type == RationaleType.SYNTHESIS]
+        synthesis_rationales = [
+            r for r in rationales if r.rationale_type == RationaleType.SYNTHESIS
+        ]
 
         if technical_rationales:
             content = technical_rationales[0].content
@@ -111,7 +117,13 @@ def show_latest(show_details: bool = False) -> None:
                     digest_data = json.loads(news_rationale.raw_data)
                     digest = NewsDigest.model_validate(digest_data)
 
-                    quality_color = "green" if digest.quality == "HIGH" else "yellow" if digest.quality == "MEDIUM" else "red"
+                    quality_color = (
+                        "green"
+                        if digest.quality == "HIGH"
+                        else "yellow"
+                        if digest.quality == "MEDIUM"
+                        else "red"
+                    )
                     quality_display = f"[{quality_color}]{digest.quality}[/{quality_color}]"
 
                     digest_parts: list[str] = [f"Quality: {quality_display}"]
@@ -120,21 +132,33 @@ def show_latest(show_details: bool = False) -> None:
                     if digest.summary:
                         digest_parts.append(f"\nSummary: {digest.summary}")
                     if digest.sentiment:
-                        sentiment_color = "green" if digest.sentiment == "POS" else "red" if digest.sentiment == "NEG" else "yellow"
-                        digest_parts.append(f"Sentiment: [{sentiment_color}]{digest.sentiment}[/{sentiment_color}]")
+                        sentiment_color = (
+                            "green"
+                            if digest.sentiment == "POS"
+                            else "red"
+                            if digest.sentiment == "NEG"
+                            else "yellow"
+                        )
+                        digest_parts.append(
+                            f"Sentiment: [{sentiment_color}]{digest.sentiment}[/{sentiment_color}]"
+                        )
                     if digest.impact_score is not None:
                         digest_parts.append(f"Impact Score: {digest.impact_score:.2f}")
                     digest_parts.append(f"\nCandidates total: {digest.candidates_total}")
                     digest_parts.append(f"After filtering: {digest.articles_after_filter}")
                     if digest.secondary_quality:
-                        digest_parts.append(f"\nSecondary provider: NewsAPI, quality={digest.secondary_quality}, reason={digest.secondary_reason}")
+                        digest_parts.append(
+                            f"\nSecondary provider: NewsAPI, quality={digest.secondary_quality}, reason={digest.secondary_reason}"
+                        )
 
                     if digest.pass_counts:
                         digest_parts.append("\nPass statistics:")
                         for pass_name in ["strict", "medium", "broad"]:
                             if pass_name in digest.pass_counts:
                                 counts = digest.pass_counts[pass_name]
-                                digest_parts.append(f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}")
+                                digest_parts.append(
+                                    f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}"
+                                )
 
                     if digest.articles:
                         digest_parts.append("\nTop Articles:")
@@ -150,12 +174,18 @@ def show_latest(show_details: bool = False) -> None:
                     if digest.dropped_reason_hint:
                         digest_parts.append(f"\nDropped reason hint: {digest.dropped_reason_hint}")
 
-                    if (digest.provider_used == "NONE" or digest.primary_quality) and digest.gdelt_debug and digest.gdelt_debug.get("passes"):
+                    if (
+                        (digest.provider_used == "NONE" or digest.primary_quality)
+                        and digest.gdelt_debug
+                        and digest.gdelt_debug.get("passes")
+                    ):
                         digest_parts.append("\nPrimary (GDELT) diagnostics:")
                         request_count = 0
                         for pass_name in ["strict", "medium", "broad"]:
                             if pass_name in digest.gdelt_debug["passes"]:
-                                requests = digest.gdelt_debug["passes"][pass_name].get("requests", [])
+                                requests = digest.gdelt_debug["passes"][pass_name].get(
+                                    "requests", []
+                                )
                                 for req in requests[:2]:
                                     if request_count >= 3:
                                         break
@@ -165,13 +195,21 @@ def show_latest(show_details: bool = False) -> None:
                                     error = req.get("error")
                                     status_str = str(status) if status else "?"
                                     error_str = f", error: {error[:50]}" if error else ""
-                                    digest_parts.append(f"  {tag}: status={status_str}, items={items}{error_str}")
+                                    digest_parts.append(
+                                        f"  {tag}: status={status_str}, items={items}{error_str}"
+                                    )
                                     request_count += 1
                                 if request_count >= 3:
                                     break
 
                     digest_content = "\n".join(digest_parts)
-                    console.print(Panel(digest_content, title=f"News Digest (Quality: {digest.quality})", border_style="blue"))
+                    console.print(
+                        Panel(
+                            digest_content,
+                            title=f"News Digest (Quality: {digest.quality})",
+                            border_style="blue",
+                        )
+                    )
                     console.print()
                 except (json.JSONDecodeError, ValueError, KeyError):
                     content = news_rationale.content
@@ -350,7 +388,9 @@ def main() -> None:
 
     show_latest_parser = subparsers.add_parser("show-latest")
     show_latest_parser.add_argument(
-        "--details", action="store_true", help="Show detailed rationale for the latest recommendation"
+        "--details",
+        action="store_true",
+        help="Show detailed rationale for the latest recommendation",
     )
 
     analyze_parser = subparsers.add_parser("analyze")

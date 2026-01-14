@@ -1,14 +1,14 @@
 from src.app.settings import settings
 from src.core.models.timeframe import Timeframe
 from src.core.ports.clock import Clock
-from src.core.services.orchestrator import Orchestrator
+from src.core.ports.orchestrator import OrchestratorProtocol
 from src.core.services.scheduler import Scheduler
 
 
 class MinuteLoop:
     def __init__(
         self,
-        orchestrator: Orchestrator,
+        orchestrator: OrchestratorProtocol,
         scheduler: Scheduler,
         clock: Clock,
     ) -> None:

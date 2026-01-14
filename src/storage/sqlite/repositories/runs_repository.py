@@ -69,8 +69,6 @@ class RunsRepository:
             row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
             row_dict["start_time"] = datetime.fromisoformat(row_dict["start_time"])
             end_time_raw = row_dict.get("end_time")
-            row_dict["end_time"] = (
-                datetime.fromisoformat(end_time_raw) if end_time_raw else None
-            )
+            row_dict["end_time"] = datetime.fromisoformat(end_time_raw) if end_time_raw else None
             row_dict["status"] = RunStatus(row_dict["status"])
             return Run(**row_dict)

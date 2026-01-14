@@ -113,7 +113,9 @@ class RunAgentsJob:
                 truncated_content, was_truncated = self._truncate_content(technical_view)
                 panel_content = truncated_content
                 if was_truncated:
-                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                    panel_content += (
+                        "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                    )
                 self.console.print(Panel(panel_content, title=panel_title, border_style="cyan"))
             self.rationales_repository.save(
                 Rationale(
@@ -155,14 +157,18 @@ class RunAgentsJob:
                 verbose_parts.append(f"Candidates total: {news_digest.candidates_total}")
                 verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
                 if news_digest.provider_used == "NEWSAPI" and news_digest.primary_quality:
-                    verbose_parts.append(f"Fallback triggered: primary {news_digest.primary_quality} -> tried NewsAPI")
+                    verbose_parts.append(
+                        f"Fallback triggered: primary {news_digest.primary_quality} -> tried NewsAPI"
+                    )
 
                 if news_digest.pass_counts:
                     verbose_parts.append("\nPass statistics:")
                     for pass_name in ["strict", "medium", "broad"]:
                         if pass_name in news_digest.pass_counts:
                             counts = news_digest.pass_counts[pass_name]
-                            verbose_parts.append(f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}")
+                            verbose_parts.append(
+                                f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}"
+                            )
 
                 if news_digest.queries_used:
                     query_items = list(news_digest.queries_used.items())[:2]
@@ -181,7 +187,9 @@ class RunAgentsJob:
                     request_count = 0
                     for pass_name in ["strict", "medium", "broad"]:
                         if pass_name in news_digest.gdelt_debug["passes"]:
-                            requests = news_digest.gdelt_debug["passes"][pass_name].get("requests", [])
+                            requests = news_digest.gdelt_debug["passes"][pass_name].get(
+                                "requests", []
+                            )
                             for req in requests[:2]:
                                 if request_count >= 3:
                                     break
@@ -197,7 +205,9 @@ class RunAgentsJob:
                                 else:
                                     status_str = "?"
                                 error_str = f", [red]error: {error[:50]}[/red]" if error else ""
-                                verbose_parts.append(f"  {tag}: status={status_str}, items={items}{error_str}")
+                                verbose_parts.append(
+                                    f"  {tag}: status={status_str}, items={items}{error_str}"
+                                )
                                 request_count += 1
                             if request_count >= 3:
                                 break
@@ -206,7 +216,9 @@ class RunAgentsJob:
                 truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
                 if was_truncated:
-                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                    panel_content += (
+                        "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                    )
                 self.console.print(Panel(panel_content, title="News Digest", border_style="blue"))
             self.rationales_repository.save(
                 Rationale(
@@ -248,8 +260,12 @@ class RunAgentsJob:
                 truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
                 if was_truncated:
-                    panel_content += "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
-                self.console.print(Panel(panel_content, title="Synthesis Logic", border_style="green"))
+                    panel_content += (
+                        "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
+                    )
+                self.console.print(
+                    Panel(panel_content, title="Synthesis Logic", border_style="green")
+                )
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,

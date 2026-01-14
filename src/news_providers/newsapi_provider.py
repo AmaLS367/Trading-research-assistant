@@ -25,14 +25,26 @@ class NewsAPIProvider(NewsProvider):
             "USD": {"name": "dollar", "cb": "Fed", "cb_full": "Federal Reserve"},
             "GBP": {"name": "pound", "cb": "BoE", "cb_full": "Bank of England"},
             "JPY": {"name": "yen", "cb": "BoJ", "cb_full": "Bank of Japan"},
-            "AUD": {"name": "australian dollar", "cb": "RBA", "cb_full": "Reserve Bank of Australia"},
+            "AUD": {
+                "name": "australian dollar",
+                "cb": "RBA",
+                "cb_full": "Reserve Bank of Australia",
+            },
             "CAD": {"name": "canadian dollar", "cb": "BoC", "cb_full": "Bank of Canada"},
             "CHF": {"name": "swiss franc", "cb": "SNB", "cb_full": "Swiss National Bank"},
-            "NZD": {"name": "new zealand dollar", "cb": "RBNZ", "cb_full": "Reserve Bank of New Zealand"},
+            "NZD": {
+                "name": "new zealand dollar",
+                "cb": "RBNZ",
+                "cb_full": "Reserve Bank of New Zealand",
+            },
         }
 
-        base_info = currency_names.get(base_currency, {"name": base_currency.lower(), "cb": "", "cb_full": ""})
-        quote_info = currency_names.get(quote_currency, {"name": quote_currency.lower(), "cb": "", "cb_full": ""})
+        base_info = currency_names.get(
+            base_currency, {"name": base_currency.lower(), "cb": "", "cb_full": ""}
+        )
+        quote_info = currency_names.get(
+            quote_currency, {"name": quote_currency.lower(), "cb": "", "cb_full": ""}
+        )
 
         fx_anchors = 'forex OR fx OR currency OR "exchange rate"'
         templates: dict[str, str] = {}
@@ -43,7 +55,9 @@ class NewsAPIProvider(NewsProvider):
             base_name = base_info["name"]
             quote_name = quote_info["name"]
 
-            templates["pair"] = f'({pair_ticker} OR "{pair_slash}" OR ({base_name} AND {quote_name})) AND ({fx_anchors})'
+            templates["pair"] = (
+                f'({pair_ticker} OR "{pair_slash}" OR ({base_name} AND {quote_name})) AND ({fx_anchors})'
+            )
 
         cb_terms: list[str] = []
         if base_info["cb"]:
@@ -59,7 +73,7 @@ class NewsAPIProvider(NewsProvider):
 
         if cb_terms:
             cb_query = " OR ".join(cb_terms)
-            templates["macro"] = f'({cb_query} OR {macro_terms}) AND ({fx_anchors})'
+            templates["macro"] = f"({cb_query} OR {macro_terms}) AND ({fx_anchors})"
 
         return templates
 
@@ -89,14 +103,18 @@ class NewsAPIProvider(NewsProvider):
 
                 url_str = article_data.get("url", "").strip() or None
                 source_obj = article_data.get("source", {})
-                source = source_obj.get("name", "").strip() if isinstance(source_obj, dict) else None
+                source = (
+                    source_obj.get("name", "").strip() if isinstance(source_obj, dict) else None
+                )
 
                 published_at: datetime | None = None
                 published_str = article_data.get("publishedAt")
                 if published_str:
                     try:
                         if isinstance(published_str, str):
-                            published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                            published_at = datetime.fromisoformat(
+                                published_str.replace("Z", "+00:00")
+                            )
                     except (ValueError, TypeError, AttributeError):
                         pass
 
@@ -111,7 +129,14 @@ class NewsAPIProvider(NewsProvider):
                         query_tag=query_tag,
                     )
                 )
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError, KeyError, ValueError, TypeError):
+        except (
+            httpx.TimeoutException,
+            httpx.NetworkError,
+            httpx.HTTPStatusError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ):
             pass
 
         return articles
@@ -134,17 +159,36 @@ class NewsAPIProvider(NewsProvider):
             "USD": {"names": ["dollar", "usd", "dollar"], "cb": ["fed", "federal reserve"]},
             "GBP": {"names": ["pound", "gbp", "sterling"], "cb": ["boe", "bank of england"]},
             "JPY": {"names": ["yen", "jpy"], "cb": ["boj", "bank of japan"]},
-            "AUD": {"names": ["australian dollar", "aud"], "cb": ["rba", "reserve bank of australia"]},
+            "AUD": {
+                "names": ["australian dollar", "aud"],
+                "cb": ["rba", "reserve bank of australia"],
+            },
             "CAD": {"names": ["canadian dollar", "cad"], "cb": ["boc", "bank of canada"]},
             "CHF": {"names": ["swiss franc", "chf"], "cb": ["snb", "swiss national bank"]},
-            "NZD": {"names": ["new zealand dollar", "nzd"], "cb": ["rbnz", "reserve bank of new zealand"]},
+            "NZD": {
+                "names": ["new zealand dollar", "nzd"],
+                "cb": ["rbnz", "reserve bank of new zealand"],
+            },
         }
 
         base_info = currency_names.get(base_currency, {"names": [base_currency.lower()], "cb": []})
-        quote_info = currency_names.get(quote_currency, {"names": [quote_currency.lower()], "cb": []})
+        quote_info = currency_names.get(
+            quote_currency, {"names": [quote_currency.lower()], "cb": []}
+        )
 
         fx_anchors = ["forex", "fx", "currency", "exchange rate", "foreign exchange"]
-        macro_keywords = ["cpi", "inflation", "rates", "yields", "jobs", "nfp", "gdp", "pmi", "employment", "unemployment"]
+        macro_keywords = [
+            "cpi",
+            "inflation",
+            "rates",
+            "yields",
+            "jobs",
+            "nfp",
+            "gdp",
+            "pmi",
+            "employment",
+            "unemployment",
+        ]
         blacklist_phrases = [
             "exchange rates today",
             "курс валют сегодня",
@@ -195,7 +239,9 @@ class NewsAPIProvider(NewsProvider):
             if base_currency:
                 has_currency_mention = any(name in title_lower for name in base_info["names"])
             if quote_currency:
-                has_currency_mention = has_currency_mention or any(name in title_lower for name in quote_info["names"])
+                has_currency_mention = has_currency_mention or any(
+                    name in title_lower for name in quote_info["names"]
+                )
 
             has_cb_mention = False
             if base_info["cb"]:
@@ -259,7 +305,9 @@ class NewsAPIProvider(NewsProvider):
                 articles = self._fetch_articles_for_query(query, query_tag)
                 all_candidates.extend(articles)
 
-            filtered_articles, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates, symbol)
+            filtered_articles, dropped_examples, dropped_reason_hint = self._filter_dedup_score(
+                all_candidates, symbol
+            )
 
             candidates_total = len(all_candidates)
             articles_after_filter = len(filtered_articles)
@@ -269,7 +317,9 @@ class NewsAPIProvider(NewsProvider):
 
             if high_score_count >= 5:
                 quality = "HIGH"
-                quality_reason = f"Found {high_score_count} highly relevant articles (score >= 0.55)"
+                quality_reason = (
+                    f"Found {high_score_count} highly relevant articles (score >= 0.55)"
+                )
             elif high_score_count >= 2 or len(top_articles) >= 2:
                 quality = "MEDIUM"
                 quality_reason = f"Found {high_score_count} highly relevant articles, {len(top_articles)} total after filtering"

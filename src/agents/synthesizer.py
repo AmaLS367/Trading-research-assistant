@@ -115,9 +115,13 @@ Invalid output:
                     )
 
                     if attempt == 0:
-                        debug_payload["repair_output_1"] = self._truncate_string(retry_response, 6000)
+                        debug_payload["repair_output_1"] = self._truncate_string(
+                            retry_response, 6000
+                        )
                     else:
-                        debug_payload["repair_output_2"] = self._truncate_string(retry_response, 6000)
+                        debug_payload["repair_output_2"] = self._truncate_string(
+                            retry_response, 6000
+                        )
 
                     recommendation_data, brief_warning = self._parse_llm_response(retry_response)
                     debug_payload["parse_ok"] = True
@@ -204,13 +208,13 @@ Previous failed attempt:
         if json_end < json_start:
             json_end = len(text) - 1
 
-        extracted = text[json_start:json_end + 1]
+        extracted = text[json_start : json_end + 1]
 
         if not extracted.endswith("}"):
             extracted = extracted + "}"
 
         extracted = extracted.replace('"', '"').replace('"', '"')
-        extracted = extracted.replace(''', "'").replace(''', "'")
+        extracted = extracted.replace(""", "'").replace(""", "'")
 
         return extracted
 
@@ -232,7 +236,9 @@ Previous failed attempt:
                 error_col = getattr(e, "colno", None)
 
                 context_start = max(0, (error_pos - 150) if error_pos else 0)
-                context_end = min(len(response_cleaned), (error_pos + 150) if error_pos else len(response_cleaned))
+                context_end = min(
+                    len(response_cleaned), (error_pos + 150) if error_pos else len(response_cleaned)
+                )
                 context = response_cleaned[context_start:context_end]
 
                 error_details = f" at position {error_pos}" if error_pos else ""
@@ -285,7 +291,7 @@ Previous failed attempt:
         if not fixed.strip().endswith("}"):
             json_end = fixed.rfind("}")
             if json_end >= 0:
-                fixed = fixed[:json_end + 1]
+                fixed = fixed[: json_end + 1]
 
         try:
             json.loads(fixed)
@@ -303,12 +309,7 @@ Previous failed attempt:
             pass
 
         try:
-            fixed_quotes = re.sub(
-                r'(?<!\\)"(?=.*":\s*")',
-                lambda m: '\\"',
-                fixed,
-                count=1
-            )
+            fixed_quotes = re.sub(r'(?<!\\)"(?=.*":\s*")', lambda m: '\\"', fixed, count=1)
             json.loads(fixed_quotes)
             return fixed_quotes
         except (json.JSONDecodeError, Exception):

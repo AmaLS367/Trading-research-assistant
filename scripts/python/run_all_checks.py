@@ -1,7 +1,6 @@
 """Run all code quality checks."""
 import subprocess
 import sys
-from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
@@ -46,7 +45,7 @@ def run_command(cmd: str, description: str, stop_on_error: bool = False) -> tupl
             if result.stderr:
                 console.print(f"[red]{result.stderr}[/red]")
             if stop_on_error:
-                console.print(f"\n[red]Stopping on first error (--stop-on-error)[/red]")
+                console.print("\n[red]Stopping on first error (--stop-on-error)[/red]")
                 sys.exit(1)
             return False, result.stderr
 

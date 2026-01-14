@@ -11,7 +11,10 @@ class MultiNewsProvider(NewsProvider):
     def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         primary_digest = self.primary.get_news_digest(symbol, timeframe)
 
-        if primary_digest.quality in ("HIGH", "MEDIUM") and primary_digest.articles_after_filter >= 2:
+        if (
+            primary_digest.quality in ("HIGH", "MEDIUM")
+            and primary_digest.articles_after_filter >= 2
+        ):
             primary_digest.provider_used = "GDELT"
             primary_digest.primary_quality = primary_digest.quality
             primary_digest.primary_reason = primary_digest.quality_reason
@@ -41,7 +44,9 @@ class MultiNewsProvider(NewsProvider):
             primary_digest.primary_quality = primary_digest.quality
             primary_digest.primary_reason = primary_digest.quality_reason
             if primary_digest.quality_reason:
-                primary_digest.quality_reason = f"{primary_digest.quality_reason} NewsAPI disabled (no API key)"
+                primary_digest.quality_reason = (
+                    f"{primary_digest.quality_reason} NewsAPI disabled (no API key)"
+                )
             else:
                 primary_digest.quality_reason = "NewsAPI disabled (no API key)"
             return primary_digest

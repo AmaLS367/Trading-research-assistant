@@ -110,7 +110,7 @@ def create_env_example() -> None:
 
     with open(example_path, "w", encoding="utf-8") as f:
         f.write(ENV_TEMPLATE)
-    console.print(f"[green]✓[/green] Created .env.example")
+    console.print("[green]✓[/green] Created .env.example")
 
 
 def setup_interactive() -> None:

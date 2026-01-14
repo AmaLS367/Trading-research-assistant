@@ -12,10 +12,7 @@ class LlmRouter:
         if not settings.ollama_model:
             raise ValueError("OLLAMA_MODEL must be set in environment variables")
 
-        use_remote = (
-            task in ("synthesis", "news_sentiment")
-            and settings.ollama_remote_base_url
-        )
+        use_remote = task in ("synthesis", "news_sentiment") and settings.ollama_remote_base_url
 
         if use_remote:
             if self._remote_provider is None:

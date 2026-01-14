@@ -45,17 +45,23 @@ Provide your analysis as JSON."""
                 user_prompt=user_prompt,
             )
 
-            analysis_data = self._parse_llm_response(llm_response, [article.title for article in digest.articles])
+            analysis_data = self._parse_llm_response(
+                llm_response, [article.title for article in digest.articles]
+            )
 
             summary_value = analysis_data.get("summary", "Failed to parse LLM output")
-            digest.summary = str(summary_value) if summary_value is not None else "Failed to parse LLM output"
+            digest.summary = (
+                str(summary_value) if summary_value is not None else "Failed to parse LLM output"
+            )
             sentiment_value = analysis_data.get("sentiment", "NEU")
             sentiment_str = str(sentiment_value) if sentiment_value is not None else "NEU"
             if sentiment_str not in ["POS", "NEG", "NEU"]:
                 sentiment_str = "NEU"
             digest.sentiment = sentiment_str
             impact_score_value = analysis_data.get("impact_score", 0.0)
-            impact_score = float(impact_score_value) if isinstance(impact_score_value, (int, float)) else 0.0
+            impact_score = (
+                float(impact_score_value) if isinstance(impact_score_value, (int, float)) else 0.0
+            )
             digest.impact_score = max(0.0, min(1.0, impact_score))
 
         except Exception:
@@ -65,7 +71,9 @@ Provide your analysis as JSON."""
 
         return digest
 
-    def _parse_llm_response(self, response: str, available_titles: list[str]) -> dict[str, str | float | list[str]]:
+    def _parse_llm_response(
+        self, response: str, available_titles: list[str]
+    ) -> dict[str, str | float | list[str]]:
         response_cleaned = response.strip()
 
         if response_cleaned.startswith("```json"):
@@ -90,7 +98,9 @@ Provide your analysis as JSON."""
 
         evidence_titles = data.get("evidence_titles", [])
         if isinstance(evidence_titles, list):
-            evidence_titles_filtered = [title for title in evidence_titles if title in available_titles]
+            evidence_titles_filtered = [
+                title for title in evidence_titles if title in available_titles
+            ]
             data["evidence_titles"] = evidence_titles_filtered
         else:
             data["evidence_titles"] = []

@@ -64,7 +64,9 @@ class Reporter:
         return table
 
     def generate_news_stats(self, news_rationales: list[Rationale]) -> Table:
-        table = Table(title="News Quality Statistics", show_header=True, header_style="bold magenta")
+        table = Table(
+            title="News Quality Statistics", show_header=True, header_style="bold magenta"
+        )
         table.add_column("Quality", style="cyan", width=10)
         table.add_column("Count", style="yellow", justify="right", width=12)
         table.add_column("Percentage", style="bold green", justify="right", width=12)

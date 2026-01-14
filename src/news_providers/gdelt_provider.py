@@ -31,14 +31,26 @@ class GDELTProvider(NewsProvider):
             "USD": {"name": "dollar", "cb": "Fed", "cb_full": "Federal Reserve"},
             "GBP": {"name": "pound", "cb": "BoE", "cb_full": "Bank of England"},
             "JPY": {"name": "yen", "cb": "BoJ", "cb_full": "Bank of Japan"},
-            "AUD": {"name": "australian dollar", "cb": "RBA", "cb_full": "Reserve Bank of Australia"},
+            "AUD": {
+                "name": "australian dollar",
+                "cb": "RBA",
+                "cb_full": "Reserve Bank of Australia",
+            },
             "CAD": {"name": "canadian dollar", "cb": "BoC", "cb_full": "Bank of Canada"},
             "CHF": {"name": "swiss franc", "cb": "SNB", "cb_full": "Swiss National Bank"},
-            "NZD": {"name": "new zealand dollar", "cb": "RBNZ", "cb_full": "Reserve Bank of New Zealand"},
+            "NZD": {
+                "name": "new zealand dollar",
+                "cb": "RBNZ",
+                "cb_full": "Reserve Bank of New Zealand",
+            },
         }
 
-        base_info = currency_names.get(base_currencies, {"name": base_currencies.lower(), "cb": "", "cb_full": ""})
-        quote_info = currency_names.get(quote_currency, {"name": quote_currency.lower(), "cb": "", "cb_full": ""})
+        base_info = currency_names.get(
+            base_currencies, {"name": base_currencies.lower(), "cb": "", "cb_full": ""}
+        )
+        quote_info = currency_names.get(
+            quote_currency, {"name": quote_currency.lower(), "cb": "", "cb_full": ""}
+        )
 
         fx_anchors = '(forex OR fx OR currency OR "exchange rate" OR "foreign exchange")'
         language_filter = "sourcelang:English"
@@ -78,21 +90,19 @@ class GDELTProvider(NewsProvider):
         if cb_terms:
             cb_query = " OR ".join(cb_terms)
             templates["medium"]["macro_medium"] = (
-                f'(({cb_query} OR {macro_terms}) AND {fx_anchors}) {language_filter}'
+                f"(({cb_query} OR {macro_terms}) AND {fx_anchors}) {language_filter}"
             )
 
-        templates["broad"]["macro_broad"] = (
-            f'({macro_terms} AND {fx_anchors}) {language_filter}'
-        )
+        templates["broad"]["macro_broad"] = f"({macro_terms} AND {fx_anchors}) {language_filter}"
 
         risk_terms = '("risk on" OR "risk off" OR recession OR "safe haven" OR "market volatility" OR volatility)'
-        templates["broad"]["risk_broad"] = (
-            f'({risk_terms} AND {fx_anchors}) {language_filter}'
-        )
+        templates["broad"]["risk_broad"] = f"({risk_terms} AND {fx_anchors}) {language_filter}"
 
         return templates
 
-    def _fetch_articles_for_query(self, query: str, query_tag: str) -> tuple[list[NewsArticle], dict[str, Any]]:
+    def _fetch_articles_for_query(
+        self, query: str, query_tag: str
+    ) -> tuple[list[NewsArticle], dict[str, Any]]:
         articles: list[NewsArticle] = []
         debug_info: dict[str, Any] = {
             "tag": query_tag,
@@ -118,6 +128,7 @@ class GDELTProvider(NewsProvider):
             }
 
             from urllib.parse import urlencode
+
             query_string = urlencode(params)
             full_url = f"{url}?{query_string}"
             debug_info["url"] = full_url
@@ -130,7 +141,9 @@ class GDELTProvider(NewsProvider):
                 data = response.json()
                 debug_info["json_keys"] = list(data.keys())[:10] if isinstance(data, dict) else None
                 articles_data = data.get("articles", [])
-                debug_info["items_count"] = len(articles_data) if isinstance(articles_data, list) else 0
+                debug_info["items_count"] = (
+                    len(articles_data) if isinstance(articles_data, list) else 0
+                )
 
                 if articles_data and isinstance(articles_data, list) and len(articles_data) > 0:
                     first_item = articles_data[0]
@@ -178,8 +191,12 @@ class GDELTProvider(NewsProvider):
             except (ValueError, TypeError, KeyError) as json_error:
                 debug_info["json_parse_error"] = str(json_error)[:200]
         except httpx.HTTPStatusError as http_error:
-            debug_info["http_status"] = http_error.response.status_code if http_error.response else None
-            debug_info["error"] = f"HTTP {http_error.response.status_code if http_error.response else 'unknown'}: {str(http_error)[:200]}"
+            debug_info["http_status"] = (
+                http_error.response.status_code if http_error.response else None
+            )
+            debug_info["error"] = (
+                f"HTTP {http_error.response.status_code if http_error.response else 'unknown'}: {str(http_error)[:200]}"
+            )
         except (httpx.TimeoutException, httpx.NetworkError) as network_error:
             debug_info["error"] = f"{type(network_error).__name__}: {str(network_error)[:200]}"
         except Exception as e:
@@ -222,9 +239,19 @@ class GDELTProvider(NewsProvider):
 
             if pass_name == "broad" and len(relevant_high) < min_relevant:
                 filtered_articles_broad = [
-                    a for a in filtered_articles
+                    a
+                    for a in filtered_articles
                     if a.relevance_score >= 0.45
-                    and any(anchor in a.title.lower() for anchor in ["forex", "fx", "currency", "exchange rate", "foreign exchange"])
+                    and any(
+                        anchor in a.title.lower()
+                        for anchor in [
+                            "forex",
+                            "fx",
+                            "currency",
+                            "exchange rate",
+                            "foreign exchange",
+                        ]
+                    )
                 ]
                 if filtered_articles_broad:
                     filtered_articles = filtered_articles_broad
@@ -249,9 +276,13 @@ class GDELTProvider(NewsProvider):
 
         if len(final_filtered) < min_relevant and "broad" in pass_counts:
             final_filtered_broad = [
-                a for a in final_filtered
+                a
+                for a in final_filtered
                 if a.relevance_score >= 0.45
-                and any(anchor in a.title.lower() for anchor in ["forex", "fx", "currency", "exchange rate", "foreign exchange"])
+                and any(
+                    anchor in a.title.lower()
+                    for anchor in ["forex", "fx", "currency", "exchange rate", "foreign exchange"]
+                )
             ]
             if final_filtered_broad:
                 final_filtered = final_filtered_broad
@@ -280,17 +311,36 @@ class GDELTProvider(NewsProvider):
             "USD": {"names": ["dollar", "usd", "dollar"], "cb": ["fed", "federal reserve"]},
             "GBP": {"names": ["pound", "gbp", "sterling"], "cb": ["boe", "bank of england"]},
             "JPY": {"names": ["yen", "jpy"], "cb": ["boj", "bank of japan"]},
-            "AUD": {"names": ["australian dollar", "aud"], "cb": ["rba", "reserve bank of australia"]},
+            "AUD": {
+                "names": ["australian dollar", "aud"],
+                "cb": ["rba", "reserve bank of australia"],
+            },
             "CAD": {"names": ["canadian dollar", "cad"], "cb": ["boc", "bank of canada"]},
             "CHF": {"names": ["swiss franc", "chf"], "cb": ["snb", "swiss national bank"]},
-            "NZD": {"names": ["new zealand dollar", "nzd"], "cb": ["rbnz", "reserve bank of new zealand"]},
+            "NZD": {
+                "names": ["new zealand dollar", "nzd"],
+                "cb": ["rbnz", "reserve bank of new zealand"],
+            },
         }
 
         base_info = currency_names.get(base_currency, {"names": [base_currency.lower()], "cb": []})
-        quote_info = currency_names.get(quote_currency, {"names": [quote_currency.lower()], "cb": []})
+        quote_info = currency_names.get(
+            quote_currency, {"names": [quote_currency.lower()], "cb": []}
+        )
 
         fx_anchors = ["forex", "fx", "currency", "exchange rate", "foreign exchange"]
-        macro_keywords = ["cpi", "inflation", "rates", "yields", "jobs", "nfp", "gdp", "pmi", "employment", "unemployment"]
+        macro_keywords = [
+            "cpi",
+            "inflation",
+            "rates",
+            "yields",
+            "jobs",
+            "nfp",
+            "gdp",
+            "pmi",
+            "employment",
+            "unemployment",
+        ]
         blacklist_phrases = [
             "exchange rates today",
             "курс валют сегодня",
@@ -341,7 +391,9 @@ class GDELTProvider(NewsProvider):
             if base_currency:
                 has_currency_mention = any(name in title_lower for name in base_info["names"])
             if quote_currency:
-                has_currency_mention = has_currency_mention or any(name in title_lower for name in quote_info["names"])
+                has_currency_mention = has_currency_mention or any(
+                    name in title_lower for name in quote_info["names"]
+                )
 
             has_cb_mention = False
             if base_info["cb"]:
@@ -394,7 +446,9 @@ class GDELTProvider(NewsProvider):
 
     def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         try:
-            filtered_articles, pass_counts, queries_used, gdelt_debug = self.fetch_articles_with_fallback(symbol)
+            filtered_articles, pass_counts, queries_used, gdelt_debug = (
+                self.fetch_articles_with_fallback(symbol)
+            )
 
             candidates_total = sum(counts.get("candidates", 0) for counts in pass_counts.values())
             articles_after_filter = len(filtered_articles)
@@ -404,7 +458,9 @@ class GDELTProvider(NewsProvider):
 
             if high_score_count >= 5:
                 quality = "HIGH"
-                quality_reason = f"Found {high_score_count} highly relevant articles (score >= 0.55)"
+                quality_reason = (
+                    f"Found {high_score_count} highly relevant articles (score >= 0.55)"
+                )
             elif high_score_count >= 2 or len(top_articles) >= 2:
                 quality = "MEDIUM"
                 quality_reason = f"Found {high_score_count} highly relevant articles, {len(top_articles)} total after filtering"
@@ -429,7 +485,9 @@ class GDELTProvider(NewsProvider):
                         for query_tag, query in templates[pass_name].items():
                             articles, _ = self._fetch_articles_for_query(query, query_tag)
                             all_candidates_for_dropped.extend(articles)
-                _, dropped_examples, dropped_reason_hint = self._filter_dedup_score(all_candidates_for_dropped, symbol)
+                _, dropped_examples, dropped_reason_hint = self._filter_dedup_score(
+                    all_candidates_for_dropped, symbol
+                )
                 dropped_examples = dropped_examples[:3]
 
             return NewsDigest(

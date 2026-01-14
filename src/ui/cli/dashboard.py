@@ -9,7 +9,9 @@ class Dashboard:
         self.console = console
 
     def show_header(self) -> None:
-        header_text = "[bold cyan]Trading Research Assistant[/bold cyan]\n[dim]MVP - Demo Only[/dim]"
+        header_text = (
+            "[bold cyan]Trading Research Assistant[/bold cyan]\n[dim]MVP - Demo Only[/dim]"
+        )
         self.console.print(Panel(header_text, border_style="cyan"))
 
     def show_latest_run(

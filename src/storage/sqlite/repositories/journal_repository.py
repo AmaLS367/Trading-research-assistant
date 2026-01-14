@@ -1,4 +1,3 @@
-
 from src.core.models.journal_entry import JournalEntry
 from src.storage.sqlite.connection import DBConnection
 
@@ -36,6 +35,7 @@ class JournalRepository:
             if row:
                 row_dict = dict(row)
                 from datetime import datetime
+
                 row_dict["open_time"] = datetime.fromisoformat(row_dict["open_time"])
                 return JournalEntry(**row_dict)
             return None
@@ -48,6 +48,7 @@ class JournalRepository:
             if row:
                 row_dict = dict(row)
                 from datetime import datetime
+
                 row_dict["open_time"] = datetime.fromisoformat(row_dict["open_time"])
                 return JournalEntry(**row_dict)
             return None

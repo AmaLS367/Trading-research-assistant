@@ -1,4 +1,3 @@
-
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.storage.sqlite.connection import DBConnection
@@ -39,6 +38,7 @@ class RecommendationsRepository:
             if row:
                 row_dict = dict(row)
                 from datetime import datetime
+
                 row_dict["timestamp"] = datetime.fromisoformat(row_dict["timestamp"])
                 row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
                 if "action" not in row_dict:

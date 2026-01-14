@@ -16,11 +16,15 @@ class Settings(BaseSettings):
     # --- OANDA API ---
     oanda_api_key: Annotated[str, Field(alias="OANDA_API_KEY")] = ""
     oanda_account_id: Annotated[str, Field(alias="OANDA_ACCOUNT_ID")] = ""
-    oanda_base_url: Annotated[str, Field(alias="OANDA_BASE_URL")] = "https://api-fxpractice.oanda.com"
+    oanda_base_url: Annotated[str, Field(alias="OANDA_BASE_URL")] = (
+        "https://api-fxpractice.oanda.com"
+    )
 
     # --- Twelve Data API ---
     twelve_data_api_key: Annotated[str, Field(alias="TWELVE_DATA_API_KEY")] = ""
-    twelve_data_base_url: Annotated[str, Field(alias="TWELVE_DATA_BASE_URL")] = "https://api.twelvedata.com"
+    twelve_data_base_url: Annotated[str, Field(alias="TWELVE_DATA_BASE_URL")] = (
+        "https://api.twelvedata.com"
+    )
 
     # --- GDELT API ---
     gdelt_base_url: Annotated[str, Field(alias="GDELT_BASE_URL")] = "https://api.gdeltproject.org"
@@ -35,18 +39,30 @@ class Settings(BaseSettings):
     ollama_model: Annotated[str, Field(alias="OLLAMA_MODEL")] = ""
 
     # --- Storage ---
-    storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path("db/forex_research_assistant.sqlite3")
+    storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path(
+        "db/forex_research_assistant.sqlite3"
+    )
     storage_artifacts_dir: Annotated[Path, Field(alias="STORAGE_ARTIFACTS_DIR")] = Path("artifacts")
-    storage_migration_path: Annotated[str, Field(alias="STORAGE_MIGRATION_PATH")] = "src/storage/sqlite/migrations"
+    storage_migration_path: Annotated[str, Field(alias="STORAGE_MIGRATION_PATH")] = (
+        "src/storage/sqlite/migrations"
+    )
 
     # --- Runtime ---
-    runtime_mvp_symbols_raw: Annotated[str, Field(alias="RUNTIME_MVP_SYMBOLS_RAW")] = "EURUSD,GBPUSD,USDJPY"
+    runtime_mvp_symbols_raw: Annotated[str, Field(alias="RUNTIME_MVP_SYMBOLS_RAW")] = (
+        "EURUSD,GBPUSD,USDJPY"
+    )
     runtime_mvp_timeframe: Annotated[str, Field(alias="RUNTIME_MVP_TIMEFRAME")] = "1m"
     runtime_mvp_expiry_seconds: Annotated[int, Field(alias="RUNTIME_MVP_EXPIRY_SECONDS")] = 60
     runtime_llm_enabled: Annotated[bool, Field(alias="RUNTIME_LLM_ENABLED")] = False
-    runtime_llm_call_interval_seconds: Annotated[int, Field(alias="RUNTIME_LLM_CALL_INTERVAL_SECONDS")] = 300
-    runtime_news_refresh_interval_seconds: Annotated[int, Field(alias="RUNTIME_NEWS_REFRESH_INTERVAL_SECONDS")] = 300
-    runtime_market_data_window_candles: Annotated[int, Field(alias="RUNTIME_MARKET_DATA_WINDOW_CANDLES")] = 300
+    runtime_llm_call_interval_seconds: Annotated[
+        int, Field(alias="RUNTIME_LLM_CALL_INTERVAL_SECONDS")
+    ] = 300
+    runtime_news_refresh_interval_seconds: Annotated[
+        int, Field(alias="RUNTIME_NEWS_REFRESH_INTERVAL_SECONDS")
+    ] = 300
+    runtime_market_data_window_candles: Annotated[
+        int, Field(alias="RUNTIME_MARKET_DATA_WINDOW_CANDLES")
+    ] = 300
 
     @field_validator("runtime_mvp_timeframe", mode="before")
     @classmethod

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from src.agents.news_analyst import NewsAnalyst
@@ -16,7 +17,7 @@ from src.runtime.jobs.persist_recommendation_job import PersistRecommendationJob
 from src.storage.artifacts.artifact_store import ArtifactStore
 
 
-class Orchestrator:
+class RuntimeOrchestrator:
     def __init__(
         self,
         storage: Storage,
@@ -118,8 +119,6 @@ class Orchestrator:
                 technical_view=technical_view,
                 news_digest=analyzed_news_digest,
             )
-
-            import json
 
             synthesis_content = (
                 f"Action: {recommendation.action}\n"

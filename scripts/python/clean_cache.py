@@ -127,7 +127,7 @@ def clean_cache(include_optional: bool = False) -> None:
                 removed_files += 1
         except FileNotFoundError:
             pass
-        except PermissionError as e:
+        except PermissionError:
             console.print(f"[yellow]⚠[/yellow] Permission denied: {item}")
             failed_count += 1
         except Exception as e:

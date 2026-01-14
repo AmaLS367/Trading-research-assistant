@@ -10,7 +10,6 @@ sys.path.insert(0, str(project_root))
 import httpx
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 console = Console()
 
@@ -62,7 +61,7 @@ def check_env_file() -> bool:
     """Check if .env file exists."""
     env_path = Path(".env")
     if env_path.exists():
-        console.print(f"[green]✓[/green] .env file found")
+        console.print("[green]✓[/green] .env file found")
         return True
     console.print("[red]✗[/red] .env file not found")
     return False
