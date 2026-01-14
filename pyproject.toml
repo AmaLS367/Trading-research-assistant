@@ -1,45 +1,172 @@
 [project]
-name = "Trading-research-assistant"
+name = "trading-research-assistant"
 version = "0.1.0"
-description = "Trading research assistant with LLM-powered analysis"
+description = "LLM-powered trading research assistant for technical and fundamental analysis"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "CC-BY-NC-4.0"}
+authors = [
+    {name = "AmaLS367"},
+]
+keywords = [
+    "trading",
+    "forex",
+    "llm",
+    "technical-analysis",
+    "fundamental-analysis",
+    "ollama",
+    "financial-analysis",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 dependencies = [
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "httpx>=0.25.0",
-    "tenacity>=8.2.0",
-    "numpy>=1.24.0",
-    "pandas>=2.0.0",
-    "ta>=0.11.0",
-    "ollama>=0.1.0",
-    "rich>=13.0.0",
+    "pydantic>=2.0.0,<3.0.0",
+    "pydantic-settings>=2.0.0,<3.0.0",
+    "httpx>=0.25.0,<1.0.0",
+    "tenacity>=8.2.0,<9.0.0",
+    "numpy>=1.24.0,<2.0.0",
+    "pandas>=2.0.0,<3.0.0",
+    "ta>=0.11.0,<1.0.0",
+    "ollama>=0.1.0,<1.0.0",
+    "rich>=13.0.0,<14.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
-    "ruff>=0.1.0",
-    "mypy>=1.5.0",
+    "pytest>=7.4.0,<8.0.0",
+    "pytest-cov>=4.1.0,<5.0.0",
+    "ruff>=0.1.0,<1.0.0",
+    "mypy>=1.5.0,<2.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/AmaLS367/Trading-research-assistant"
+Repository = "https://github.com/AmaLS367/Trading-research-assistant"
+Issues = "https://github.com/AmaLS367/Trading-research-assistant/issues"
+
+[project.scripts]
+trading-assistant = "src.app.main:main"
+
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["src"]
 
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt", "*.sql"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-select = ["E", "F", "B", "I", "N", "UP"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
 ignore_missing_imports = true
 explicit_package_bases = true
+namespace_packages = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "ta.*",
+    "ollama.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == '__main__':",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
