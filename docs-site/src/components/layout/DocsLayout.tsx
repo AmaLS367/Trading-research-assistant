@@ -27,7 +27,7 @@ export default function DocsLayout({ children }: DocsLayoutProps) {
 
         <main className="flex-1 min-w-0">
           <div className="mx-auto max-w-[1000px] px-4 py-8 md:px-8 lg:px-12">
-            <div className="flex gap-8">
+            <div className="flex gap-12">
               <div className="flex-1 min-w-0">
                 {children}
               </div>
