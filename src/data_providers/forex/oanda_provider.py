@@ -1,11 +1,11 @@
 from datetime import datetime
 
 import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.core.models.candle import Candle
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
+from src.utils.retry import retry_network_call
 
 
 class OandaProvider(MarketDataProvider):
@@ -38,11 +38,7 @@ class OandaProvider(MarketDataProvider):
             return f"{symbol_upper[:3]}_{symbol_upper[3:]}"
         return symbol_upper
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
-    )
+    @retry_network_call
     def fetch_candles(
         self,
         symbol: str,

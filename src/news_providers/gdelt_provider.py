@@ -7,6 +7,7 @@ import httpx
 from src.core.models.news import NewsArticle, NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.core.ports.news_provider import NewsProvider
+from src.utils.retry import retry_network_call
 
 
 class GDELTProvider(NewsProvider):
@@ -14,6 +15,10 @@ class GDELTProvider(NewsProvider):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout)
+
+    @retry_network_call
+    def _make_request(self, url: str, params: dict[str, str | int]) -> httpx.Response:
+        return self.client.get(url, params=params)
 
     def _build_query_from_symbol(self, symbol: str) -> str:
         symbol_upper = symbol.upper().strip()
@@ -133,7 +138,7 @@ class GDELTProvider(NewsProvider):
             full_url = f"{url}?{query_string}"
             debug_info["url"] = full_url
 
-            response = self.client.get(url, params=params)
+            response = self._make_request(url, params)
             debug_info["http_status"] = response.status_code
             response.raise_for_status()
 

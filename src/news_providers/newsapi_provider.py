@@ -6,6 +6,7 @@ import httpx
 from src.core.models.news import NewsArticle, NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.core.ports.news_provider import NewsProvider
+from src.utils.retry import retry_network_call
 
 
 class NewsAPIProvider(NewsProvider):
@@ -14,6 +15,10 @@ class NewsAPIProvider(NewsProvider):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout)
+
+    @retry_network_call
+    def _make_request(self, url: str, params: dict[str, str | int]) -> httpx.Response:
+        return self.client.get(url, params=params)
 
     def _get_query_templates(self, symbol: str) -> dict[str, str]:
         symbol_upper = symbol.upper().strip()
@@ -89,7 +94,7 @@ class NewsAPIProvider(NewsProvider):
                 "apiKey": self.api_key,
             }
 
-            response = self.client.get(url, params=params)
+            response = self._make_request(url, params)
             response.raise_for_status()
             data = response.json()
             articles_data = data.get("articles", [])

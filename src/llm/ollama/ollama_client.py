@@ -1,7 +1,7 @@
 import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.core.ports.llm_provider import LlmProvider
+from src.utils.retry import retry_network_call
 
 
 class OllamaClient(LlmProvider):
@@ -11,11 +11,7 @@ class OllamaClient(LlmProvider):
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout)
 
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
-    )
+    @retry_network_call(max_attempts=2, min_wait=2.0, max_wait=5.0)
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         url = f"{self.base_url}/api/chat"
 
