@@ -6,12 +6,14 @@ from src.agents.prompts.synthesis_prompts import get_synthesis_system_prompt
 from src.core.models.news import NewsDigest
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
+from src.core.policies.safety_policy import SafetyPolicy
 from src.core.ports.llm_provider import LlmProvider
 
 
 class Synthesizer:
     def __init__(self, llm_provider: LlmProvider) -> None:
         self.llm_provider = llm_provider
+        self.safety_policy = SafetyPolicy()
 
     def synthesize(
         self,
@@ -86,6 +88,13 @@ Based on the above information, provide your trading recommendation as JSON."""
                 confidence=confidence_float,
             )
 
+            validated, validation_error = self.safety_policy.validate(recommendation)
+            if not validated:
+                recommendation = self.safety_policy.sanitize(recommendation)
+                if validation_error and "forbidden" in validation_error.lower():
+                    recommendation.action = "WAIT"
+                    recommendation.confidence = min(recommendation.confidence, 0.3)
+
             return recommendation, debug_payload
 
         except (ValueError, json.JSONDecodeError) as parse_error:
@@ -139,6 +148,13 @@ Invalid output:
                         brief=brief_str,
                         confidence=confidence_float,
                     )
+
+                    validated, validation_error = self.safety_policy.validate(recommendation)
+                    if not validated:
+                        recommendation = self.safety_policy.sanitize(recommendation)
+                        if validation_error and "forbidden" in validation_error.lower():
+                            recommendation.action = "WAIT"
+                            recommendation.confidence = min(recommendation.confidence, 0.3)
 
                     return recommendation, debug_payload
 
