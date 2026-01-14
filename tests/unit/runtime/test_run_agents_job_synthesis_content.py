@@ -52,7 +52,14 @@ def test_synthesis_content_includes_system_note_for_low_quality() -> None:
             brief="Strong bullish momentum detected.",
             confidence=0.75,
         ),
-        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
+        {
+            "parse_ok": True,
+            "parse_error": None,
+            "raw_output": "",
+            "retry_used": False,
+            "retry_raw_output": None,
+            "brief_warning": None,
+        },
     )
 
     recommendations_repo = Mock()
@@ -76,7 +83,11 @@ def test_synthesis_content_includes_system_note_for_low_quality() -> None:
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
 
-    synthesis_calls = [call for call in rationales_repo.save.call_args_list if call[0][0].rationale_type == RationaleType.SYNTHESIS]
+    synthesis_calls = [
+        call
+        for call in rationales_repo.save.call_args_list
+        if call[0][0].rationale_type == RationaleType.SYNTHESIS
+    ]
     assert len(synthesis_calls) == 1
 
     saved_rationale = synthesis_calls[0][0][0]
@@ -127,7 +138,14 @@ def test_synthesis_content_no_system_note_for_medium_quality() -> None:
             brief="Bullish trend with moderate news support.",
             confidence=0.70,
         ),
-        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
+        {
+            "parse_ok": True,
+            "parse_error": None,
+            "raw_output": "",
+            "retry_used": False,
+            "retry_raw_output": None,
+            "brief_warning": None,
+        },
     )
 
     recommendations_repo = Mock()
@@ -151,7 +169,11 @@ def test_synthesis_content_no_system_note_for_medium_quality() -> None:
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
 
-    synthesis_calls = [call for call in rationales_repo.save.call_args_list if call[0][0].rationale_type == RationaleType.SYNTHESIS]
+    synthesis_calls = [
+        call
+        for call in rationales_repo.save.call_args_list
+        if call[0][0].rationale_type == RationaleType.SYNTHESIS
+    ]
     assert len(synthesis_calls) == 1
 
     saved_rationale = synthesis_calls[0][0][0]
@@ -202,7 +224,14 @@ def test_synthesis_content_no_system_note_for_high_quality() -> None:
             brief="Strong bullish signals with positive news sentiment.",
             confidence=0.85,
         ),
-        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
+        {
+            "parse_ok": True,
+            "parse_error": None,
+            "raw_output": "",
+            "retry_used": False,
+            "retry_raw_output": None,
+            "brief_warning": None,
+        },
     )
 
     recommendations_repo = Mock()
@@ -226,7 +255,11 @@ def test_synthesis_content_no_system_note_for_high_quality() -> None:
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
 
-    synthesis_calls = [call for call in rationales_repo.save.call_args_list if call[0][0].rationale_type == RationaleType.SYNTHESIS]
+    synthesis_calls = [
+        call
+        for call in rationales_repo.save.call_args_list
+        if call[0][0].rationale_type == RationaleType.SYNTHESIS
+    ]
     assert len(synthesis_calls) == 1
 
     saved_rationale = synthesis_calls[0][0][0]

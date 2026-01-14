@@ -10,11 +10,13 @@ from src.core.ports.llm_provider import LlmProvider
 
 def test_synthesizer_creates_recommendation() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "CALL",
-        "confidence": 0.75,
-        "brief": "Strong bullish momentum with RSI above 70."
-    })
+    mock_response = json.dumps(
+        {
+            "action": "CALL",
+            "confidence": 0.75,
+            "brief": "Strong bullish momentum with RSI above 70.",
+        }
+    )
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -46,11 +48,11 @@ def test_synthesizer_creates_recommendation() -> None:
 
 def test_synthesizer_handles_json_with_code_blocks() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = "```json\n" + json.dumps({
-        "action": "PUT",
-        "confidence": 0.6,
-        "brief": "Bearish trend detected."
-    }) + "\n```"
+    mock_response = (
+        "```json\n"
+        + json.dumps({"action": "PUT", "confidence": 0.6, "brief": "Bearish trend detected."})
+        + "\n```"
+    )
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -78,11 +80,7 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
 
 def test_synthesizer_validates_action() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "INVALID",
-        "confidence": 0.5,
-        "brief": "Test"
-    })
+    mock_response = json.dumps({"action": "INVALID", "confidence": 0.5, "brief": "Test"})
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -110,11 +108,7 @@ def test_synthesizer_validates_action() -> None:
 
 def test_synthesizer_validates_confidence_range() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "WAIT",
-        "confidence": 1.5,
-        "brief": "Test"
-    })
+    mock_response = json.dumps({"action": "WAIT", "confidence": 1.5, "brief": "Test"})
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -142,10 +136,7 @@ def test_synthesizer_validates_confidence_range() -> None:
 
 def test_synthesizer_handles_missing_fields() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "CALL",
-        "confidence": 0.8
-    })
+    mock_response = json.dumps({"action": "CALL", "confidence": 0.8})
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -234,11 +225,9 @@ def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
 
 def test_synthesizer_normalizes_brief_newlines() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "CALL",
-        "confidence": 0.8,
-        "brief": "First line.\nSecond line.\nThird line."
-    })
+    mock_response = json.dumps(
+        {"action": "CALL", "confidence": 0.8, "brief": "First line.\nSecond line.\nThird line."}
+    )
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)
@@ -266,11 +255,9 @@ def test_synthesizer_normalizes_brief_newlines() -> None:
 
 def test_synthesizer_warns_on_curly_braces_in_brief() -> None:
     mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({
-        "action": "PUT",
-        "confidence": 0.7,
-        "brief": "Analysis shows {some data} in the market."
-    })
+    mock_response = json.dumps(
+        {"action": "PUT", "confidence": 0.7, "brief": "Analysis shows {some data} in the market."}
+    )
     mock_llm.generate.return_value = mock_response
 
     synthesizer = Synthesizer(mock_llm)

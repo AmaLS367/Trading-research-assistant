@@ -13,7 +13,10 @@ def test_get_news_summary_collects_titles() -> None:
         "articles": [
             {"title": "EUR USD Exchange Rate Rises on Forex Market", "seendate": "20240101120000"},
             {"title": "European Central Bank Announces Forex Policy", "seendate": "20240101120000"},
-            {"title": "USD Strengthens Against Euro in Currency Market", "seendate": "20240101120000"},
+            {
+                "title": "USD Strengthens Against Euro in Currency Market",
+                "seendate": "20240101120000",
+            },
         ]
     }
 
@@ -135,7 +138,11 @@ def test_get_query_templates_includes_language_filter() -> None:
         if pass_name in templates and templates[pass_name]:
             for query in templates[pass_name].values():
                 assert "sourcelang:English" in query
-                assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query
+                assert (
+                    "forex OR fx OR currency" in query
+                    or '"exchange rate"' in query
+                    or '"foreign exchange"' in query
+                )
 
 
 def test_filter_dedup_score_removes_duplicates() -> None:
@@ -302,7 +309,9 @@ def test_fetch_articles_with_fallback_multi_pass() -> None:
 
     provider.client = mock_client
 
-    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback("EURUSD")
+    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback(
+        "EURUSD"
+    )
 
     assert len(articles) >= 0
     assert "strict" in pass_counts or "medium" in pass_counts or "broad" in pass_counts
@@ -317,7 +326,11 @@ def test_query_templates_include_fx_anchors() -> None:
         if pass_name in templates:
             for _query_tag, query in templates[pass_name].items():
                 assert "sourcelang:English" in query
-                assert "forex OR fx OR currency" in query or '"exchange rate"' in query or '"foreign exchange"' in query
+                assert (
+                    "forex OR fx OR currency" in query
+                    or '"exchange rate"' in query
+                    or '"foreign exchange"' in query
+                )
 
 
 def test_fetch_articles_for_query_collects_diagnostics_empty_articles() -> None:
@@ -404,7 +417,9 @@ def test_fetch_articles_with_fallback_includes_diagnostics() -> None:
 
     provider.client = mock_client
 
-    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback("EURUSD")
+    articles, pass_counts, queries_used, gdelt_debug = provider.fetch_articles_with_fallback(
+        "EURUSD"
+    )
 
     assert "passes" in gdelt_debug
     assert isinstance(gdelt_debug["passes"], dict)

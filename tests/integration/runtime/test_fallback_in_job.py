@@ -52,7 +52,14 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
             brief="Test recommendation",
             confidence=0.7,
         ),
-        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
+        {
+            "parse_ok": True,
+            "parse_error": None,
+            "raw_output": "",
+            "retry_used": False,
+            "retry_raw_output": None,
+            "brief_warning": None,
+        },
     )
 
     recommendations_repo = Mock()
@@ -147,7 +154,14 @@ def test_job_uses_primary_when_successful() -> None:
             brief="Test recommendation",
             confidence=0.7,
         ),
-        {"parse_ok": True, "parse_error": None, "raw_output": "", "retry_used": False, "retry_raw_output": None, "brief_warning": None},
+        {
+            "parse_ok": True,
+            "parse_error": None,
+            "raw_output": "",
+            "retry_used": False,
+            "retry_raw_output": None,
+            "brief_warning": None,
+        },
     )
 
     recommendations_repo = Mock()
