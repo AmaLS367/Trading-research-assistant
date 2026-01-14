@@ -79,6 +79,7 @@ export default function DocsPage() {
           <Breadcrumbs />
           <TOC isMobile={true} />
           <MarkdownRenderer
+            key={`${currentLang}:${slug}`}
             content={content.markdown}
             currentLang={currentLang}
             currentSlug={slug}

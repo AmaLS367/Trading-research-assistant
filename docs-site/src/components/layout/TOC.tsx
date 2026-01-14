@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDocs } from '@/lib/docs-context';
 
 interface TOCItem {
   id: string;
@@ -14,12 +16,27 @@ interface TOCProps {
 }
 
 export default function TOC({ isMobile = false }: TOCProps) {
+  const location = useLocation();
+  const { currentLang } = useDocs();
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<TOCItem[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  // Extract slug from location
+  const pathMatch = location.pathname.match(/\/(?:en|ru|es|de|fr|ja|ko|zh)\/(.+)/);
+  const slug = pathMatch ? pathMatch[1] : '';
+
   useEffect(() => {
+    function generateId(text: string): string {
+      return text
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+    }
+
     function collectHeadings(): TOCItem[] {
       const headings = document.querySelectorAll('article h2, article h3');
       const tocItems: TOCItem[] = [];
@@ -41,13 +58,12 @@ export default function TOC({ isMobile = false }: TOCProps) {
       return tocItems;
     }
 
-    function generateId(text: string): string {
-      return text
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .trim();
+    // Clear previous state
+    setItems([]);
+    setActiveId('');
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
     }
 
     const timeoutId = setTimeout(() => {
@@ -89,9 +105,10 @@ export default function TOC({ isMobile = false }: TOCProps) {
       clearTimeout(timeoutId);
       if (observerRef.current) {
         observerRef.current.disconnect();
+        observerRef.current = null;
       }
     };
-  }, []);
+  }, [slug, currentLang, location.pathname]);
 
   if (items.length === 0) {
     return null;

@@ -156,38 +156,24 @@ export default function MarkdownRenderer({
     const text = String(children);
     const id = generateId(text);
 
+    const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+
     return (
-      <div className="group relative flex items-center gap-2">
+      <div className="group relative">
+        <HeadingTag
+          {...rest}
+          id={id}
+          className={cn(className, 'scroll-mt-20')}
+        >
+          {children}
+        </HeadingTag>
         <button
           onClick={(e) => handleAnchorClick(text, e)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0"
+          className="absolute -left-6 top-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
           aria-label="Copy link to heading"
         >
           <LinkIcon className="h-4 w-4" />
         </button>
-        {level === 2 ? (
-          <h2
-            {...rest}
-            id={id}
-            className={cn(
-              className,
-              'scroll-mt-20 text-2xl font-semibold mt-12 mb-4 text-foreground border-b border-border pb-2 flex-1'
-            )}
-          >
-            {children}
-          </h2>
-        ) : (
-          <h3
-            {...rest}
-            id={id}
-            className={cn(
-              className,
-              'scroll-mt-20 text-xl font-semibold mt-8 mb-3 text-foreground flex-1'
-            )}
-          >
-            {children}
-          </h3>
-        )}
       </div>
     );
   }
@@ -212,7 +198,7 @@ export default function MarkdownRenderer({
           )}
         </div>
       )}
-      <div className="prose prose-slate max-w-none">
+      <div className="prose prose-slate dark:prose-invert max-w-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
@@ -251,6 +237,22 @@ function CodeBlock({
 
   if (lang === 'mermaid') {
     return <MermaidBlock code={code} />;
+  }
+
+  // Heuristic for file chips: short, 1-2 lines, no language, looks like token/path/command
+  const lines = code.split('\n').filter(line => line.trim().length > 0);
+  const isShortLines = lines.length <= 2;
+  const totalLength = code.trim().length;
+  const isShort = totalLength <= 80;
+  const hasNoSpaces = !code.includes(' ') || lines.every(line => !line.includes(' '));
+  const looksLikeToken = /^[\w./_\-]+$/m.test(code.trim());
+  
+  if (!lang && isShortLines && isShort && hasNoSpaces && looksLikeToken) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-sm font-mono bg-muted text-foreground border border-border">
+        {code.trim()}
+      </span>
+    );
   }
 
   return <CodeBlockWithCopy code={code} lang={lang} />;
