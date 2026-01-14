@@ -2,11 +2,17 @@ from src.core.models.candle import Candle
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.runtime.jobs.job_result import JobResult
+from src.storage.sqlite.repositories.candles_repository import CandlesRepository
 
 
 class FetchMarketDataJob:
-    def __init__(self, market_data_provider: MarketDataProvider) -> None:
+    def __init__(
+        self,
+        market_data_provider: MarketDataProvider,
+        candles_repository: CandlesRepository | None = None,
+    ) -> None:
         self.market_data_provider = market_data_provider
+        self.candles_repository = candles_repository
 
     def run(
         self,
@@ -26,6 +32,11 @@ class FetchMarketDataJob:
                     ok=False,
                     value=None,
                     error=f"Insufficient candles: got {len(candles)}, need at least 200",
+                )
+
+            if self.candles_repository is not None:
+                self.candles_repository.upsert_many(
+                    symbol=symbol, timeframe=timeframe, candles=candles
                 )
 
             return JobResult(ok=True, value=candles, error="")

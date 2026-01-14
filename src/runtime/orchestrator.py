@@ -15,6 +15,7 @@ from src.runtime.jobs.fetch_market_data_job import FetchMarketDataJob
 from src.runtime.jobs.fetch_news_job import FetchNewsJob
 from src.runtime.jobs.persist_recommendation_job import PersistRecommendationJob
 from src.storage.artifacts.artifact_store import ArtifactStore
+from src.storage.sqlite.repositories.candles_repository import CandlesRepository
 
 
 class RuntimeOrchestrator:
@@ -27,6 +28,7 @@ class RuntimeOrchestrator:
         technical_analyst: TechnicalAnalyst,
         news_analyst: NewsAnalyst,
         synthesizer: Synthesizer,
+        candles_repository: CandlesRepository | None = None,
     ) -> None:
         self.storage = storage
         self.artifact_store = artifact_store
@@ -35,6 +37,7 @@ class RuntimeOrchestrator:
         self.technical_analyst = technical_analyst
         self.news_analyst = news_analyst
         self.synthesizer = synthesizer
+        self.candles_repository = candles_repository
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
         run = Run(
@@ -46,7 +49,9 @@ class RuntimeOrchestrator:
         run_id = self.storage.runs.create(run)
 
         try:
-            fetch_market_data_job = FetchMarketDataJob(self.market_data_provider)
+            fetch_market_data_job = FetchMarketDataJob(
+                self.market_data_provider, candles_repository=self.candles_repository
+            )
             market_result = fetch_market_data_job.run(
                 symbol=symbol,
                 timeframe=timeframe,

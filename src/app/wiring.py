@@ -19,6 +19,7 @@ from src.news_providers.newsapi_provider import NewsAPIProvider
 from src.runtime.orchestrator import RuntimeOrchestrator
 from src.storage.artifacts.artifact_store import ArtifactStore
 from src.storage.sqlite.connection import DBConnection
+from src.storage.sqlite.repositories.candles_repository import CandlesRepository
 from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 from src.storage.sqlite.repositories.runs_repository import RunsRepository
@@ -112,6 +113,11 @@ def create_rationales_repository() -> RationalesRepository:
     return RationalesRepository(db)
 
 
+def create_candles_repository() -> CandlesRepository:
+    db = DBConnection(str(settings.storage_sqlite_db_path))
+    return CandlesRepository(db)
+
+
 def create_storage() -> Storage:
     db = DBConnection(str(settings.storage_sqlite_db_path))
     return SqliteStorage(db)
@@ -130,6 +136,7 @@ def create_orchestrator() -> OrchestratorProtocol:
     technical_analyst = create_technical_analyst()
     news_analyst = create_news_analyst()
     synthesizer = create_synthesizer()
+    candles_repository = create_candles_repository()
     return RuntimeOrchestrator(
         storage=storage,
         artifact_store=artifact_store,
@@ -138,4 +145,5 @@ def create_orchestrator() -> OrchestratorProtocol:
         technical_analyst=technical_analyst,
         news_analyst=news_analyst,
         synthesizer=synthesizer,
+        candles_repository=candles_repository,
     )
