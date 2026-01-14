@@ -4,11 +4,13 @@ from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.app.settings import settings
+from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.core.ports.orchestrator import OrchestratorProtocol
 from src.core.ports.storage import Storage
+from src.core.services.scheduler import Scheduler
 from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
 from src.data_providers.forex.oanda_provider import OandaProvider
 from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
@@ -16,6 +18,7 @@ from src.llm.ollama.ollama_client import OllamaClient
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.news_providers.multi_news_provider import MultiNewsProvider
 from src.news_providers.newsapi_provider import NewsAPIProvider
+from src.runtime.loop.minute_loop import MinuteLoop
 from src.runtime.orchestrator import RuntimeOrchestrator
 from src.storage.artifacts.artifact_store import ArtifactStore
 from src.storage.sqlite.connection import DBConnection
@@ -24,6 +27,7 @@ from src.storage.sqlite.repositories.rationales_repository import RationalesRepo
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 from src.storage.sqlite.repositories.runs_repository import RunsRepository
 from src.storage.sqlite.storage import SqliteStorage
+from src.utils.time_utils import SystemClock
 
 
 def create_market_data_provider() -> MarketDataProvider:
@@ -147,3 +151,11 @@ def create_orchestrator() -> OrchestratorProtocol:
         synthesizer=synthesizer,
         candles_repository=candles_repository,
     )
+
+
+def create_minute_loop(clock: Clock | None = None) -> MinuteLoop:
+    if clock is None:
+        clock = SystemClock()
+    orchestrator = create_orchestrator()
+    scheduler = Scheduler(clock)
+    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock)

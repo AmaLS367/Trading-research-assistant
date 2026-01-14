@@ -11,6 +11,7 @@ from rich.table import Table
 
 from src.app.settings import settings
 from src.app.wiring import (
+    create_minute_loop,
     create_orchestrator,
     create_rationales_repository,
 )
@@ -383,6 +384,23 @@ def main() -> None:
         "--verbose", action="store_true", help="Show detailed analysis output during execution"
     )
 
+    loop_parser = subparsers.add_parser("loop")
+    loop_parser.add_argument("--symbol", required=True, help="Symbol to analyze (e.g., EURUSD)")
+    loop_parser.add_argument(
+        "--timeframe", default="1h", help="Timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h"
+    )
+    loop_parser.add_argument(
+        "--interval-seconds",
+        type=float,
+        default=60.0,
+        help="Interval between iterations in seconds. Default: 60",
+    )
+    loop_parser.add_argument(
+        "--iterations",
+        type=int,
+        help="Maximum number of iterations (optional, runs indefinitely if not set)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "init-db":
@@ -391,6 +409,28 @@ def main() -> None:
         show_latest(show_details=args.details)
     elif args.command == "analyze":
         analyze(args.symbol, args.timeframe, verbose=args.verbose)
+    elif args.command == "loop":
+        try:
+            timeframe = Timeframe(args.timeframe)
+        except ValueError:
+            console.print(f"[red]Invalid timeframe: {args.timeframe}[/red]")
+            console.print("[yellow]Valid timeframes: 1m, 5m, 15m, 1h, 1d[/yellow]")
+            return
+
+        console.print(
+            f"[cyan]Starting loop for {args.symbol} on {timeframe.value} timeframe...[/cyan]"
+        )
+        if args.iterations:
+            console.print(f"[dim]Will run {args.iterations} iterations[/dim]")
+        console.print()
+
+        loop = create_minute_loop()
+        loop.start(
+            symbol=args.symbol,
+            timeframe=timeframe,
+            interval_seconds=args.interval_seconds,
+            max_iterations=args.iterations,
+        )
     elif args.command == "journal":
         journal()
     elif args.command == "report":
