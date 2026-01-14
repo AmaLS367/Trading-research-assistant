@@ -75,7 +75,7 @@ export default function Navbar({
           )}
 
           <a
-            href="https://github.com"
+            href="https://github.com/AmaLS367/Trading-research-assistant"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"

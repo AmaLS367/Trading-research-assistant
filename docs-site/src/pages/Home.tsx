@@ -27,7 +27,7 @@ export default function Home() {
             <Link to={`/${currentLang}/${firstPage}`}>
               <Button className="gap-2">Get Started <ArrowRight className="h-4 w-4" /></Button>
             </Link>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/AmaLS367/Trading-research-assistant" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" className="gap-2"><Github className="h-4 w-4" /> GitHub</Button>
             </a>
           </div>
