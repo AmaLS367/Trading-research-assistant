@@ -17,12 +17,18 @@ function App() {
     return <NotFound message="No documentation found. Please add markdown files to the docs/ directory." />;
   }
 
+  const getDefaultRoute = () => {
+    const storedLang = typeof window !== 'undefined' ? localStorage.getItem('docs_site_lang') : null;
+    const effectiveLang = storedLang && languages.includes(storedLang) ? storedLang : defaultLanguage;
+    return `/${effectiveLang}`;
+  };
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/:lang" element={<LanguageRedirect />} />
       <Route path="/:lang/*" element={<DocsPage />} />
-      <Route path="*" element={<Navigate to={`/${defaultLanguage}`} replace />} />
+      <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
     </Routes>
   );
 }
@@ -34,9 +40,21 @@ function LanguageRedirect() {
 
   useEffect(() => {
     async function redirect() {
-      if (!lang || !languages.includes(lang)) return;
+      let effectiveLang = lang;
       
-      const mainSlug = await getMainDocumentSlug();
+      // If lang is missing or invalid, check localStorage
+      if (!effectiveLang || !languages.includes(effectiveLang)) {
+        const storedLang = typeof window !== 'undefined' ? localStorage.getItem('docs_site_lang') : null;
+        if (storedLang && languages.includes(storedLang)) {
+          effectiveLang = storedLang;
+        } else {
+          effectiveLang = languages[0] || 'en';
+        }
+      }
+      
+      if (!effectiveLang || !languages.includes(effectiveLang)) return;
+      
+      const mainSlug = await getMainDocumentSlug(effectiveLang);
       setTargetSlug(mainSlug);
     }
     
@@ -44,11 +62,22 @@ function LanguageRedirect() {
   }, [lang, languages, getMainDocumentSlug]);
 
   if (targetSlug) {
-    return <Navigate to={`/${lang}/${targetSlug}`} replace />;
+    const effectiveLang = lang && languages.includes(lang) 
+      ? lang 
+      : (typeof window !== 'undefined' && localStorage.getItem('docs_site_lang') && languages.includes(localStorage.getItem('docs_site_lang')!)
+          ? localStorage.getItem('docs_site_lang')!
+          : languages[0] || 'en');
+    return <Navigate to={`/${effectiveLang}/${targetSlug}`} replace />;
   }
 
-  if (lang && languages.includes(lang)) {
-    return <Navigate to={`/${lang}/overview`} replace />;
+  const effectiveLang = lang && languages.includes(lang) 
+    ? lang 
+    : (typeof window !== 'undefined' && localStorage.getItem('docs_site_lang') && languages.includes(localStorage.getItem('docs_site_lang')!)
+        ? localStorage.getItem('docs_site_lang')!
+        : languages[0] || 'en');
+
+  if (effectiveLang && languages.includes(effectiveLang)) {
+    return <Navigate to={`/${effectiveLang}/overview`} replace />;
   }
 
   return <Navigate to={`/${languages[0] || 'en'}`} replace />;

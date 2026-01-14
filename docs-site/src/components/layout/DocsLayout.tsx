@@ -2,7 +2,6 @@ import { ReactNode, useState } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
-import TOC from './TOC';
 
 interface DocsLayoutProps {
   children: ReactNode;
@@ -26,14 +25,9 @@ export default function DocsLayout({ children }: DocsLayoutProps) {
         />
 
         <main className="flex-1 min-w-0">
-          <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 lg:px-12">
-            <div className="flex gap-16">
-              <div className="flex-1 min-w-0 max-w-[900px] mx-auto">
-                {children}
-              </div>
-              <div className="hidden xl:block w-64 shrink-0">
-                <TOC />
-              </div>
+          <div className="w-full px-4 py-8 md:px-8 lg:px-12">
+            <div className="w-full">
+              {children}
             </div>
           </div>
           <Footer />

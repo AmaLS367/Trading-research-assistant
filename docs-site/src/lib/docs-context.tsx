@@ -29,8 +29,8 @@ interface DocsContextType {
   navigation: NavGroup[];
   currentLang: string;
   setCurrentLang: (lang: string) => void;
-  getPageContent: (slug: string) => Promise<PageContent | null>;
-  getMainDocumentSlug: () => Promise<string | null>;
+  getPageContent: (slug: string, lang?: string) => Promise<PageContent | null>;
+  getMainDocumentSlug: (lang?: string) => Promise<string | null>;
   pageCache: Map<string, PageContent>;
 }
 
@@ -88,18 +88,19 @@ export function DocsProvider({ children }: { children: ReactNode }) {
   }, [manifest, currentLang]);
 
   const getPageContent = useCallback(
-    async (slug: string): Promise<PageContent | null> => {
-      const cacheKey = `${currentLang}/${slug}`;
+    async (slug: string, lang?: string): Promise<PageContent | null> => {
+      const targetLang = lang || currentLang;
+      const cacheKey = `${targetLang}/${slug}`;
 
       if (pageCache.has(cacheKey)) {
         return pageCache.get(cacheKey)!;
       }
 
-      const filePath = `${currentLang}/${slug}.md`;
+      const filePath = `${targetLang}/${slug}.md`;
       const markdown = await fetchMarkdown(filePath);
 
       if (!markdown) {
-        const indexPath = `${currentLang}/${slug}/index.md`;
+        const indexPath = `${targetLang}/${slug}/index.md`;
         const indexMarkdown = await fetchMarkdown(indexPath);
 
         if (!indexMarkdown) return null;
@@ -122,25 +123,26 @@ export function DocsProvider({ children }: { children: ReactNode }) {
     [currentLang, pageCache]
   );
 
-  const getMainDocumentSlug = useCallback(async (): Promise<string | null> => {
-    if (!manifest || !currentLang) return null;
+  const getMainDocumentSlug = useCallback(async (lang?: string): Promise<string | null> => {
+    const targetLang = lang || currentLang;
+    if (!manifest || !targetLang) return null;
 
-    const files = manifest.filesByLanguage[currentLang] || [];
+    const files = manifest.filesByLanguage[targetLang] || [];
     if (files.length === 0) return null;
 
     const overviewFile = files.find(f => f.endsWith('overview.md'));
     if (overviewFile) {
-      const slug = overviewFile.replace(`${currentLang}/`, '').replace('.md', '');
+      const slug = overviewFile.replace(`${targetLang}/`, '').replace('.md', '');
       return slug;
     }
 
     const readmeFile = files.find(f => f.endsWith('README.md'));
     if (readmeFile) {
-      const slug = readmeFile.replace(`${currentLang}/`, '').replace('.md', '');
+      const slug = readmeFile.replace(`${targetLang}/`, '').replace('.md', '');
       return slug;
     }
 
-    const navConfig = await fetchNavConfig(currentLang);
+    const navConfig = await fetchNavConfig(targetLang);
     if (navConfig?.groups && navConfig.groups.length > 0) {
       const firstGroup = navConfig.groups[0];
       if (firstGroup.items && firstGroup.items.length > 0) {
@@ -152,7 +154,7 @@ export function DocsProvider({ children }: { children: ReactNode }) {
     const sortedFiles = [...files].sort();
     if (sortedFiles.length > 0) {
       const firstFile = sortedFiles[0];
-      const slug = firstFile.replace(`${currentLang}/`, '').replace('.md', '');
+      const slug = firstFile.replace(`${targetLang}/`, '').replace('.md', '');
       return slug;
     }
 

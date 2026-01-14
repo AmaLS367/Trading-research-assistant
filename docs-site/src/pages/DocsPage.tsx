@@ -4,33 +4,31 @@ import { useDocs } from '@/lib/docs-context';
 import DocsLayout from '@/components/layout/DocsLayout';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import PrevNext from '@/components/layout/PrevNext';
-import TOC from '@/components/layout/TOC';
 import MarkdownRenderer from '@/features/docs/MarkdownRenderer';
 import { Loader2 } from 'lucide-react';
 
 export default function DocsPage() {
   const { lang } = useParams();
   const location = useLocation();
-  const { languages, currentLang, setCurrentLang, getPageContent, getMainDocumentSlug, navigation } = useDocs();
+  const { languages, getPageContent, getMainDocumentSlug, navigation } = useDocs();
   const [content, setContent] = useState<{ markdown: string; title: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Language always comes from URL
+  const currentLang = lang && languages.includes(lang) ? lang : languages[0] || 'en';
 
   const pathSlug = location.pathname.replace(`/${lang}/`, '').replace(/^\//, '');
   const slug = pathSlug || navigation[0]?.items[0]?.slug || 'overview';
 
   useEffect(() => {
-    if (lang && languages.includes(lang) && lang !== currentLang) {
-      setCurrentLang(lang);
-    }
-  }, [lang, languages, currentLang, setCurrentLang]);
-
-  useEffect(() => {
     async function loadContent() {
-      if (!slug) return;
+      if (!slug || !currentLang) return;
       setIsLoading(true);
       setNotFound(false);
-      const page = await getPageContent(slug);
+      
+      // Pass currentLang from URL explicitly to getPageContent
+      const page = await getPageContent(slug, currentLang);
       if (page) {
         setContent(page);
         document.title = `${page.title} - Trading Research Assistant`;
@@ -48,8 +46,8 @@ export default function DocsPage() {
         return;
       }
       
-      if (!pathSlug && lang) {
-        const mainSlug = await getMainDocumentSlug();
+      if (!pathSlug && lang && languages.includes(lang)) {
+        const mainSlug = await getMainDocumentSlug(lang);
         if (mainSlug) {
           window.location.hash = `#/${lang}/${mainSlug}`;
         }
@@ -75,9 +73,8 @@ export default function DocsPage() {
           <p className="mt-2 text-muted-foreground">The requested documentation page could not be found.</p>
         </div>
       ) : content ? (
-        <article className="animate-fade-in">
+        <article className="animate-fade-in p-6 md:p-8 lg:p-10">
           <Breadcrumbs />
-          <TOC isMobile={true} />
           <MarkdownRenderer
             key={`${currentLang}:${slug}`}
             content={content.markdown}

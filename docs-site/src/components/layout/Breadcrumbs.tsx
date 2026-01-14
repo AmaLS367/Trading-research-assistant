@@ -1,10 +1,13 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { useDocs } from '@/lib/docs-context';
 
 export default function Breadcrumbs() {
   const location = useLocation();
-  const { currentLang, navigation } = useDocs();
+  const { lang } = useParams();
+  const { languages, navigation } = useDocs();
+  
+  const currentLang = lang && languages.includes(lang) ? lang : languages[0] || 'en';
 
   const pathParts = location.pathname
     .replace(`/${currentLang}/`, '')

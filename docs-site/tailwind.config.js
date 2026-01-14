@@ -46,6 +46,10 @@ export default {
           foreground: 'hsl(var(--popover-foreground))',
         },
         input: 'hsl(var(--input))',
+        surface: {
+          DEFAULT: 'hsl(var(--surface))',
+          elevated: 'hsl(var(--surface-elevated))',
+        },
       },
       fontFamily: {
         sans: [

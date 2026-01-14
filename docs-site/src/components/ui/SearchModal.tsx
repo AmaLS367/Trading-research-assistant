@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Search as SearchIcon, X, FileText } from 'lucide-react';
 import { useDocs } from '@/lib/docs-context';
 import { createSearchIndex, search, SearchResult, SearchIndex } from '@/lib/search';
@@ -13,8 +13,11 @@ export default function SearchModal() {
   const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { manifest, currentLang } = useDocs();
+  const { lang } = useParams();
+  const { manifest, languages } = useDocs();
   const navigate = useNavigate();
+  
+  const currentLang = lang && languages.includes(lang) ? lang : languages[0] || 'en';
 
   useEffect(() => {
     async function buildIndex() {

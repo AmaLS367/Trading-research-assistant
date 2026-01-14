@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDocs } from '@/lib/docs-context';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,10 @@ interface PrevNextProps {
 }
 
 export default function PrevNext({ currentSlug }: PrevNextProps) {
-  const { navigation, currentLang } = useDocs();
+  const { lang } = useParams();
+  const { navigation, languages } = useDocs();
+  
+  const currentLang = lang && languages.includes(lang) ? lang : languages[0] || 'en';
 
   const allItems = navigation.flatMap((group) => group.items);
   const currentIndex = allItems.findIndex((item) => item.slug === currentSlug);

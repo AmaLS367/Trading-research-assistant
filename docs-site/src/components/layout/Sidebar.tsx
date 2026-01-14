@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useParams } from 'react-router-dom';
 import { ChevronDown, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useDocs } from '@/lib/docs-context';
@@ -11,9 +11,12 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { navigation, currentLang } = useDocs();
+  const { navigation, languages } = useDocs();
+  const { lang } = useParams();
   const location = useLocation();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const currentLang = lang && languages.includes(lang) ? lang : languages[0] || 'en';
 
   useEffect(() => {
     const currentPath = location.pathname.replace(`/${currentLang}/`, '');
