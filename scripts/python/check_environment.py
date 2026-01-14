@@ -1,4 +1,5 @@
 """Check project environment and dependencies."""
+
 import shutil
 import sys
 from pathlib import Path
@@ -20,7 +21,9 @@ def check_python_version() -> bool:
     if version.major >= 3 and version.minor >= 11:
         console.print(f"[green]✓[/green] Python {version.major}.{version.minor}.{version.micro}")
         return True
-    console.print(f"[red]✗[/red] Python {version.major}.{version.minor}.{version.micro} (required: >= 3.11)")
+    console.print(
+        f"[red]✗[/red] Python {version.major}.{version.minor}.{version.micro} (required: >= 3.11)"
+    )
     return False
 
 
@@ -44,7 +47,9 @@ def check_ollama() -> bool:
         if response.status_code == 200:
             console.print(f"[green]✓[/green] Ollama server accessible at {base_url}")
             return True
-        console.print(f"[yellow]⚠[/yellow] Ollama server at {base_url} returned status {response.status_code}")
+        console.print(
+            f"[yellow]⚠[/yellow] Ollama server at {base_url} returned status {response.status_code}"
+        )
         return False
     except ImportError:
         console.print("[yellow]⚠[/yellow] Cannot import settings (check .env file)")
@@ -105,7 +110,9 @@ def check_database() -> bool:
         if db_path.exists():
             console.print(f"[green]✓[/green] Database file found at {db_path}")
             return True
-        console.print(f"[yellow]⚠[/yellow] Database file not found at {db_path} (run init-db to create)")
+        console.print(
+            f"[yellow]⚠[/yellow] Database file not found at {db_path} (run init-db to create)"
+        )
         return True
     except ImportError:
         console.print("[yellow]⚠[/yellow] Cannot import settings")
@@ -133,7 +140,9 @@ def main() -> int:
 
     all_passed = all(results)
     if all_passed:
-        console.print(Panel.fit("[bold green]All checks passed![/bold green]", border_style="green"))
+        console.print(
+            Panel.fit("[bold green]All checks passed![/bold green]", border_style="green")
+        )
         return 0
 
     failed_count = sum(1 for r in results if not r)

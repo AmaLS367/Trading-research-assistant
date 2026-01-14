@@ -1,4 +1,5 @@
 """Interactive environment setup helper."""
+
 import sys
 from pathlib import Path
 

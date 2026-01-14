@@ -1,4 +1,5 @@
 """Batch analysis script for multiple currency pairs."""
+
 import os
 import subprocess
 import sys

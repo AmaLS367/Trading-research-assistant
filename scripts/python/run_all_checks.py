@@ -1,4 +1,5 @@
 """Run all code quality checks."""
+
 import subprocess
 import sys
 
@@ -151,7 +152,9 @@ def main() -> int:
     console.print(table)
 
     if all_passed:
-        console.print(Panel.fit("[bold green]All checks passed![/bold green]", border_style="green"))
+        console.print(
+            Panel.fit("[bold green]All checks passed![/bold green]", border_style="green")
+        )
         return 0
 
     console.print(Panel.fit("[bold red]Some checks failed[/bold red]", border_style="red"))

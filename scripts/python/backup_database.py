@@ -1,4 +1,5 @@
 """Backup and restore SQLite database."""
+
 import gzip
 import shutil
 import sys
@@ -162,11 +163,15 @@ def main() -> int:
                 console.print("[yellow]No backups found.[/yellow]")
                 return 0
 
-            console.print(Panel.fit("[bold blue]Available Backups[/bold blue]", border_style="blue"))
+            console.print(
+                Panel.fit("[bold blue]Available Backups[/bold blue]", border_style="blue")
+            )
             for i, backup in enumerate(backups, 1):
                 size = backup.stat().st_size / (1024 * 1024)
                 mtime = datetime.fromtimestamp(backup.stat().st_mtime)
-                console.print(f"{i}. {backup.name} ({size:.2f} MB, {mtime.strftime('%Y-%m-%d %H:%M:%S')})")
+                console.print(
+                    f"{i}. {backup.name} ({size:.2f} MB, {mtime.strftime('%Y-%m-%d %H:%M:%S')})"
+                )
             return 0
 
         if args.restore:

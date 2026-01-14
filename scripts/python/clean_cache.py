@@ -1,4 +1,5 @@
 """Clean temporary files and caches."""
+
 import shutil
 import sys
 from pathlib import Path
@@ -136,7 +137,9 @@ def clean_cache(include_optional: bool = False) -> None:
 
     if failed_count > 0:
         console.print(f"\n[yellow]⚠[/yellow] {failed_count} item(s) could not be removed")
-    console.print(f"\n[green]✓[/green] Removed {removed_dirs} directory(ies) and {removed_files} file(s)")
+    console.print(
+        f"\n[green]✓[/green] Removed {removed_dirs} directory(ies) and {removed_files} file(s)"
+    )
 
 
 def main() -> int:
@@ -200,7 +203,9 @@ def main() -> int:
 
             if failed_count > 0:
                 console.print(f"[yellow]⚠[/yellow] {failed_count} item(s) could not be removed")
-            console.print(f"[green]✓[/green] Removed {removed_dirs} directory(ies) and {removed_files} file(s)")
+            console.print(
+                f"[green]✓[/green] Removed {removed_dirs} directory(ies) and {removed_files} file(s)"
+            )
         else:
             clean_cache(include_optional=args.all)
         return 0

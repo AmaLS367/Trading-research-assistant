@@ -20,7 +20,18 @@ IGNORE_DIRS = {
     ".ruff_cache",
     # "docs", # Documentation files (docs/) are excluded from context generation
 }
-INCLUDE_EXT = {".py", ".toml", ".md", ".yml", ".yaml", ".Dockerfile", ".ts", ".tsx", ".json", ".sql"}
+INCLUDE_EXT = {
+    ".py",
+    ".toml",
+    ".md",
+    ".yml",
+    ".yaml",
+    ".Dockerfile",
+    ".ts",
+    ".tsx",
+    ".json",
+    ".sql",
+}
 IGNORE_FILES = {
     "poetry.lock",
     "yarn.lock",

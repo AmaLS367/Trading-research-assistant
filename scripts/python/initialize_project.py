@@ -1,4 +1,5 @@
 """Initialize project: check environment, install dependencies, setup .env, init DB."""
+
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,9 @@ def check_python_version() -> bool:
     if version.major >= 3 and version.minor >= 11:
         console.print(f"[green]✓[/green] Python {version.major}.{version.minor}.{version.micro}")
         return True
-    console.print(f"[red]✗[/red] Python {version.major}.{version.minor}.{version.micro} (required: >= 3.11)")
+    console.print(
+        f"[red]✗[/red] Python {version.major}.{version.minor}.{version.micro} (required: >= 3.11)"
+    )
     return False
 
 
@@ -60,6 +63,7 @@ def setup_env_file() -> bool:
     console.print("[bold blue]Setting up .env file...[/bold blue]")
     try:
         import importlib.util
+
         project_root = Path(__file__).parent.parent.parent
         setup_path = project_root / "scripts" / "python" / "setup_environment.py"
         spec = importlib.util.spec_from_file_location("setup_environment", setup_path)
@@ -70,7 +74,9 @@ def setup_env_file() -> bool:
         return True
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not setup .env interactively: {e}")
-        console.print("[yellow]You can run 'python scripts/python/setup_environment.py' later[/yellow]")
+        console.print(
+            "[yellow]You can run 'python scripts/python/setup_environment.py' later[/yellow]"
+        )
         return True
 
 
@@ -188,7 +194,9 @@ def main() -> int:
     verify_setup()
 
     console.print()
-    console.print(Panel.fit("[bold green]Initialization complete![/bold green]", border_style="green"))
+    console.print(
+        Panel.fit("[bold green]Initialization complete![/bold green]", border_style="green")
+    )
     console.print("\nNext steps:")
     console.print("  1. Configure your API keys in .env file")
     console.print("  2. Run: python src/app/main.py analyze --symbol EURUSD --timeframe 1h")
