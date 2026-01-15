@@ -4,11 +4,18 @@ from datetime import datetime
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
+from src.app.settings import settings
 from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
 from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
-from src.core.ports.llm_tasks import TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_TECH_ANALYSIS
+from src.core.models.verification import VerificationReport
+from src.core.ports.llm_tasks import (
+    TASK_NEWS_ANALYSIS,
+    TASK_SYNTHESIS,
+    TASK_TECH_ANALYSIS,
+    TASK_VERIFICATION,
+)
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.core.ports.storage import Storage
@@ -251,6 +258,72 @@ Based on the above information, provide your trading recommendation as JSON."""
                 self.artifact_store.save_llm_exchange(
                     run_id, TASK_SYNTHESIS, synthesis_request, synthesis_llm_response
                 )
+
+            verification_report: VerificationReport | None = None
+            if settings.llm_verifier_enabled and self.verifier_agent:
+                inputs_summary = (
+                    f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
+                )
+                author_output = f"Action: {recommendation.action}\nBrief: {recommendation.brief}\nConfidence: {recommendation.confidence:.2%}"
+
+                verification_report = self.verifier_agent.verify(
+                    task_name=TASK_SYNTHESIS,
+                    inputs_summary=inputs_summary,
+                    author_output=author_output,
+                )
+
+                if self.verification_repository:
+                    self.verification_repository.create(run_id, verification_report)
+
+                if verification_report.provider_name and verification_report.model_name:
+                    from src.agents.prompts.verifier_prompts import (
+                        get_verifier_system_prompt,
+                        get_verifier_user_prompt,
+                    )
+
+                    verifier_request = LlmRequest(
+                        task=TASK_VERIFICATION,
+                        system_prompt=get_verifier_system_prompt(),
+                        user_prompt=get_verifier_user_prompt(
+                            TASK_SYNTHESIS, inputs_summary, author_output
+                        ),
+                        temperature=0.2,
+                        timeout_seconds=60.0,
+                        max_retries=1,
+                    )
+                    from src.core.models.llm import LlmResponse
+
+                    verifier_response = LlmResponse(
+                        text=json.dumps(
+                            {
+                                "passed": verification_report.passed,
+                                "issues": [
+                                    {
+                                        "code": issue.code,
+                                        "message": issue.message,
+                                        "severity": issue.severity.value,
+                                        "evidence": issue.evidence,
+                                    }
+                                    for issue in verification_report.issues
+                                ],
+                                "suggested_fix": verification_report.suggested_fix,
+                                "policy_version": verification_report.policy_version,
+                            }
+                        ),
+                        provider_name=verification_report.provider_name,
+                        model_name=verification_report.model_name,
+                        latency_ms=0,
+                        attempts=1,
+                        error=None,
+                    )
+                    self.artifact_store.save_llm_exchange(
+                        run_id, TASK_VERIFICATION, verifier_request, verifier_response
+                    )
+
+                if not verification_report.passed:
+                    self.logger.warning(
+                        f"Run {run_id} verification failed: {len(verification_report.issues)} issues"
+                    )
 
             persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
             persist_result = persist_job.run(

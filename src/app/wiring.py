@@ -3,6 +3,7 @@ from pathlib import Path
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
+from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
 from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
@@ -38,6 +39,7 @@ from src.storage.sqlite.repositories.candles_repository import CandlesRepository
 from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 from src.storage.sqlite.repositories.runs_repository import RunsRepository
+from src.storage.sqlite.repositories.verification_repository import VerificationRepository
 from src.storage.sqlite.storage import SqliteStorage
 from src.utils.time_utils import SystemClock
 
@@ -127,6 +129,7 @@ def create_llm_router() -> LlmRouter:
         TASK_TECH_ANALYSIS: settings.get_tech_routing(),
         TASK_NEWS_ANALYSIS: settings.get_news_routing(),
         TASK_SYNTHESIS: settings.get_synthesis_routing(),
+        TASK_VERIFICATION: settings.get_verifier_routing(),
     }
 
     return LlmRouter(providers, routing_config, task_routings)
@@ -156,6 +159,11 @@ def create_news_analyst() -> NewsAnalyst:
     return NewsAnalyst(llm_router=llm_router)
 
 
+def create_verifier_agent() -> VerifierAgent:
+    llm_router = create_llm_router()
+    return VerifierAgent(llm_router=llm_router)
+
+
 def create_recommendations_repository() -> RecommendationsRepository:
     db = DBConnection(str(settings.storage_sqlite_db_path))
     return RecommendationsRepository(db)
@@ -169,6 +177,11 @@ def create_runs_repository() -> RunsRepository:
 def create_rationales_repository() -> RationalesRepository:
     db = DBConnection(str(settings.storage_sqlite_db_path))
     return RationalesRepository(db)
+
+
+def create_verification_repository() -> VerificationRepository:
+    db = DBConnection(str(settings.storage_sqlite_db_path))
+    return VerificationRepository(db)
 
 
 def create_candles_repository() -> CandlesRepository:
@@ -195,6 +208,13 @@ def create_orchestrator() -> OrchestratorProtocol:
     news_analyst = create_news_analyst()
     synthesizer = create_synthesizer()
     candles_repository = create_candles_repository()
+
+    verifier_agent: VerifierAgent | None = None
+    verification_repository: VerificationRepository | None = None
+    if settings.llm_verifier_enabled:
+        verifier_agent = create_verifier_agent()
+        verification_repository = create_verification_repository()
+
     return RuntimeOrchestrator(
         storage=storage,
         artifact_store=artifact_store,
@@ -204,6 +224,8 @@ def create_orchestrator() -> OrchestratorProtocol:
         news_analyst=news_analyst,
         synthesizer=synthesizer,
         candles_repository=candles_repository,
+        verifier_agent=verifier_agent,
+        verification_repository=verification_repository,
     )
 
 
