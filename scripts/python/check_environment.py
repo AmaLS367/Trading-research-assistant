@@ -37,6 +37,23 @@ def check_uv() -> bool:
     return True
 
 
+def check_deepseek() -> bool:
+    """Check if DeepSeek API is configured."""
+    try:
+        from src.app.settings import settings
+
+        if settings.deepseek_api_key:
+            console.print("[green]✓[/green] DeepSeek API key configured")
+            if settings.deepseek_api_base:
+                console.print(f"[green]✓[/green] DeepSeek API base: {settings.deepseek_api_base}")
+            return True
+        console.print("[yellow]⚠[/yellow] DeepSeek API key not configured (optional)")
+        return True
+    except Exception as e:
+        console.print(f"[red]✗[/red] DeepSeek check failed: {e}")
+        return False
+
+
 def check_ollama() -> bool:
     """Check if Ollama server is accessible."""
     try:
@@ -81,15 +98,19 @@ def check_environment_variables() -> tuple[bool, list[str]]:
         required_vars = [
             ("OANDA_API_KEY", settings.oanda_api_key),
             ("OANDA_ACCOUNT_ID", settings.oanda_account_id),
-            ("OLLAMA_MODEL", settings.ollama_model),
         ]
 
         for var_name, value in required_vars:
             if not value or value.strip() == "":
                 missing.append(var_name)
 
+        ollama_configured = bool(settings._get_ollama_local_url())
+        if not ollama_configured:
+            missing.append("OLLAMA_LOCAL_URL or OLLAMA_BASE_URL")
+
         if not missing:
             console.print("[green]✓[/green] Required environment variables are set")
+            console.print("[green]✓[/green] At least one LLM provider configured")
             return True, []
         console.print(f"[yellow]⚠[/yellow] Missing environment variables: {', '.join(missing)}")
         return False, missing
@@ -135,6 +156,7 @@ def main() -> int:
     results.append(env_ok)
     results.append(check_database())
     results.append(check_ollama())
+    results.append(check_deepseek())
 
     console.print()
 
