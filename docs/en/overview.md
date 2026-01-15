@@ -85,7 +85,7 @@ For detailed structure, see [Architecture Documentation](./architecture.md).
    ```
 
 2. **Configure environment:**
-   Create a `.env` file with necessary API keys (see [Usage Guide](./usage_guide.md) for details)
+   Copy `.env.example` to `.env` and fill in your API keys (see [Usage Guide](./usage_guide.md) for details)
 
 3. **Initialize database:**
    ```bash

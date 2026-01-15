@@ -125,10 +125,10 @@ RuntimeError: No market data provider configured
    dir .env     # Windows
    ```
 
-2. **Create `.env` file** if missing:
+2. **Copy `.env.example` to `.env`** if missing:
    ```bash
-   touch .env  # Linux/macOS
-   type nul > .env  # Windows
+   cp .env.example .env  # Linux/macOS
+   Copy-Item .env.example .env  # Windows (PowerShell)
    ```
 
 3. **Add required API keys:**
