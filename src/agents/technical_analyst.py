@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 from src.agents.prompts.technical_prompts import get_technical_system_prompt
 from src.core.models.timeframe import Timeframe
 from src.core.ports.llm_tasks import TASK_TECH_ANALYSIS
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
 from src.llm.providers.llm_router import LlmRouter
+
+if TYPE_CHECKING:
+    from src.core.models.llm import LlmResponse
 
 
 class TechnicalAnalyst:
@@ -57,7 +62,9 @@ class TechnicalAnalyst:
 
         return text
 
-    def analyze(self, snapshot: FeatureSnapshot, symbol: str, timeframe: Timeframe) -> str:
+    def analyze(
+        self, snapshot: FeatureSnapshot, symbol: str, timeframe: Timeframe
+    ) -> tuple[str, LlmResponse]:
         display_symbol = self._symbol_to_display(symbol)
         system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
         user_prompt = snapshot.to_markdown()
@@ -74,25 +81,4 @@ class TechnicalAnalyst:
 
         guarded_view = self._apply_output_guard(technical_view, symbol, display_symbol)
 
-        return guarded_view
-
-    def get_llm_metadata(
-        self, snapshot: FeatureSnapshot, symbol: str, timeframe: Timeframe
-    ) -> dict[str, str | int | None]:
-        display_symbol = self._symbol_to_display(symbol)
-        system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
-        user_prompt = snapshot.to_markdown()
-
-        llm_response = self.llm_router.generate(
-            task=TASK_TECH_ANALYSIS,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
-
-        return {
-            "provider_name": llm_response.provider_name,
-            "model_name": llm_response.model_name,
-            "latency_ms": llm_response.latency_ms,
-            "attempts": llm_response.attempts,
-            "error": llm_response.error,
-        }
+        return guarded_view, llm_response

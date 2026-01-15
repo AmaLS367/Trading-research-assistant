@@ -4,9 +4,11 @@ from datetime import datetime
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
+from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
 from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
+from src.core.ports.llm_tasks import TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_TECH_ANALYSIS
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.core.ports.storage import Storage
@@ -92,12 +94,37 @@ class RuntimeOrchestrator:
 
             snapshot, signal = features_value
 
-            technical_view = self.technical_analyst.analyze(snapshot, symbol, timeframe)
+            technical_view, tech_llm_response = self.technical_analyst.analyze(
+                snapshot, symbol, timeframe
+            )
             technical_rationale = Rationale(
                 run_id=run_id,
                 rationale_type=RationaleType.TECHNICAL,
                 content=technical_view,
                 raw_data=None,
+                provider_name=tech_llm_response.provider_name,
+                model_name=tech_llm_response.model_name,
+                latency_ms=tech_llm_response.latency_ms,
+                attempts=tech_llm_response.attempts,
+                error=tech_llm_response.error,
+            )
+
+            from src.agents.prompts.technical_prompts import get_technical_system_prompt
+
+            display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol.upper()
+            tech_system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
+            tech_user_prompt = snapshot.to_markdown()
+
+            tech_request = LlmRequest(
+                task=TASK_TECH_ANALYSIS,
+                system_prompt=tech_system_prompt,
+                user_prompt=tech_user_prompt,
+                temperature=0.2,
+                timeout_seconds=60.0,
+                max_retries=1,
+            )
+            self.artifact_store.save_llm_exchange(
+                run_id, TASK_TECH_ANALYSIS, tech_request, tech_llm_response
             )
 
             fetch_news_job = FetchNewsJob(self.news_provider)
@@ -111,7 +138,7 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No news digest returned from fetch news job")
                 return run_id
 
-            analyzed_news_digest = self.news_analyst.analyze(news_digest)
+            analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
             news_content = (
                 f"Quality: {analyzed_news_digest.quality}\n"
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
@@ -122,9 +149,39 @@ class RuntimeOrchestrator:
                 rationale_type=RationaleType.NEWS,
                 content=news_content,
                 raw_data=None,
+                provider_name=news_llm_response.provider_name if news_llm_response else None,
+                model_name=news_llm_response.model_name if news_llm_response else None,
+                latency_ms=news_llm_response.latency_ms if news_llm_response else None,
+                attempts=news_llm_response.attempts if news_llm_response else None,
+                error=news_llm_response.error if news_llm_response else None,
             )
 
-            recommendation, synthesis_debug = self.synthesizer.synthesize(
+            if news_llm_response:
+                from src.agents.prompts.news_prompts import get_news_analysis_system_prompt
+
+                news_system_prompt = get_news_analysis_system_prompt()
+                headlines_text = "\n".join(
+                    f"- {article.title}" for article in analyzed_news_digest.articles
+                )
+                news_user_prompt = f"""Analyze the following news headlines for {analyzed_news_digest.symbol}:
+
+{headlines_text}
+
+Provide your analysis as JSON."""
+
+                news_request = LlmRequest(
+                    task=TASK_NEWS_ANALYSIS,
+                    system_prompt=news_system_prompt,
+                    user_prompt=news_user_prompt,
+                    temperature=0.2,
+                    timeout_seconds=60.0,
+                    max_retries=1,
+                )
+                self.artifact_store.save_llm_exchange(
+                    run_id, TASK_NEWS_ANALYSIS, news_request, news_llm_response
+                )
+
+            recommendation, synthesis_debug, synthesis_llm_response = self.synthesizer.synthesize(
                 symbol=symbol,
                 timeframe=timeframe,
                 technical_view=technical_view,
@@ -141,7 +198,59 @@ class RuntimeOrchestrator:
                 rationale_type=RationaleType.SYNTHESIS,
                 content=synthesis_content,
                 raw_data=json.dumps(synthesis_debug) if synthesis_debug else None,
+                provider_name=synthesis_llm_response.provider_name
+                if synthesis_llm_response
+                else None,
+                model_name=synthesis_llm_response.model_name if synthesis_llm_response else None,
+                latency_ms=synthesis_llm_response.latency_ms if synthesis_llm_response else None,
+                attempts=synthesis_llm_response.attempts if synthesis_llm_response else None,
+                error=synthesis_llm_response.error if synthesis_llm_response else None,
             )
+
+            if synthesis_llm_response:
+                from src.agents.prompts.synthesis_prompts import get_synthesis_system_prompt
+
+                synthesis_system_prompt = get_synthesis_system_prompt()
+                news_section_parts: list[str] = []
+                if analyzed_news_digest.quality == "LOW":
+                    news_section_parts.append(
+                        "News Quality: LOW (ignore news, rely on technical analysis)"
+                    )
+                else:
+                    news_section_parts.append(f"News Quality: {analyzed_news_digest.quality}")
+                    if analyzed_news_digest.sentiment:
+                        news_section_parts.append(
+                            f"News Sentiment: {analyzed_news_digest.sentiment}"
+                        )
+                    if analyzed_news_digest.impact_score is not None:
+                        news_section_parts.append(
+                            f"News Impact Score: {analyzed_news_digest.impact_score:.2f}"
+                        )
+                    if analyzed_news_digest.summary:
+                        news_section_parts.append(f"News Summary: {analyzed_news_digest.summary}")
+
+                news_section = (
+                    "\n".join(news_section_parts) if news_section_parts else "No news available"
+                )
+                synthesis_user_prompt = f"""Technical Analysis:
+{technical_view}
+
+News Context:
+{news_section}
+
+Based on the above information, provide your trading recommendation as JSON."""
+
+                synthesis_request = LlmRequest(
+                    task=TASK_SYNTHESIS,
+                    system_prompt=synthesis_system_prompt,
+                    user_prompt=synthesis_user_prompt,
+                    temperature=0.2,
+                    timeout_seconds=60.0,
+                    max_retries=1,
+                )
+                self.artifact_store.save_llm_exchange(
+                    run_id, TASK_SYNTHESIS, synthesis_request, synthesis_llm_response
+                )
 
             persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
             persist_result = persist_job.run(

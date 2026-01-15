@@ -1,27 +1,33 @@
 import json
+from typing import TYPE_CHECKING
 
 from src.agents.prompts.news_prompts import get_news_analysis_system_prompt
 from src.core.models.news import NewsDigest
 from src.core.ports.llm_tasks import TASK_NEWS_ANALYSIS
 from src.llm.providers.llm_router import LlmRouter
 
+if TYPE_CHECKING:
+    from src.core.models.llm import LlmResponse
+
 
 class NewsAnalyst:
     def __init__(self, llm_router: LlmRouter) -> None:
         self.llm_router = llm_router
 
-    def analyze(self, digest: NewsDigest) -> NewsDigest:
+    def analyze(self, digest: NewsDigest) -> tuple[NewsDigest, LlmResponse | None]:
+        from src.core.models.llm import LlmResponse
+
         if digest.quality == "LOW":
             digest.summary = "Not enough relevant news"
             digest.sentiment = "NEU"
             digest.impact_score = 0.0
-            return digest
+            return digest, None
 
         if not digest.articles:
             digest.summary = "Not enough relevant news"
             digest.sentiment = "NEU"
             digest.impact_score = 0.0
-            return digest
+            return digest, None
 
         system_prompt = get_news_analysis_system_prompt()
 
@@ -40,15 +46,16 @@ class NewsAnalyst:
 
 Provide your analysis as JSON."""
 
+        llm_response_obj: LlmResponse | None = None
         try:
-            llm_response = self.llm_router.generate(
+            llm_response_obj = self.llm_router.generate(
                 task=TASK_NEWS_ANALYSIS,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
             )
 
             analysis_data = self._parse_llm_response(
-                llm_response.text, [article.title for article in digest.articles]
+                llm_response_obj.text, [article.title for article in digest.articles]
             )
 
             summary_value = analysis_data.get("summary", "Failed to parse LLM output")
@@ -71,7 +78,7 @@ Provide your analysis as JSON."""
             digest.sentiment = "NEU"
             digest.impact_score = 0.0
 
-        return digest
+        return digest, llm_response_obj
 
     def _parse_llm_response(
         self, response: str, available_titles: list[str]
