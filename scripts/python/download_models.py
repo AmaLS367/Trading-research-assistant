@@ -16,6 +16,12 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.app.settings import settings
+from src.core.ports.llm_tasks import (
+    TASK_NEWS_ANALYSIS,
+    TASK_SYNTHESIS,
+    TASK_TECH_ANALYSIS,
+    TASK_VERIFICATION,
+)
 
 
 def get_hf_cache_dir() -> Path | None:
@@ -43,7 +49,7 @@ def download_hf_model(model_id: str, hf_cache_dir: Path | None) -> bool:
         if hf_cache_dir:
             cmd.extend(["--cache-dir", str(hf_cache_dir)])
 
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"✓ Downloaded {model_id}")
         return True
     except subprocess.CalledProcessError as e:
@@ -61,7 +67,7 @@ def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
         if base_url:
             os.environ["OLLAMA_HOST"] = base_url
 
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
         print(f"✓ Pulled {model_name} in Ollama")
         return True
     except subprocess.CalledProcessError as e:
@@ -70,6 +76,27 @@ def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
     except FileNotFoundError:
         print("✗ ollama command not found. Install Ollama from https://ollama.ai")
         return False
+
+
+def collect_models_from_routing() -> set[str]:
+    """Collect all unique model names from routing configuration."""
+    models: set[str] = set()
+
+    for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
+        if task_name == TASK_TECH_ANALYSIS:
+            routing = settings.get_tech_routing()
+        elif task_name == TASK_NEWS_ANALYSIS:
+            routing = settings.get_news_routing()
+        elif task_name == TASK_SYNTHESIS:
+            routing = settings.get_synthesis_routing()
+        else:
+            routing = settings.get_verifier_routing()
+
+        for step in routing.steps:
+            if step.model:
+                models.add(step.model)
+
+    return models
 
 
 def main() -> int:
@@ -86,6 +113,11 @@ def main() -> int:
         help="Ollama model name to pull (e.g., 'qwen2.5:7b')",
     )
     parser.add_argument(
+        "--from-routing",
+        action="store_true",
+        help="Download all models specified in routing configuration",
+    )
+    parser.add_argument(
         "--ollama-url",
         type=str,
         help="Ollama base URL (defaults to OLLAMA_LOCAL_URL or OLLAMA_BASE_URL)",
@@ -98,18 +130,32 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    if not args.hf_model and not args.ollama_model:
+    if not args.hf_model and not args.ollama_model and not args.from_routing:
         parser.print_help()
         return 1
 
     success = True
 
+    if args.from_routing:
+        models = collect_models_from_routing()
+        if not models:
+            print("No models found in routing configuration")
+            return 1
+
+        print(f"Found {len(models)} unique model(s) in routing:")
+        for model in sorted(models):
+            print(f"  - {model}")
+
+        ollama_url = args.ollama_url
+        if not ollama_url:
+            ollama_url = settings._get_ollama_local_url()
+
+        for model in sorted(models):
+            if not ollama_pull(model, ollama_url):
+                success = False
+
     if args.hf_model:
-        hf_cache = None
-        if args.hf_cache_dir:
-            hf_cache = Path(args.hf_cache_dir)
-        else:
-            hf_cache = get_hf_cache_dir()
+        hf_cache = Path(args.hf_cache_dir) if args.hf_cache_dir else get_hf_cache_dir()
 
         if not download_hf_model(args.hf_model, hf_cache):
             success = False
