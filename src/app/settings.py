@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # --- LLM Router Config ---
     llm_router_mode: Annotated[str, Field(alias="LLM_ROUTER_MODE")] = "sequential"
     llm_verifier_enabled: Annotated[bool, Field(alias="LLM_VERIFIER_ENABLED")] = False
+    llm_verifier_mode: Annotated[str, Field(alias="LLM_VERIFIER_MODE")] = "soft"
+    llm_verifier_max_repairs: Annotated[int, Field(alias="LLM_VERIFIER_MAX_REPAIRS")] = 1
     llm_max_retries: Annotated[int, Field(alias="LLM_MAX_RETRIES")] = 3
     llm_timeout_seconds: Annotated[float, Field(alias="LLM_TIMEOUT_SECONDS")] = 60.0
     llm_temperature: Annotated[float, Field(alias="LLM_TEMPERATURE")] = 0.2

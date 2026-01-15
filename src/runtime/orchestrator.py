@@ -331,6 +331,133 @@ Based on the above information, provide your trading recommendation as JSON."""
                         f"Run {run_id} verification failed: {len(verification_report.issues)} issues"
                     )
 
+                    if (
+                        settings.llm_verifier_mode == "hard"
+                        and verification_report.suggested_fix
+                        and settings.llm_verifier_max_repairs > 0
+                    ):
+                        repair_count = 0
+                        last_recommendation = recommendation
+                        last_synthesis_debug = synthesis_debug
+                        last_synthesis_llm_response = synthesis_llm_response
+
+                        while repair_count < settings.llm_verifier_max_repairs:
+                            repair_count += 1
+                            self.logger.info(
+                                f"Run {run_id} attempting repair {repair_count}/{settings.llm_verifier_max_repairs}"
+                            )
+
+                            repair_prompt = f"""Previous synthesis failed verification. Apply the following fix:
+
+VERIFICATION ISSUES:
+{json.dumps([{"code": issue.code, "message": issue.message} for issue in verification_report.issues], indent=2)}
+
+SUGGESTED FIX:
+{verification_report.suggested_fix}
+
+PREVIOUS OUTPUT:
+{last_recommendation.brief}
+
+Generate a corrected synthesis. Do NOT add new facts not in the input data. Return ONLY valid JSON."""
+
+                            repair_llm_response = self.synthesizer.llm_router.generate(
+                                task=TASK_SYNTHESIS,
+                                system_prompt="Return ONLY valid JSON. No markdown. No explanations. JSON must start with '{' and end with '}'.",
+                                user_prompt=repair_prompt,
+                            )
+
+                            try:
+                                repair_data = json.loads(repair_llm_response.text)
+                                repair_recommendation = Recommendation(
+                                    symbol=symbol,
+                                    timestamp=datetime.now(),
+                                    timeframe=timeframe,
+                                    action=str(repair_data.get("action", "WAIT")).upper(),
+                                    brief=str(repair_data.get("brief", "")),
+                                    confidence=float(repair_data.get("confidence", 0.0)),
+                                )
+
+                                    from src.core.policies.safety_policy import SafetyPolicy
+
+                                    safety_policy = SafetyPolicy()
+                                    validated, _ = safety_policy.validate(repair_recommendation)
+                                if validated:
+                                    last_recommendation = repair_recommendation
+                                    last_synthesis_llm_response = repair_llm_response
+                                    self.logger.info(
+                                        f"Run {run_id} repair {repair_count} produced valid recommendation"
+                                    )
+
+                                    repair_verification = self.verifier_agent.verify(
+                                        task_name=TASK_SYNTHESIS,
+                                        inputs_summary=inputs_summary,
+                                        author_output=f"Action: {repair_recommendation.action}\nBrief: {repair_recommendation.brief}\nConfidence: {repair_recommendation.confidence:.2%}",
+                                    )
+
+                                    if repair_verification.passed:
+                                        recommendation = repair_recommendation
+                                        synthesis_llm_response = repair_llm_response
+                                        verification_report = repair_verification
+                                        self.logger.info(
+                                            f"Run {run_id} repair {repair_count} passed verification"
+                                        )
+                                        break
+                                    else:
+                                        verification_report = repair_verification
+                                        self.logger.warning(
+                                            f"Run {run_id} repair {repair_count} still failed verification"
+                                        )
+                            except (ValueError, json.JSONDecodeError, KeyError) as e:
+                                self.logger.warning(
+                                    f"Run {run_id} repair {repair_count} failed to parse: {e}"
+                                )
+
+                        if repair_count > 0:
+                            synthesis_content = (
+                                f"Action: {recommendation.action}\n"
+                                f"Brief: {recommendation.brief}\n"
+                                f"Confidence: {recommendation.confidence:.2%}"
+                            )
+                            synthesis_rationale = Rationale(
+                                run_id=run_id,
+                                rationale_type=RationaleType.SYNTHESIS,
+                                content=synthesis_content,
+                                raw_data=json.dumps(last_synthesis_debug)
+                                if last_synthesis_debug
+                                else None,
+                                provider_name=last_synthesis_llm_response.provider_name
+                                if last_synthesis_llm_response
+                                else None,
+                                model_name=last_synthesis_llm_response.model_name
+                                if last_synthesis_llm_response
+                                else None,
+                                latency_ms=last_synthesis_llm_response.latency_ms
+                                if last_synthesis_llm_response
+                                else None,
+                                attempts=last_synthesis_llm_response.attempts
+                                if last_synthesis_llm_response
+                                else None,
+                                error=last_synthesis_llm_response.error
+                                if last_synthesis_llm_response
+                                else None,
+                            )
+
+                            if last_synthesis_llm_response:
+                                repair_request = LlmRequest(
+                                    task=TASK_SYNTHESIS,
+                                    system_prompt="Return ONLY valid JSON.",
+                                    user_prompt=repair_prompt,
+                                    temperature=0.2,
+                                    timeout_seconds=60.0,
+                                    max_retries=1,
+                                )
+                                self.artifact_store.save_llm_exchange(
+                                    run_id,
+                                    f"synthesis_repair_{repair_count}",
+                                    repair_request,
+                                    last_synthesis_llm_response,
+                                )
+
             persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
             persist_result = persist_job.run(
                 run_id=run_id,
