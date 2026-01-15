@@ -78,9 +78,17 @@ def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
         return False
 
 
-def collect_models_from_routing() -> set[str]:
-    """Collect all unique model names from routing configuration."""
-    models: set[str] = set()
+def collect_models_from_routing() -> tuple[set[str], set[str]]:
+    """Collect all unique model names from routing configuration.
+    Returns (ollama_models, hf_models) based on provider type.
+    """
+    ollama_models: set[str] = set()
+    hf_models: set[str] = set()
+
+    from src.core.ports.llm_provider_name import (
+        PROVIDER_OLLAMA_LOCAL,
+        PROVIDER_OLLAMA_SERVER,
+    )
 
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
         if task_name == TASK_TECH_ANALYSIS:
@@ -94,9 +102,12 @@ def collect_models_from_routing() -> set[str]:
 
         for step in routing.steps:
             if step.model:
-                models.add(step.model)
+                if step.provider in [PROVIDER_OLLAMA_LOCAL, PROVIDER_OLLAMA_SERVER]:
+                    ollama_models.add(step.model)
+                else:
+                    hf_models.add(step.model)
 
-    return models
+    return ollama_models, hf_models
 
 
 def main() -> int:
@@ -118,6 +129,11 @@ def main() -> int:
         help="Download all models specified in routing configuration",
     )
     parser.add_argument(
+        "--prefetch-ollama",
+        action="store_true",
+        help="After downloading HF models, also prefetch them in Ollama (if --from-routing is used)",
+    )
+    parser.add_argument(
         "--ollama-url",
         type=str,
         help="Ollama base URL (defaults to OLLAMA_LOCAL_URL or OLLAMA_BASE_URL)",
@@ -137,22 +153,49 @@ def main() -> int:
     success = True
 
     if args.from_routing:
-        models = collect_models_from_routing()
-        if not models:
+        ollama_models, hf_models = collect_models_from_routing()
+        total_models = len(ollama_models) + len(hf_models)
+
+        if total_models == 0:
             print("No models found in routing configuration")
             return 1
 
-        print(f"Found {len(models)} unique model(s) in routing:")
-        for model in sorted(models):
-            print(f"  - {model}")
+        print(f"Found {total_models} unique model(s) in routing:")
+        if ollama_models:
+            print(f"  Ollama models ({len(ollama_models)}):")
+            for model in sorted(ollama_models):
+                print(f"    - {model}")
+        if hf_models:
+            print(f"  Hugging Face models ({len(hf_models)}):")
+            for model in sorted(hf_models):
+                print(f"    - {model}")
 
         ollama_url = args.ollama_url
         if not ollama_url:
             ollama_url = settings._get_ollama_local_url()
 
-        for model in sorted(models):
-            if not ollama_pull(model, ollama_url):
-                success = False
+        if ollama_models:
+            print("\nPulling Ollama models...")
+            for model in sorted(ollama_models):
+                if not ollama_pull(model, ollama_url):
+                    success = False
+
+        if hf_models:
+            hf_cache = Path(args.hf_cache_dir) if args.hf_cache_dir else get_hf_cache_dir()
+            print("\nDownloading Hugging Face models...")
+            for model in sorted(hf_models):
+                if not download_hf_model(model, hf_cache):
+                    success = False
+
+            if args.prefetch_ollama:
+                print("\nPrefetching HF models in Ollama...")
+                ollama_url = args.ollama_url
+                if not ollama_url:
+                    ollama_url = settings._get_ollama_local_url()
+
+                for model in sorted(hf_models):
+                    if not ollama_pull(model, ollama_url):
+                        success = False
 
     if args.hf_model:
         hf_cache = Path(args.hf_cache_dir) if args.hf_cache_dir else get_hf_cache_dir()
