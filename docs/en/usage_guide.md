@@ -42,89 +42,19 @@ pip install -e ".[dev]"
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` and fill in your API keys:
 
-```bash
-# --- Application ---
-APP_ENV=development
-APP_TIMEZONE=Asia/Yerevan
-
-# --- OANDA API (primary provider) ---
-OANDA_API_KEY=your_oanda_api_key_here
-OANDA_ACCOUNT_ID=your_account_id
-OANDA_BASE_URL=https://api-fxpractice.oanda.com
-
-# --- Twelve Data API (fallback provider) ---
-TWELVE_DATA_API_KEY=your_twelve_data_key
-TWELVE_DATA_BASE_URL=https://api.twelvedata.com
-
-# --- GDELT API (news) ---
-GDELT_BASE_URL=https://api.gdeltproject.org
-
-# --- NewsAPI (optional) ---
-NEWSAPI_API_KEY=your_newsapi_key
-NEWSAPI_BASE_URL=https://newsapi.org
-
-# --- LLM Providers (Multi-provider routing) ---
-# Ollama Local (default fallback)
-OLLAMA_LOCAL_URL=http://localhost:11434
-OLLAMA_MODEL=llama3:latest
-
-# Ollama Server (optional remote)
-OLLAMA_SERVER_URL=http://server:11434
-
-# DeepSeek API (optional)
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_API_BASE=https://api.deepseek.com
-
-# LLM Router Configuration
-LLM_ROUTER_MODE=sequential
-LLM_VERIFIER_ENABLED=false
-LLM_VERIFIER_MODE=soft
-LLM_VERIFIER_MAX_REPAIRS=1
-LLM_MAX_RETRIES=3
-LLM_TIMEOUT_SECONDS=60.0
-LLM_TEMPERATURE=0.2
-
-# Task-specific routing (optional, falls back to ollama_local + llama3:latest)
-TECH_PRIMARY_PROVIDER=deepseek_api
-TECH_PRIMARY_MODEL=deepseek-chat
-TECH_FALLBACK1_PROVIDER=ollama_server
-TECH_FALLBACK1_MODEL=qwen2.5:32b
-
-NEWS_PRIMARY_PROVIDER=ollama_local
-NEWS_PRIMARY_MODEL=llama3:latest
-
-SYNTHESIS_PRIMARY_PROVIDER=deepseek_api
-SYNTHESIS_PRIMARY_MODEL=deepseek-chat
-
-VERIFIER_PRIMARY_PROVIDER=ollama_local
-VERIFIER_PRIMARY_MODEL=llama3:latest
-
-# Per-task overrides (optional)
-TECH_TIMEOUT_SECONDS=120.0
-TECH_TEMPERATURE=0.3
-NEWS_TIMEOUT_SECONDS=60.0
-NEWS_TEMPERATURE=0.2
-SYNTHESIS_TIMEOUT_SECONDS=90.0
-SYNTHESIS_TEMPERATURE=0.2
-VERIFIER_TIMEOUT_SECONDS=60.0
-VERIFIER_TEMPERATURE=0.1
-
-# --- Storage ---
-STORAGE_SQLITE_DB_PATH=db/forex_research_assistant.sqlite3
-STORAGE_ARTIFACTS_DIR=artifacts
-STORAGE_MIGRATION_PATH=src/storage/sqlite/migrations/0001_init.sql
-
-# --- Runtime settings ---
-RUNTIME_MVP_SYMBOLS_RAW=EURUSD,GBPUSD,USDJPY
-RUNTIME_MVP_TIMEFRAME=1h
-RUNTIME_MVP_EXPIRY_SECONDS=300
-RUNTIME_LLM_ENABLED=true
-RUNTIME_LLM_CALL_INTERVAL_SECONDS=300
-RUNTIME_NEWS_REFRESH_INTERVAL_SECONDS=300
-RUNTIME_MARKET_DATA_WINDOW_CANDLES=300
+**Windows (PowerShell):**
+```powershell
+Copy-Item .env.example .env
 ```
+
+**Linux/macOS:**
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and replace placeholder values with your actual API keys.
 
 ### Database Initialization
 
