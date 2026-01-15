@@ -30,7 +30,7 @@ def get_ram_info() -> dict[str, float]:
     }
 
 
-def get_gpu_info() -> list[dict[str, float | str]] | None:
+def get_gpu_info() -> list[dict[str, float | int | str]] | None:
     """Get GPU VRAM information in GB. Returns None if no GPU or pynvml not available."""
     if pynvml is None:
         return None
@@ -39,7 +39,7 @@ def get_gpu_info() -> list[dict[str, float | str]] | None:
         pynvml.nvmlInit()
         device_count = pynvml.nvmlDeviceGetCount()
 
-        gpus: list[dict[str, float | str]] = []
+        gpus: list[dict[str, float | int | str]] = []
         for i in range(device_count):
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
@@ -102,7 +102,7 @@ def print_summary() -> None:
     print("=" * 60)
 
     if gpu_info:
-        min_free_vram = min(gpu["free_gb"] for gpu in gpu_info)
+        min_free_vram = min(float(gpu["free_gb"]) for gpu in gpu_info)
         print(f"  Minimum free VRAM: {format_size(min_free_vram)}")
         if min_free_vram >= 24:
             print("  ✓ Can run: 32B+ models (qwen2.5:32b, llama3.1:70b)")
