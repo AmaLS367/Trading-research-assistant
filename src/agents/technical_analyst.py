@@ -78,7 +78,7 @@ class TechnicalAnalyst:
 
     def get_llm_metadata(
         self, snapshot: FeatureSnapshot, symbol: str, timeframe: Timeframe
-    ) -> dict:
+    ) -> dict[str, str | int | None]:
         display_symbol = self._symbol_to_display(symbol)
         system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
         user_prompt = snapshot.to_markdown()
