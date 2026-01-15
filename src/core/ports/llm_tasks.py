@@ -1,0 +1,11 @@
+TASK_TECH_ANALYSIS = "tech_analysis"
+TASK_NEWS_ANALYSIS = "news_analysis"
+TASK_SYNTHESIS = "synthesis"
+TASK_VERIFICATION = "verification"
+
+ALL_TASKS = [
+    TASK_TECH_ANALYSIS,
+    TASK_NEWS_ANALYSIS,
+    TASK_SYNTHESIS,
+    TASK_VERIFICATION,
+]
