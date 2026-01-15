@@ -74,8 +74,6 @@ def test_end_to_end_pipeline_offline():
         artifact_store = ArtifactStore(artifacts_dir)
 
         mock_tech_provider = MockLlmProvider("test_provider", "test_model")
-        mock_news_provider_llm = MockLlmProvider("test_provider", "test_model")
-        mock_synth_provider = MockLlmProvider("test_provider", "test_model")
 
         from src.agents.news_analyst import NewsAnalyst
         from src.agents.synthesizer import Synthesizer
@@ -146,7 +144,9 @@ def test_end_to_end_pipeline_offline():
                     error=None,
                 )
 
-        router.generate = mock_generate
+        router._generate_sequential = lambda request, task_routing: mock_generate(
+            request.task, request.system_prompt, request.user_prompt
+        )
 
         technical_analyst = TechnicalAnalyst(router)
         news_analyst = NewsAnalyst(router)
