@@ -377,10 +377,10 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     confidence=float(repair_data.get("confidence", 0.0)),
                                 )
 
-                                    from src.core.policies.safety_policy import SafetyPolicy
+                                from src.core.policies.safety_policy import SafetyPolicy
 
-                                    safety_policy = SafetyPolicy()
-                                    validated, _ = safety_policy.validate(repair_recommendation)
+                                safety_policy = SafetyPolicy()
+                                validated, _ = safety_policy.validate(repair_recommendation)
                                 if validated:
                                     last_recommendation = repair_recommendation
                                     last_synthesis_llm_response = repair_llm_response
