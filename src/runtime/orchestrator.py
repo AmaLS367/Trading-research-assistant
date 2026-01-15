@@ -25,6 +25,7 @@ from src.runtime.jobs.fetch_news_job import FetchNewsJob
 from src.runtime.jobs.persist_recommendation_job import PersistRecommendationJob
 from src.storage.artifacts.artifact_store import ArtifactStore
 from src.storage.sqlite.repositories.candles_repository import CandlesRepository
+from src.storage.sqlite.repositories.verification_repository import VerificationRepository
 from src.utils.logging import get_logger
 
 
@@ -39,6 +40,8 @@ class RuntimeOrchestrator:
         news_analyst: NewsAnalyst,
         synthesizer: Synthesizer,
         candles_repository: CandlesRepository | None = None,
+        verifier_agent: VerifierAgent | None = None,
+        verification_repository: VerificationRepository | None = None,
     ) -> None:
         self.storage = storage
         self.artifact_store = artifact_store
@@ -48,6 +51,8 @@ class RuntimeOrchestrator:
         self.news_analyst = news_analyst
         self.synthesizer = synthesizer
         self.candles_repository = candles_repository
+        self.verifier_agent = verifier_agent
+        self.verification_repository = verification_repository
         self.logger = get_logger(__name__)
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
