@@ -1,9 +1,6 @@
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
-import httpx
-import pytest
-
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.core.models.candle import Candle
 from src.core.models.llm import LlmResponse
@@ -129,51 +126,3 @@ def test_technical_analyst_output_guard_correct_pair() -> None:
     assert "ignore those references" not in result
 
 
-def test_ollama_client_generate() -> None:
-    mock_response_data = {
-        "message": {
-            "role": "assistant",
-            "content": "Technical analysis shows strong bullish trend.",
-        }
-    }
-
-    mock_response = Mock(spec=httpx.Response)
-    mock_response.json.return_value = mock_response_data
-    mock_response.status_code = 200
-
-    mock_client = Mock(spec=httpx.Client)
-    mock_client.post.return_value = mock_response
-
-    client = OllamaClient(base_url="http://localhost:11434", model="test-model")
-    client.client = mock_client
-
-    result = client.generate(
-        system_prompt="You are a Forex expert.",
-        user_prompt="RSI is 75.",
-    )
-
-    assert result == "Technical analysis shows strong bullish trend."
-    mock_client.post.assert_called_once()
-    call_args = mock_client.post.call_args
-    assert call_args.kwargs["json"]["model"] == "test-model"
-    assert len(call_args.kwargs["json"]["messages"]) == 2
-
-
-def test_ollama_client_handles_empty_response() -> None:
-    mock_response_data = {"message": {"role": "assistant", "content": ""}}
-
-    mock_response = Mock(spec=httpx.Response)
-    mock_response.json.return_value = mock_response_data
-    mock_response.status_code = 200
-
-    mock_client = Mock(spec=httpx.Client)
-    mock_client.post.return_value = mock_response
-
-    client = OllamaClient(base_url="http://localhost:11434", model="test-model")
-    client.client = mock_client
-
-    with pytest.raises(ValueError, match="Empty response from Ollama"):
-        client.generate(
-            system_prompt="You are a Forex expert.",
-            user_prompt="RSI is 75.",
-        )

@@ -108,7 +108,7 @@ Based on the above information, provide your trading recommendation as JSON."""
 
         except (ValueError, json.JSONDecodeError) as parse_error:
             debug_payload["parse_error"] = str(parse_error)
-            extracted_json = self._extract_json(llm_response)
+            extracted_json = self._extract_json(llm_response.text)
             debug_payload["extracted_json"] = self._truncate_string(extracted_json, 2000)
 
             repair_prompt = f"""Convert this into STRICT valid JSON for schema. Return JSON only.
