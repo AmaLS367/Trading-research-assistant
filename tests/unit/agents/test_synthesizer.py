@@ -3,23 +3,31 @@ from datetime import datetime
 from unittest.mock import Mock
 
 from src.agents.synthesizer import Synthesizer
+from src.core.models.llm import LlmResponse
 from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
-from src.core.ports.llm_provider import LlmProvider
+from src.llm.providers.llm_router import LlmRouter
 
 
 def test_synthesizer_creates_recommendation() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps(
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps(
         {
             "action": "CALL",
             "confidence": 0.75,
             "brief": "Strong bullish momentum with RSI above 70.",
         }
     )
-    mock_llm.generate.return_value = mock_response
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -47,15 +55,22 @@ def test_synthesizer_creates_recommendation() -> None:
 
 
 def test_synthesizer_handles_json_with_code_blocks() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = (
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = (
         "```json\n"
         + json.dumps({"action": "PUT", "confidence": 0.6, "brief": "Bearish trend detected."})
         + "\n```"
     )
-    mock_llm.generate.return_value = mock_response
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="GBPUSD",
@@ -79,11 +94,18 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
 
 
 def test_synthesizer_validates_action() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({"action": "INVALID", "confidence": 0.5, "brief": "Test"})
-    mock_llm.generate.return_value = mock_response
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps({"action": "INVALID", "confidence": 0.5, "brief": "Test"})
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -107,11 +129,18 @@ def test_synthesizer_validates_action() -> None:
 
 
 def test_synthesizer_validates_confidence_range() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({"action": "WAIT", "confidence": 1.5, "brief": "Test"})
-    mock_llm.generate.return_value = mock_response
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps({"action": "WAIT", "confidence": 1.5, "brief": "Test"})
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -135,11 +164,18 @@ def test_synthesizer_validates_confidence_range() -> None:
 
 
 def test_synthesizer_handles_missing_fields() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps({"action": "CALL", "confidence": 0.8})
-    mock_llm.generate.return_value = mock_response
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps({"action": "CALL", "confidence": 0.8})
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -163,10 +199,27 @@ def test_synthesizer_handles_missing_fields() -> None:
 
 
 def test_synthesizer_handles_invalid_json_with_fallback() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.return_value = "This is not JSON"
+    mock_router = Mock(spec=LlmRouter)
+    mock_router.generate.side_effect = [
+        LlmResponse(
+            text="This is not JSON",
+            provider_name="test_provider",
+            model_name="test_model",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+        LlmResponse(
+            text=json.dumps({"action": "WAIT", "confidence": 0.0, "brief": "Fallback"}),
+            provider_name="test_provider",
+            model_name="test_model",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    ]
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -193,10 +246,35 @@ def test_synthesizer_handles_invalid_json_with_fallback() -> None:
 
 
 def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.side_effect = ["This is not JSON", "Also not JSON", "Still not JSON"]
+    mock_router = Mock(spec=LlmRouter)
+    mock_router.generate.side_effect = [
+        LlmResponse(
+            text="This is not JSON",
+            provider_name="test_provider",
+            model_name="test_model",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+        LlmResponse(
+            text="Also not JSON",
+            provider_name="test_provider",
+            model_name="test_model",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+        LlmResponse(
+            text="Still not JSON",
+            provider_name="test_provider",
+            model_name="test_model",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    ]
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -224,13 +302,20 @@ def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
 
 
 def test_synthesizer_normalizes_brief_newlines() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps(
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps(
         {"action": "CALL", "confidence": 0.8, "brief": "First line.\nSecond line.\nThird line."}
     )
-    mock_llm.generate.return_value = mock_response
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",
@@ -254,13 +339,20 @@ def test_synthesizer_normalizes_brief_newlines() -> None:
 
 
 def test_synthesizer_warns_on_curly_braces_in_brief() -> None:
-    mock_llm = Mock(spec=LlmProvider)
-    mock_response = json.dumps(
+    mock_router = Mock(spec=LlmRouter)
+    mock_response_text = json.dumps(
         {"action": "PUT", "confidence": 0.7, "brief": "Analysis shows {some data} in the market."}
     )
-    mock_llm.generate.return_value = mock_response
+    mock_router.generate.return_value = LlmResponse(
+        text=mock_response_text,
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    synthesizer = Synthesizer(mock_llm)
+    synthesizer = Synthesizer(mock_router)
 
     news_digest = NewsDigest(
         symbol="EURUSD",

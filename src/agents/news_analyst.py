@@ -2,12 +2,13 @@ import json
 
 from src.agents.prompts.news_prompts import get_news_analysis_system_prompt
 from src.core.models.news import NewsDigest
-from src.core.ports.llm_provider import LlmProvider
+from src.core.ports.llm_tasks import TASK_NEWS_ANALYSIS
+from src.llm.providers.llm_router import LlmRouter
 
 
 class NewsAnalyst:
-    def __init__(self, llm_provider: LlmProvider) -> None:
-        self.llm_provider = llm_provider
+    def __init__(self, llm_router: LlmRouter) -> None:
+        self.llm_router = llm_router
 
     def analyze(self, digest: NewsDigest) -> NewsDigest:
         if digest.quality == "LOW":
@@ -40,13 +41,14 @@ class NewsAnalyst:
 Provide your analysis as JSON."""
 
         try:
-            llm_response = self.llm_provider.generate(
+            llm_response = self.llm_router.generate(
+                task=TASK_NEWS_ANALYSIS,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
             )
 
             analysis_data = self._parse_llm_response(
-                llm_response, [article.title for article in digest.articles]
+                llm_response.text, [article.title for article in digest.articles]
             )
 
             summary_value = analysis_data.get("summary", "Failed to parse LLM output")

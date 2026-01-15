@@ -6,10 +6,10 @@ import pytest
 
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.core.models.candle import Candle
-from src.core.ports.llm_provider import LlmProvider
+from src.core.models.llm import LlmResponse
 from src.features.indicators.indicator_engine import calculate_features
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
-from src.llm.ollama.ollama_client import OllamaClient
+from src.llm.providers.llm_router import LlmRouter
 
 
 def create_test_candles(count: int, base_price: float = 1.1000) -> list[Candle]:
@@ -35,10 +35,17 @@ def create_test_candles(count: int, base_price: float = 1.1000) -> list[Candle]:
 def test_technical_analyst_analyze() -> None:
     from src.core.models.timeframe import Timeframe
 
-    mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.return_value = "Market shows bullish momentum with RSI above 70."
+    mock_router = Mock(spec=LlmRouter)
+    mock_router.generate.return_value = LlmResponse(
+        text="Market shows bullish momentum with RSI above 70.",
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    analyst = TechnicalAnalyst(mock_llm)
+    analyst = TechnicalAnalyst(mock_router)
 
     candles = create_test_candles(250)
     indicators = calculate_features(candles)
@@ -50,9 +57,10 @@ def test_technical_analyst_analyze() -> None:
 
     result = analyst.analyze(snapshot, "EURUSD", Timeframe.H1)
 
-    assert result == "Market shows bullish momentum with RSI above 70."
-    mock_llm.generate.assert_called_once()
-    call_args = mock_llm.generate.call_args
+    assert "Market shows bullish momentum with RSI above 70." in result
+    mock_router.generate.assert_called_once()
+    call_args = mock_router.generate.call_args
+    assert "task" in call_args.kwargs
     assert "system_prompt" in call_args.kwargs
     assert "user_prompt" in call_args.kwargs
     assert "EUR/USD" in call_args.kwargs["system_prompt"]
@@ -62,10 +70,17 @@ def test_technical_analyst_analyze() -> None:
 def test_technical_analyst_output_guard_wrong_pair() -> None:
     from src.core.models.timeframe import Timeframe
 
-    mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.return_value = "The EUR/USD pair shows bullish momentum with RSI above 70."
+    mock_router = Mock(spec=LlmRouter)
+    mock_router.generate.return_value = LlmResponse(
+        text="The EUR/USD pair shows bullish momentum with RSI above 70.",
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    analyst = TechnicalAnalyst(mock_llm)
+    analyst = TechnicalAnalyst(mock_router)
 
     candles = create_test_candles(250)
     indicators = calculate_features(candles)
@@ -87,10 +102,17 @@ def test_technical_analyst_output_guard_wrong_pair() -> None:
 def test_technical_analyst_output_guard_correct_pair() -> None:
     from src.core.models.timeframe import Timeframe
 
-    mock_llm = Mock(spec=LlmProvider)
-    mock_llm.generate.return_value = "The GBP/USD pair shows bullish momentum with RSI above 70."
+    mock_router = Mock(spec=LlmRouter)
+    mock_router.generate.return_value = LlmResponse(
+        text="The GBP/USD pair shows bullish momentum with RSI above 70.",
+        provider_name="test_provider",
+        model_name="test_model",
+        latency_ms=100,
+        attempts=1,
+        error=None,
+    )
 
-    analyst = TechnicalAnalyst(mock_llm)
+    analyst = TechnicalAnalyst(mock_router)
 
     candles = create_test_candles(250)
     indicators = calculate_features(candles)

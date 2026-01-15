@@ -142,18 +142,18 @@ def create_llm_provider() -> LlmProvider:
 
 
 def create_technical_analyst() -> TechnicalAnalyst:
-    llm_provider = create_llm_provider()
-    return TechnicalAnalyst(llm_provider=llm_provider)
+    llm_router = create_llm_router()
+    return TechnicalAnalyst(llm_router=llm_router)
 
 
 def create_synthesizer() -> Synthesizer:
-    llm_provider = create_llm_provider()
-    return Synthesizer(llm_provider=llm_provider)
+    llm_router = create_llm_router()
+    return Synthesizer(llm_router=llm_router)
 
 
 def create_news_analyst() -> NewsAnalyst:
-    llm_provider = create_llm_provider()
-    return NewsAnalyst(llm_provider=llm_provider)
+    llm_router = create_llm_router()
+    return NewsAnalyst(llm_router=llm_router)
 
 
 def create_recommendations_repository() -> RecommendationsRepository:

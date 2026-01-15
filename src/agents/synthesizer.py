@@ -7,12 +7,13 @@ from src.core.models.news import NewsDigest
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.core.policies.safety_policy import SafetyPolicy
-from src.core.ports.llm_provider import LlmProvider
+from src.core.ports.llm_tasks import TASK_SYNTHESIS
+from src.llm.providers.llm_router import LlmRouter
 
 
 class Synthesizer:
-    def __init__(self, llm_provider: LlmProvider) -> None:
-        self.llm_provider = llm_provider
+    def __init__(self, llm_router: LlmRouter) -> None:
+        self.llm_router = llm_router
         self.safety_policy = SafetyPolicy()
 
     def synthesize(
@@ -50,7 +51,8 @@ News Context:
 
 Based on the above information, provide your trading recommendation as JSON."""
 
-        llm_response = self.llm_provider.generate(
+        llm_response = self.llm_router.generate(
+            task=TASK_SYNTHESIS,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
@@ -58,7 +60,7 @@ Based on the above information, provide your trading recommendation as JSON."""
         debug_payload: dict[str, Any] = {
             "parse_ok": False,
             "parse_error": None,
-            "raw_output": self._truncate_string(llm_response, 6000),
+            "raw_output": self._truncate_string(llm_response.text, 6000),
             "extracted_json": None,
             "repair_attempts": 0,
             "repair_output_1": None,
@@ -66,11 +68,18 @@ Based on the above information, provide your trading recommendation as JSON."""
             "brief_warning": None,
             "retry_used": False,
             "retry_raw_output": None,
+            "llm_metadata": {
+                "provider_name": llm_response.provider_name,
+                "model_name": llm_response.model_name,
+                "latency_ms": llm_response.latency_ms,
+                "attempts": llm_response.attempts,
+                "error": llm_response.error,
+            },
         }
 
         try:
-            recommendation_data, brief_warning = self._parse_llm_response(llm_response)
-            extracted_json = self._extract_json(llm_response)
+            recommendation_data, brief_warning = self._parse_llm_response(llm_response.text)
+            extracted_json = self._extract_json(llm_response.text)
             debug_payload["extracted_json"] = self._truncate_string(extracted_json, 2000)
             debug_payload["parse_ok"] = True
             debug_payload["brief_warning"] = brief_warning
@@ -107,7 +116,7 @@ Based on the above information, provide your trading recommendation as JSON."""
 Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
 
 Invalid output:
-{self._truncate_string(llm_response, 1500)}"""
+{self._truncate_string(llm_response.text, 1500)}"""
 
             repair_attempts = 0
             last_error = parse_error
@@ -118,21 +127,24 @@ Invalid output:
                     debug_payload["repair_attempts"] = repair_attempts
                     debug_payload["retry_used"] = True
 
-                    retry_response = self.llm_provider.generate(
+                    retry_response = self.llm_router.generate(
+                        task=TASK_SYNTHESIS,
                         system_prompt="Return ONLY valid JSON. No markdown. No explanations. JSON must start with '{' and end with '}'.",
                         user_prompt=repair_prompt,
                     )
 
                     if attempt == 0:
                         debug_payload["repair_output_1"] = self._truncate_string(
-                            retry_response, 6000
+                            retry_response.text, 6000
                         )
                     else:
                         debug_payload["repair_output_2"] = self._truncate_string(
-                            retry_response, 6000
+                            retry_response.text, 6000
                         )
 
-                    recommendation_data, brief_warning = self._parse_llm_response(retry_response)
+                    recommendation_data, brief_warning = self._parse_llm_response(
+                        retry_response.text
+                    )
                     debug_payload["parse_ok"] = True
                     debug_payload["brief_warning"] = brief_warning
 
@@ -160,14 +172,16 @@ Invalid output:
 
                 except (ValueError, json.JSONDecodeError) as retry_error:
                     last_error = retry_error
-                    debug_payload["retry_raw_output"] = self._truncate_string(retry_response, 6000)
+                    debug_payload["retry_raw_output"] = self._truncate_string(
+                        retry_response.text, 6000
+                    )
                     if attempt == 0:
                         repair_prompt = f"""Convert this into STRICT valid JSON. Return JSON only. JSON must start with '{{' and end with '}}'.
 
 Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
 
 Previous failed attempt:
-{self._truncate_string(retry_response, 1500)}"""
+{self._truncate_string(retry_response.text, 1500)}"""
 
             debug_payload["parse_error"] = f"Initial: {parse_error}; Repair 1: {last_error}"
 
