@@ -134,7 +134,7 @@ def test_router_last_resort():
 
 
 def test_router_unknown_task():
-    providers = {}
+    providers: dict[str, LlmProvider] = {}
     routing_config = LlmRoutingConfig(
         router_mode="sequential",
         verifier_enabled=False,
@@ -142,7 +142,7 @@ def test_router_unknown_task():
         timeout_seconds=60.0,
         temperature=0.2,
     )
-    task_routings = {}
+    task_routings: dict[str, LlmTaskRouting] = {}
 
     router = LlmRouter(providers, routing_config, task_routings)
     response = router.generate("unknown_task", "system", "user")
