@@ -8,6 +8,7 @@ from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
 from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
+from src.core.models.recommendation import Recommendation
 from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
 from src.core.models.verification import VerificationReport
