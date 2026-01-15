@@ -96,20 +96,29 @@ app → runtime → (features, agents, storage, providers, llm) → core
 - `TechnicalAnalyst` — технический анализ через LLM
 - `Synthesizer` — синтез финальной рекомендации
 - `NewsAnalyst` — анализ и агрегация новостей
-- `NewsSentimentAnalyst` — анализ тональности новостей
+- `VerifierAgent` — LLM-based верификация выходов агентов (опционально)
 
-**Зависимости**: `core.ports.llm_provider` (интерфейс), `core.models`, `features.snapshots`
+**Зависимости**: `core.ports.llm_provider` (интерфейс), `core.models`, `features.snapshots`, `llm.providers.llm_router`
 
-**Правило**: Агенты не пишут в БД и не управляют циклом выполнения.
+**Правило**: Агенты используют `LlmRouter` для LLM вызовов, который обрабатывает выбор провайдера и fallback. Агенты не пишут в БД и не управляют циклом выполнения.
 
 ### 5. LLM провайдеры (`src/llm/`)
 
-**Назначение**: Реализация `LlmProvider` для конкретных LLM сервисов.
+**Назначение**: Реализация `LlmProvider` для конкретных LLM сервисов и логика роутинга.
 
 #### Реализации:
 - `OllamaClient` → `LlmProvider` (локальный или удаленный Ollama)
+- `DeepSeekClient` → `LlmProvider` (DeepSeek API, совместим с OpenAI)
+- `LlmRouter` → Task-based роутинг с цепочками fallback
 
-**Правило**: Агентам все равно, где находится LLM — они видят только интерфейс.
+#### Возможности Router:
+- **Task-based роутинг** — Разные модели для разных задач (tech_analysis, news_analysis, synthesis, verification)
+- **Автоматический fallback** — Переключение на доступные провайдеры при сбое основного
+- **Health checks** — Проверка доступности провайдеров с кешированием
+- **Last resort** — Fallback на `ollama_local + llama3:latest` если все настроенные шаги провалились
+- **Per-task overrides** — Опциональные переопределения timeout и temperature для каждой задачи
+
+**Правило**: Агентам не важно, где находится LLM — они используют `LlmRouter`, который абстрагирует выбор провайдера.
 
 ### 6. Хранилище (`src/storage/`)
 
