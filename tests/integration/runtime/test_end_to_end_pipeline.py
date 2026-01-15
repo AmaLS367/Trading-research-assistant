@@ -33,7 +33,14 @@ class MockLlmProvider(LlmProvider):
 
 
 class MockMarketDataProvider(MarketDataProvider):
-    def fetch_candles(self, symbol: str, timeframe: Timeframe, count: int) -> list[Candle]:
+    def fetch_candles(
+        self,
+        symbol: str,
+        timeframe: Timeframe,
+        count: int,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> list[Candle]:
         candles: list[Candle] = []
         base_time = datetime(2024, 1, 1, 12, 0, 0)
         for i in range(count):
@@ -51,15 +58,18 @@ class MockMarketDataProvider(MarketDataProvider):
 
 
 class MockNewsProvider(NewsProvider):
-    def fetch_news(self, symbol: str, timeframe: Timeframe, window_hours: int) -> NewsDigest:
+    def get_news_digest(self, symbol: str, timeframe: Timeframe) -> NewsDigest:
         return NewsDigest(
             symbol=symbol,
             timeframe=timeframe,
-            window_hours=window_hours,
+            window_hours=24,
             articles=[],
             quality="LOW",
             quality_reason="Mock provider",
         )
+
+    def get_news_summary(self, symbol: str) -> str:
+        return "Mock news summary"
 
 
 def test_end_to_end_pipeline_offline():
@@ -144,9 +154,9 @@ def test_end_to_end_pipeline_offline():
                     error=None,
                 )
 
-        router._generate_sequential = lambda request, task_routing: mock_generate(
-            request.task, request.system_prompt, request.user_prompt
-        )
+        from unittest.mock import patch
+
+        with patch.object(router, "generate", side_effect=mock_generate):
 
         technical_analyst = TechnicalAnalyst(router)
         news_analyst = NewsAnalyst(router)
@@ -174,22 +184,22 @@ def test_end_to_end_pipeline_offline():
 
         run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
 
-        assert run_id > 0
+            assert run_id > 0
 
-        recommendation = storage.recommendations.get_latest()
-        assert recommendation is not None
-        assert recommendation.symbol == "EURUSD"
-        assert recommendation.timeframe == Timeframe.H1
+            recommendation = storage.recommendations.get_latest()
+            assert recommendation is not None
+            assert recommendation.symbol == "EURUSD"
+            assert recommendation.timeframe == Timeframe.H1
 
-        rationales = storage.rationales.get_by_run_id(run_id)
-        assert len(rationales) >= 3
+            rationales = storage.rationales.get_by_run_id(run_id)
+            assert len(rationales) >= 3
 
-        verification_report = verification_repo.get_latest_by_run_id(run_id)
-        assert verification_report is not None
-        assert verification_report.passed is True
+            verification_report = verification_repo.get_latest_by_run_id(run_id)
+            assert verification_report is not None
+            assert verification_report.passed is True
 
-        run_dir = artifacts_dir / f"run_{run_id}"
-        assert run_dir.exists()
+            run_dir = artifacts_dir / f"run_{run_id}"
+            assert run_dir.exists()
 
-        llm_dir = run_dir / "llm"
-        assert llm_dir.exists()
+            llm_dir = run_dir / "llm"
+            assert llm_dir.exists()
