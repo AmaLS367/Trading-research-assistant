@@ -8,8 +8,11 @@ class RationalesRepository:
 
     def save(self, rationale: Rationale) -> int:
         query = """
-            INSERT INTO rationales (run_id, rationale_type, content, raw_data)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO rationales (
+                run_id, rationale_type, content, raw_data,
+                provider_name, model_name, latency_ms, attempts, error
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         with self.db.get_cursor() as cursor:
             cursor.execute(
@@ -19,6 +22,11 @@ class RationalesRepository:
                     rationale.rationale_type.value,
                     rationale.content,
                     rationale.raw_data,
+                    rationale.provider_name,
+                    rationale.model_name,
+                    rationale.latency_ms,
+                    rationale.attempts,
+                    rationale.error,
                 ),
             )
             row_id = cursor.lastrowid
@@ -28,7 +36,8 @@ class RationalesRepository:
 
     def get_by_run_id(self, run_id: int) -> list[Rationale]:
         query = """
-            SELECT id, run_id, rationale_type, content, raw_data
+            SELECT id, run_id, rationale_type, content, raw_data,
+                   provider_name, model_name, latency_ms, attempts, error
             FROM rationales
             WHERE run_id = ?
             ORDER BY id ASC
