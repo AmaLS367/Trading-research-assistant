@@ -6,6 +6,16 @@ from src.agents.technical_analyst import TechnicalAnalyst
 from src.app.settings import settings
 from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
+from src.core.ports.llm_provider_name import (
+    PROVIDER_DEEPSEEK_API,
+    PROVIDER_OLLAMA_LOCAL,
+    PROVIDER_OLLAMA_SERVER,
+)
+from src.core.ports.llm_tasks import (
+    TASK_NEWS_ANALYSIS,
+    TASK_SYNTHESIS,
+    TASK_TECH_ANALYSIS,
+)
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.core.ports.orchestrator import OrchestratorProtocol
@@ -14,7 +24,9 @@ from src.core.services.scheduler import Scheduler
 from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
 from src.data_providers.forex.oanda_provider import OandaProvider
 from src.data_providers.forex.twelve_data_provider import TwelveDataProvider
+from src.llm.deepseek.deepseek_client import DeepSeekClient
 from src.llm.ollama.ollama_client import OllamaClient
+from src.llm.providers.llm_router import LlmRouter
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.news_providers.multi_news_provider import MultiNewsProvider
 from src.news_providers.newsapi_provider import NewsAPIProvider
@@ -76,6 +88,48 @@ def create_news_provider() -> NewsProvider:
         return MultiNewsProvider(primary=gdelt_provider, secondary=newsapi_provider)
     else:
         return MultiNewsProvider(primary=gdelt_provider, secondary=None)
+
+
+def create_llm_providers() -> dict[str, LlmProvider]:
+    providers: dict[str, LlmProvider] = {}
+
+    ollama_local_url = settings._get_ollama_local_url()
+    providers[PROVIDER_OLLAMA_LOCAL] = OllamaClient(
+        base_url=ollama_local_url,
+        model=settings.ollama_model or "llama3:latest",
+        provider_name=PROVIDER_OLLAMA_LOCAL,
+    )
+
+    ollama_server_url = settings._get_ollama_server_url()
+    if ollama_server_url:
+        providers[PROVIDER_OLLAMA_SERVER] = OllamaClient(
+            base_url=ollama_server_url,
+            model=settings.ollama_model or "llama3:latest",
+            provider_name=PROVIDER_OLLAMA_SERVER,
+        )
+
+    if settings.deepseek_api_key:
+        deepseek_base = settings.deepseek_api_base or "https://api.deepseek.com"
+        providers[PROVIDER_DEEPSEEK_API] = DeepSeekClient(
+            base_url=deepseek_base,
+            api_key=settings.deepseek_api_key,
+            provider_name=PROVIDER_DEEPSEEK_API,
+        )
+
+    return providers
+
+
+def create_llm_router() -> LlmRouter:
+    providers = create_llm_providers()
+    routing_config = settings.get_llm_routing_config()
+
+    task_routings = {
+        TASK_TECH_ANALYSIS: settings.get_tech_routing(),
+        TASK_NEWS_ANALYSIS: settings.get_news_routing(),
+        TASK_SYNTHESIS: settings.get_synthesis_routing(),
+    }
+
+    return LlmRouter(providers, routing_config, task_routings)
 
 
 def create_llm_provider() -> LlmProvider:
