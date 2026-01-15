@@ -1,11 +1,32 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+@dataclass
+class LlmRouteStep:
+    provider: str
+    model: str
+
+
+@dataclass
+class LlmTaskRouting:
+    steps: list[LlmRouteStep]
+
+
+@dataclass
+class LlmRoutingConfig:
+    router_mode: str
+    verifier_enabled: bool
+    max_retries: int
+    timeout_seconds: float
+    temperature: float
 
 
 class Settings(BaseSettings):
@@ -33,10 +54,71 @@ class Settings(BaseSettings):
     newsapi_api_key: Annotated[str, Field(alias="NEWSAPI_API_KEY")] = ""
     newsapi_base_url: Annotated[str, Field(alias="NEWSAPI_BASE_URL")] = "https://newsapi.org"
 
-    # --- Ollama ---
+    # --- Ollama (legacy, for backward compatibility) ---
     ollama_base_url: Annotated[str, Field(alias="OLLAMA_BASE_URL")] = "http://localhost:11434"
     ollama_remote_base_url: Annotated[str | None, Field(alias="OLLAMA_REMOTE_BASE_URL")] = None
     ollama_model: Annotated[str, Field(alias="OLLAMA_MODEL")] = ""
+
+    # --- LLM Providers (new multi-provider config) ---
+    ollama_local_url: Annotated[str | None, Field(alias="OLLAMA_LOCAL_URL")] = None
+    ollama_server_url: Annotated[str | None, Field(alias="OLLAMA_SERVER_URL")] = None
+    deepseek_api_key: Annotated[str | None, Field(alias="DEEPSEEK_API_KEY")] = None
+    deepseek_api_base: Annotated[str | None, Field(alias="DEEPSEEK_API_BASE")] = None
+
+    # --- LLM Router Config ---
+    llm_router_mode: Annotated[str, Field(alias="LLM_ROUTER_MODE")] = "sequential"
+    llm_verifier_enabled: Annotated[bool, Field(alias="LLM_VERIFIER_ENABLED")] = False
+    llm_max_retries: Annotated[int, Field(alias="LLM_MAX_RETRIES")] = 3
+    llm_timeout_seconds: Annotated[float, Field(alias="LLM_TIMEOUT_SECONDS")] = 60.0
+    llm_temperature: Annotated[float, Field(alias="LLM_TEMPERATURE")] = 0.2
+
+    # --- Task Routing (TECH) ---
+    tech_primary_provider: Annotated[str | None, Field(alias="TECH_PRIMARY_PROVIDER")] = None
+    tech_primary_model: Annotated[str | None, Field(alias="TECH_PRIMARY_MODEL")] = None
+    tech_fallback1_provider: Annotated[str | None, Field(alias="TECH_FALLBACK1_PROVIDER")] = None
+    tech_fallback1_model: Annotated[str | None, Field(alias="TECH_FALLBACK1_MODEL")] = None
+    tech_fallback2_provider: Annotated[str | None, Field(alias="TECH_FALLBACK2_PROVIDER")] = None
+    tech_fallback2_model: Annotated[str | None, Field(alias="TECH_FALLBACK2_MODEL")] = None
+
+    # --- Task Routing (NEWS) ---
+    news_primary_provider: Annotated[str | None, Field(alias="NEWS_PRIMARY_PROVIDER")] = None
+    news_primary_model: Annotated[str | None, Field(alias="NEWS_PRIMARY_MODEL")] = None
+    news_fallback1_provider: Annotated[str | None, Field(alias="NEWS_FALLBACK1_PROVIDER")] = None
+    news_fallback1_model: Annotated[str | None, Field(alias="NEWS_FALLBACK1_MODEL")] = None
+    news_fallback2_provider: Annotated[str | None, Field(alias="NEWS_FALLBACK2_PROVIDER")] = None
+    news_fallback2_model: Annotated[str | None, Field(alias="NEWS_FALLBACK2_MODEL")] = None
+
+    # --- Task Routing (SYNTHESIS) ---
+    synthesis_primary_provider: Annotated[str | None, Field(alias="SYNTHESIS_PRIMARY_PROVIDER")] = (
+        None
+    )
+    synthesis_primary_model: Annotated[str | None, Field(alias="SYNTHESIS_PRIMARY_MODEL")] = None
+    synthesis_fallback1_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_FALLBACK1_PROVIDER")
+    ] = None
+    synthesis_fallback1_model: Annotated[str | None, Field(alias="SYNTHESIS_FALLBACK1_MODEL")] = (
+        None
+    )
+    synthesis_fallback2_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_FALLBACK2_PROVIDER")
+    ] = None
+    synthesis_fallback2_model: Annotated[str | None, Field(alias="SYNTHESIS_FALLBACK2_MODEL")] = (
+        None
+    )
+
+    # --- Task Routing (VERIFIER) ---
+    verifier_primary_provider: Annotated[str | None, Field(alias="VERIFIER_PRIMARY_PROVIDER")] = (
+        None
+    )
+    verifier_primary_model: Annotated[str | None, Field(alias="VERIFIER_PRIMARY_MODEL")] = None
+    verifier_fallback1_provider: Annotated[
+        str | None, Field(alias="VERIFIER_FALLBACK1_PROVIDER")
+    ] = None
+    verifier_fallback1_model: Annotated[str | None, Field(alias="VERIFIER_FALLBACK1_MODEL")] = None
+    verifier_fallback2_provider: Annotated[
+        str | None, Field(alias="VERIFIER_FALLBACK2_PROVIDER")
+    ] = None
+    verifier_fallback2_model: Annotated[str | None, Field(alias="VERIFIER_FALLBACK2_MODEL")] = None
 
     # --- Storage ---
     storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path(
@@ -101,6 +183,33 @@ class Settings(BaseSettings):
             return value
         return Path(str(value))
 
+    @field_validator(
+        "ollama_local_url",
+        "ollama_server_url",
+        "deepseek_api_base",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_url(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+        if not normalized.startswith(("http://", "https://")):
+            return None
+        return normalized
+
+    @field_validator("deepseek_api_key", mode="before")
+    @classmethod
+    def _normalize_api_key(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+        return normalized
+
     def mvp_symbols(self) -> list[str]:
         raw_parts = self.runtime_mvp_symbols_raw.split(",")
         normalized_symbols: list[str] = []
@@ -115,6 +224,61 @@ class Settings(BaseSettings):
 
     def is_development(self) -> bool:
         return self.app_env.strip().lower() == "development"
+
+    def _get_ollama_local_url(self) -> str:
+        if self.ollama_local_url:
+            return self.ollama_local_url
+        return self.ollama_base_url
+
+    def _get_ollama_server_url(self) -> str | None:
+        if self.ollama_server_url:
+            return self.ollama_server_url
+        return self.ollama_remote_base_url
+
+    def _build_task_routing(self, task_prefix: str) -> LlmTaskRouting:
+        steps: list[LlmRouteStep] = []
+
+        primary_provider = getattr(self, f"{task_prefix}_primary_provider", None)
+        primary_model = getattr(self, f"{task_prefix}_primary_model", None)
+        if primary_provider and primary_model:
+            steps.append(LlmRouteStep(provider=primary_provider, model=primary_model))
+
+        fallback1_provider = getattr(self, f"{task_prefix}_fallback1_provider", None)
+        fallback1_model = getattr(self, f"{task_prefix}_fallback1_model", None)
+        if fallback1_provider and fallback1_model:
+            steps.append(LlmRouteStep(provider=fallback1_provider, model=fallback1_model))
+
+        fallback2_provider = getattr(self, f"{task_prefix}_fallback2_provider", None)
+        fallback2_model = getattr(self, f"{task_prefix}_fallback2_model", None)
+        if fallback2_provider and fallback2_model:
+            steps.append(LlmRouteStep(provider=fallback2_provider, model=fallback2_model))
+
+        if not steps:
+            default_model = self.ollama_model or "llama3:latest"
+            steps.append(LlmRouteStep(provider="ollama_local", model=default_model))
+
+        return LlmTaskRouting(steps=steps)
+
+    def get_tech_routing(self) -> LlmTaskRouting:
+        return self._build_task_routing("tech")
+
+    def get_news_routing(self) -> LlmTaskRouting:
+        return self._build_task_routing("news")
+
+    def get_synthesis_routing(self) -> LlmTaskRouting:
+        return self._build_task_routing("synthesis")
+
+    def get_verifier_routing(self) -> LlmTaskRouting:
+        return self._build_task_routing("verifier")
+
+    def get_llm_routing_config(self) -> LlmRoutingConfig:
+        return LlmRoutingConfig(
+            router_mode=self.llm_router_mode,
+            verifier_enabled=self.llm_verifier_enabled,
+            max_retries=self.llm_max_retries,
+            timeout_seconds=self.llm_timeout_seconds,
+            temperature=self.llm_temperature,
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",

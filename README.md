@@ -107,6 +107,9 @@ pip install -e ".[dev]"
    # --- Ollama (LLM) ---
    OLLAMA_BASE_URL=http://localhost:11434
    OLLAMA_MODEL=llama3.2
+   
+   # Note: New multi-provider LLM routing is being introduced. Legacy keys (OLLAMA_BASE_URL, OLLAMA_MODEL) 
+   # remain supported during transition. See docs for new routing configuration.
 
    # --- Storage ---
    STORAGE_SQLITE_DB_PATH=db/forex_research_assistant.sqlite3
