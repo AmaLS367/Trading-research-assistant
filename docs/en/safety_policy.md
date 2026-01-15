@@ -40,7 +40,7 @@ Recommendations must include:
 Module defines constraints and validation:
 
 - **Minimum candles**: 200 (configurable via `RUNTIME_MARKET_DATA_WINDOW_CANDLES`)
-- **Allowed timeframes**: 1m, 5m, 15m, 30m, 1h, 4h, 1d
+- **Allowed timeframes**: 1m, 5m, 15m, 1h, 1d
 - **Symbol validation**: format checking (e.g., EURUSD, GBPUSD)
 
 ### Safety Policy (`core/policies/safety_policy.py`)

@@ -70,7 +70,7 @@ app → runtime → (features, agents, storage, providers, llm) → core
 - `TwelveDataProvider` → `MarketDataProvider`
 - `FallbackMarketDataProvider` → автоматическое переключение между провайдерами
 - `GDELTProvider` → `NewsProvider`
-- `NewsAPIProvider` → `NewsProvider` (планируется)
+- `NewsAPIProvider` → `NewsProvider` (используется через `MultiNewsProvider` как вторичный провайдер)
 
 **Правило**: Провайдеры не знают друг о друге и не импортируют `features`, `agents`, `runtime`.
 

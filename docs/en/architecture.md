@@ -70,7 +70,7 @@ Domain services:
 - `TwelveDataProvider` → `MarketDataProvider`
 - `FallbackMarketDataProvider` → automatic switching between providers
 - `GDELTProvider` → `NewsProvider`
-- `NewsAPIProvider` → `NewsProvider` (planned)
+- `NewsAPIProvider` → `NewsProvider` (used via `MultiNewsProvider` as secondary provider)
 
 **Rule**: Providers don't know about each other and don't import `features`, `agents`, `runtime`.
 

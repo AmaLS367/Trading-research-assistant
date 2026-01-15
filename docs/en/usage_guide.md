@@ -107,6 +107,7 @@ This command will create the SQLite database and apply migrations.
 | `show-latest --details` | View with full rationales | `python src/app/main.py show-latest --details` |
 | `journal` | Log trade decision | `python src/app/main.py journal` |
 | `report` | View statistics | `python src/app/main.py report` |
+| `loop` | Run analysis in a loop | `python src/app/main.py loop --symbol EURUSD --timeframe 1h` |
 
 </details>
 
@@ -122,7 +123,7 @@ python src/app/main.py analyze --symbol EURUSD --timeframe 1h
 
 **Parameters:**
 - `--symbol` (required) — trading symbol (e.g., EURUSD, GBPUSD)
-- `--timeframe` (optional) — timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d). Default: 1h
+- `--timeframe` (optional) — timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h
 - `--verbose` (optional) — show detailed analysis output during execution (technical analysis, news, synthesis)
 
 **Examples:**
@@ -277,6 +278,46 @@ Displays a table with statistics for each symbol:
 - Win rate percentage
 - Number of wins, losses, draws
 - Number of skipped trades
+
+Additionally, shows news statistics table with:
+- News quality distribution (HIGH, MEDIUM, LOW)
+- Provider usage statistics
+- News sentiment analysis
+
+### Automated Loop
+
+Run analysis continuously in a loop:
+
+```bash
+python src/app/main.py loop --symbol EURUSD --timeframe 1h
+```
+
+**Parameters:**
+- `--symbol` (required) — trading symbol (e.g., EURUSD, GBPUSD)
+- `--timeframe` (optional) — timeframe (1m, 5m, 15m, 1h, 1d). Default: 1h
+- `--interval-seconds` (optional) — interval between iterations in seconds. Default: 60.0
+- `--iterations` (optional) — maximum number of iterations (runs indefinitely if not set)
+
+**How it works:**
+- Uses `MinuteLoop` to run analysis on minute boundaries
+- Uses `Scheduler` to determine when to run analysis for each symbol
+- Automatically aligns with minute boundaries (e.g., runs at :00, :01, :02, etc.)
+- Can be interrupted with Ctrl+C
+
+**Examples:**
+
+```bash
+# Run loop for EURUSD on hourly timeframe
+python src/app/main.py loop --symbol EURUSD --timeframe 1h
+
+# Run loop with custom interval (every 2 minutes)
+python src/app/main.py loop --symbol GBPUSD --timeframe 1h --interval-seconds 120
+
+# Run loop for limited iterations (10 times)
+python src/app/main.py loop --symbol USDJPY --timeframe 1d --iterations 10
+```
+
+**Note:** The loop uses the scheduler to determine when analysis should run. For MVP, the scheduler allows runs at any time, but the loop aligns execution with minute boundaries.
 
 ## Workflow
 

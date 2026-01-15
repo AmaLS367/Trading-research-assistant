@@ -147,7 +147,7 @@ pip install -e ".[dev]"
 - `init-db` - Initialize database and run migrations
 - `analyze --symbol SYMBOL [--timeframe TIMEFRAME] [--verbose]` - Run full analysis pipeline
   - Example: `analyze --symbol EURUSD --timeframe 1h`
-  - Supported timeframes: `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`
+  - Supported timeframes: `1m`, `5m`, `15m`, `1h`, `1d`
   - Use `--verbose` to show detailed analysis output during execution
 - `show-latest [--details]` - Display the latest recommendation with color-coded action and confidence
   - Use `--details` to show full rationales (technical analysis, news context, synthesis)
