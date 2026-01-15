@@ -239,20 +239,20 @@ def show_latest(show_details: bool = False) -> None:
             synth_rationale = synthesis_rationales[0]
             content = synth_rationale.content
 
-            metadata_parts: list[str] = []
+            synth_metadata_parts: list[str] = []
             if synth_rationale.provider_name:
-                metadata_parts.append(f"Provider: {synth_rationale.provider_name}")
+                synth_metadata_parts.append(f"Provider: {synth_rationale.provider_name}")
             if synth_rationale.model_name:
-                metadata_parts.append(f"Model: {synth_rationale.model_name}")
+                synth_metadata_parts.append(f"Model: {synth_rationale.model_name}")
             if synth_rationale.latency_ms is not None:
-                metadata_parts.append(f"Latency: {synth_rationale.latency_ms}ms")
+                synth_metadata_parts.append(f"Latency: {synth_rationale.latency_ms}ms")
             if synth_rationale.attempts is not None:
-                metadata_parts.append(f"Attempts: {synth_rationale.attempts}")
+                synth_metadata_parts.append(f"Attempts: {synth_rationale.attempts}")
             if synth_rationale.error:
-                metadata_parts.append(f"[red]Error: {synth_rationale.error}[/red]")
+                synth_metadata_parts.append(f"[red]Error: {synth_rationale.error}[/red]")
 
-            if metadata_parts:
-                content = "\n".join(metadata_parts) + "\n\n" + content
+            if synth_metadata_parts:
+                content = "\n".join(synth_metadata_parts) + "\n\n" + content
 
             console.print(Panel(content, title="AI Synthesis", border_style="green"))
             console.print()
