@@ -4,6 +4,7 @@ from datetime import datetime
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
+from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
 from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
