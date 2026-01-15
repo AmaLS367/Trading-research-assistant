@@ -16,6 +16,7 @@ from src.core.ports.llm_tasks import (
     TASK_NEWS_ANALYSIS,
     TASK_SYNTHESIS,
     TASK_TECH_ANALYSIS,
+    TASK_VERIFICATION,
 )
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
