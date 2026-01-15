@@ -14,6 +14,7 @@ from src.app.wiring import (
     create_minute_loop,
     create_orchestrator,
     create_rationales_repository,
+    create_verification_repository,
 )
 from src.core.models.journal_entry import JournalEntry
 from src.core.models.news import NewsDigest
@@ -33,6 +34,7 @@ rec_repo = RecommendationsRepository(db)
 journal_repo = JournalRepository(db)
 outcome_repo = OutcomesRepository(db)
 rationales_repo = create_rationales_repository()
+verification_repo = create_verification_repository()
 
 
 def init_db() -> None:
@@ -102,7 +104,24 @@ def show_latest(show_details: bool = False) -> None:
         ]
 
         if technical_rationales:
-            content = technical_rationales[0].content
+            tech_rationale = technical_rationales[0]
+            content = tech_rationale.content
+
+            metadata_parts: list[str] = []
+            if tech_rationale.provider_name:
+                metadata_parts.append(f"Provider: {tech_rationale.provider_name}")
+            if tech_rationale.model_name:
+                metadata_parts.append(f"Model: {tech_rationale.model_name}")
+            if tech_rationale.latency_ms is not None:
+                metadata_parts.append(f"Latency: {tech_rationale.latency_ms}ms")
+            if tech_rationale.attempts is not None:
+                metadata_parts.append(f"Attempts: {tech_rationale.attempts}")
+            if tech_rationale.error:
+                metadata_parts.append(f"[red]Error: {tech_rationale.error}[/red]")
+
+            if metadata_parts:
+                content = "\n".join(metadata_parts) + "\n\n" + content
+
             console.print(Panel(content, title="Technical Analysis", border_style="cyan"))
             console.print()
 
@@ -217,8 +236,68 @@ def show_latest(show_details: bool = False) -> None:
                 console.print()
 
         if synthesis_rationales:
-            content = synthesis_rationales[0].content
+            synth_rationale = synthesis_rationales[0]
+            content = synth_rationale.content
+
+            metadata_parts: list[str] = []
+            if synth_rationale.provider_name:
+                metadata_parts.append(f"Provider: {synth_rationale.provider_name}")
+            if synth_rationale.model_name:
+                metadata_parts.append(f"Model: {synth_rationale.model_name}")
+            if synth_rationale.latency_ms is not None:
+                metadata_parts.append(f"Latency: {synth_rationale.latency_ms}ms")
+            if synth_rationale.attempts is not None:
+                metadata_parts.append(f"Attempts: {synth_rationale.attempts}")
+            if synth_rationale.error:
+                metadata_parts.append(f"[red]Error: {synth_rationale.error}[/red]")
+
+            if metadata_parts:
+                content = "\n".join(metadata_parts) + "\n\n" + content
+
             console.print(Panel(content, title="AI Synthesis", border_style="green"))
+            console.print()
+
+        verification_report = verification_repo.get_latest_by_run_id(recommendation.run_id)
+        if verification_report:
+            verification_parts: list[str] = []
+            if verification_report.passed:
+                verification_parts.append("[green]✓ Verification PASSED[/green]")
+            else:
+                verification_parts.append("[red]✗ Verification FAILED[/red]")
+
+            if verification_report.provider_name:
+                verification_parts.append(f"Verifier Provider: {verification_report.provider_name}")
+            if verification_report.model_name:
+                verification_parts.append(f"Verifier Model: {verification_report.model_name}")
+
+            if verification_report.issues:
+                verification_parts.append(f"\nIssues ({len(verification_report.issues)}):")
+                for issue in verification_report.issues:
+                    severity_color = (
+                        "red"
+                        if issue.severity.value == "high"
+                        else "yellow"
+                        if issue.severity.value == "medium"
+                        else "dim"
+                    )
+                    verification_parts.append(
+                        f"  [{severity_color}]{issue.severity.value.upper()}[/{severity_color}]: {issue.code} - {issue.message}"
+                    )
+                    if issue.evidence:
+                        verification_parts.append(f"    Evidence: {issue.evidence[:100]}...")
+
+            if verification_report.suggested_fix:
+                verification_parts.append(f"\nSuggested Fix: {verification_report.suggested_fix}")
+
+            verification_content = "\n".join(verification_parts)
+            border_style = "green" if verification_report.passed else "red"
+            console.print(
+                Panel(
+                    verification_content,
+                    title="Verification Report",
+                    border_style=border_style,
+                )
+            )
             console.print()
 
 
