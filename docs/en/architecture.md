@@ -30,12 +30,16 @@ Domain data models:
 - `Candle` — OHLCV candle data
 - `Timeframe` — timeframe (1m, 5m, 1h, 1d, etc.)
 - `Recommendation` — trading recommendation
-- `Rationale` — recommendation rationale
+- `Rationale` — recommendation rationale (includes LLM metadata: provider, model, latency, attempts, error)
 - `DecisionContext` — decision-making context
 - `JournalEntry` — trade journal entry
 - `Outcome` — trade outcome
 - `Signal` — trading signal
 - `Run` — analysis run metadata
+- `LlmRequest` — standardized LLM request (task, prompts, temperature, timeout, etc.)
+- `LlmResponse` — standardized LLM response (text, provider, model, latency, attempts, error)
+- `VerificationReport` — verification results with issues and suggested fixes
+- `VerificationIssue` — individual verification issue (code, message, severity, evidence)
 
 #### `core/ports/`
 Abstract interfaces (ABC) for external dependencies:
@@ -96,20 +100,29 @@ Domain services:
 - `TechnicalAnalyst` — technical analysis via LLM
 - `Synthesizer` — final recommendation synthesis
 - `NewsAnalyst` — news analysis and aggregation
-- `NewsSentimentAnalyst` — news sentiment analysis
+- `VerifierAgent` — LLM-based verification of agent outputs (optional)
 
-**Dependencies**: `core.ports.llm_provider` (interface), `core.models`, `features.snapshots`
+**Dependencies**: `core.ports.llm_provider` (interface), `core.models`, `features.snapshots`, `llm.providers.llm_router`
 
-**Rule**: Agents don't write to DB and don't manage execution loop.
+**Rule**: Agents use `LlmRouter` for LLM calls, which handles provider selection and fallback. Agents don't write to DB and don't manage execution loop.
 
 ### 5. LLM Providers (`src/llm/`)
 
-**Purpose**: Implementation of `LlmProvider` for specific LLM services.
+**Purpose**: Implementation of `LlmProvider` for specific LLM services and routing logic.
 
 #### Implementations:
 - `OllamaClient` → `LlmProvider` (local or remote Ollama)
+- `DeepSeekClient` → `LlmProvider` (DeepSeek API, OpenAI-compatible)
+- `LlmRouter` → Task-based routing with fallback chains
 
-**Rule**: Agents don't care where LLM is located — they only see the interface.
+#### Router Features:
+- **Task-based routing** — Different models for different tasks (tech_analysis, news_analysis, synthesis, verification)
+- **Automatic fallback** — Falls back to available providers if primary fails
+- **Health checks** — Provider availability checking with caching
+- **Last resort** — Falls back to `ollama_local + llama3:latest` if all configured steps fail
+- **Per-task overrides** — Optional timeout and temperature overrides per task
+
+**Rule**: Agents don't care where LLM is located — they use `LlmRouter` which abstracts provider selection.
 
 ### 6. Storage (`src/storage/`)
 
@@ -175,14 +188,23 @@ The `Orchestrator` executes the analysis pipeline:
 1. Create Run (PENDING status)
 2. FetchMarketDataJob → check JobResult.ok
 3. BuildFeaturesJob → check JobResult.ok
-4. TechnicalAnalyst.analyze() → direct call (not a job)
+4. TechnicalAnalyst.analyze() → uses LlmRouter with task="tech_analysis"
 5. FetchNewsJob → check JobResult.ok
-6. NewsAnalyst.analyze() → direct call (not a job)
-7. Synthesizer.synthesize() → direct call (not a job)
-8. PersistRecommendationJob → check JobResult.ok
-9. Update Run to SUCCESS or FAILED
-10. Return run_id (for artifact tracking)
+6. NewsAnalyst.analyze() → uses LlmRouter with task="news_analysis"
+7. Synthesizer.synthesize() → uses LlmRouter with task="synthesis"
+8. (Optional) VerifierAgent.verify() → uses LlmRouter with task="verification"
+   - If verification fails and LLM_VERIFIER_MODE=hard, attempts repair
+9. PersistRecommendationJob → check JobResult.ok
+10. Update Run to SUCCESS or FAILED
+11. Return run_id (for artifact tracking)
 ```
+
+LLM calls go through `LlmRouter`, which:
+- Selects provider based on task routing configuration
+- Checks provider health (with caching)
+- Falls back to next provider if current fails
+- Falls back to `ollama_local + llama3:latest` as last resort
+- Returns `LlmResponse` with metadata (provider, model, latency, attempts, error)
 
 If any job fails (`JobResult.ok = False`), the pipeline stops, Run is marked as FAILED, and `run_id` is returned.
 
@@ -191,6 +213,12 @@ If any job fails (`JobResult.ok = False`), the pipeline stops, Run is marked as 
 Each run creates artifacts in `artifacts/run_{run_id}/`:
 - `recommendation.json` — recommendation data
 - `rationales.md` — markdown with all rationales (Technical, News, Synthesis)
+- `llm/` — LLM exchange artifacts:
+  - `llm/tech_analysis/` — Technical analysis request/response (with secret masking)
+  - `llm/news_analysis/` — News analysis request/response
+  - `llm/synthesis/` — Synthesis request/response
+  - `llm/verification/` — Verification request/response (if enabled)
+  - Each task directory contains `request.json`, `response.json`, and `response.txt`
 
 ### Legacy Flow (RunAgentsJob)
 
@@ -205,9 +233,19 @@ def create_market_data_provider() -> MarketDataProvider:
     # Creates providers and wires them
     return FallbackMarketDataProvider(...)
 
+def create_llm_providers() -> dict[str, LlmProvider]:
+    # Creates OllamaClient (local/server) and DeepSeekClient (if configured)
+    # Returns mapping: provider_name -> LlmProvider instance
+
+def create_llm_router() -> LlmRouter:
+    # Creates LlmRouter with:
+    # - providers dict from create_llm_providers()
+    # - routing_config from settings
+    # - task_routings for each task (tech, news, synthesis, verification)
+
 def create_technical_analyst() -> TechnicalAnalyst:
-    llm_provider = create_llm_provider()
-    return TechnicalAnalyst(llm_provider=llm_provider)
+    llm_router = create_llm_router()
+    return TechnicalAnalyst(llm_router=llm_router)
 ```
 
 This allows:

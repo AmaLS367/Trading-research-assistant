@@ -65,9 +65,51 @@ GDELT_BASE_URL=https://api.gdeltproject.org
 NEWSAPI_API_KEY=your_newsapi_key
 NEWSAPI_BASE_URL=https://newsapi.org
 
-# --- Ollama (LLM) ---
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+# --- LLM Providers (Multi-provider routing) ---
+# Ollama Local (default fallback)
+OLLAMA_LOCAL_URL=http://localhost:11434
+OLLAMA_MODEL=llama3:latest
+
+# Ollama Server (optional remote)
+OLLAMA_SERVER_URL=http://server:11434
+
+# DeepSeek API (optional)
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_API_BASE=https://api.deepseek.com
+
+# LLM Router Configuration
+LLM_ROUTER_MODE=sequential
+LLM_VERIFIER_ENABLED=false
+LLM_VERIFIER_MODE=soft
+LLM_VERIFIER_MAX_REPAIRS=1
+LLM_MAX_RETRIES=3
+LLM_TIMEOUT_SECONDS=60.0
+LLM_TEMPERATURE=0.2
+
+# Task-specific routing (optional, falls back to ollama_local + llama3:latest)
+TECH_PRIMARY_PROVIDER=deepseek_api
+TECH_PRIMARY_MODEL=deepseek-chat
+TECH_FALLBACK1_PROVIDER=ollama_server
+TECH_FALLBACK1_MODEL=qwen2.5:32b
+
+NEWS_PRIMARY_PROVIDER=ollama_local
+NEWS_PRIMARY_MODEL=llama3:latest
+
+SYNTHESIS_PRIMARY_PROVIDER=deepseek_api
+SYNTHESIS_PRIMARY_MODEL=deepseek-chat
+
+VERIFIER_PRIMARY_PROVIDER=ollama_local
+VERIFIER_PRIMARY_MODEL=llama3:latest
+
+# Per-task overrides (optional)
+TECH_TIMEOUT_SECONDS=120.0
+TECH_TEMPERATURE=0.3
+NEWS_TIMEOUT_SECONDS=60.0
+NEWS_TEMPERATURE=0.2
+SYNTHESIS_TIMEOUT_SECONDS=90.0
+SYNTHESIS_TEMPERATURE=0.2
+VERIFIER_TIMEOUT_SECONDS=60.0
+VERIFIER_TEMPERATURE=0.1
 
 # --- Хранилище ---
 STORAGE_SQLITE_DB_PATH=db/forex_research_assistant.sqlite3
