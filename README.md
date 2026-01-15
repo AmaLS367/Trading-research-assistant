@@ -82,49 +82,19 @@ pip install -e ".[dev]"
    ```
 
 2. **Configure environment variables:**
-   Create a `.env` file in the project root:
-   ```bash
-   # --- Application ---
-   APP_ENV=development
-   APP_TIMEZONE=Asia/Yerevan
-
-   # --- OANDA API (primary provider) ---
-   OANDA_API_KEY=your_oanda_api_key_here
-   OANDA_ACCOUNT_ID=your_account_id
-   OANDA_BASE_URL=https://api-fxpractice.oanda.com
-
-   # --- Twelve Data API (fallback provider) ---
-   TWELVE_DATA_API_KEY=your_twelve_data_key
-   TWELVE_DATA_BASE_URL=https://api.twelvedata.com
-
-   # --- GDELT API (news) ---
-   GDELT_BASE_URL=https://api.gdeltproject.org
-
-   # --- NewsAPI (optional) ---
-   NEWSAPI_API_KEY=your_newsapi_key
-   NEWSAPI_BASE_URL=https://newsapi.org
-
-   # --- Ollama (LLM) ---
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.2
+   Copy `.env.example` to `.env` and fill in your API keys:
    
-   # Note: New multi-provider LLM routing is being introduced. Legacy keys (OLLAMA_BASE_URL, OLLAMA_MODEL) 
-   # remain supported during transition. See docs for new routing configuration.
-
-   # --- Storage ---
-   STORAGE_SQLITE_DB_PATH=db/forex_research_assistant.sqlite3
-   STORAGE_ARTIFACTS_DIR=artifacts
-   STORAGE_MIGRATION_PATH=src/storage/sqlite/migrations/0001_init.sql
-
-   # --- Runtime settings ---
-   RUNTIME_MVP_SYMBOLS_RAW=EURUSD,GBPUSD,USDJPY
-   RUNTIME_MVP_TIMEFRAME=1h
-   RUNTIME_MVP_EXPIRY_SECONDS=300
-   RUNTIME_LLM_ENABLED=true
-   RUNTIME_LLM_CALL_INTERVAL_SECONDS=300
-   RUNTIME_NEWS_REFRESH_INTERVAL_SECONDS=300
-   RUNTIME_MARKET_DATA_WINDOW_CANDLES=300
+   **Windows (PowerShell):**
+   ```powershell
+   Copy-Item .env.example .env
    ```
+   
+   **Linux/macOS:**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Then edit `.env` and replace placeholder values with your actual API keys.
 
 3. **Initialize database:**
    ```bash
