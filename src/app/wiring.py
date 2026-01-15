@@ -136,15 +136,6 @@ def create_llm_router() -> LlmRouter:
     return LlmRouter(providers, routing_config, task_routings)
 
 
-def create_llm_provider() -> LlmProvider:
-    if not settings.ollama_model:
-        raise ValueError("OLLAMA_MODEL must be set in environment variables")
-    return OllamaClient(
-        base_url=settings.ollama_base_url,
-        model=settings.ollama_model,
-    )
-
-
 def create_technical_analyst() -> TechnicalAnalyst:
     llm_router = create_llm_router()
     return TechnicalAnalyst(llm_router=llm_router)
