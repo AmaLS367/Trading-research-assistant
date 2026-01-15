@@ -122,6 +122,20 @@ class Settings(BaseSettings):
     ] = None
     verifier_fallback2_model: Annotated[str | None, Field(alias="VERIFIER_FALLBACK2_MODEL")] = None
 
+    # --- Per-Task Overrides ---
+    tech_timeout_seconds: Annotated[float | None, Field(alias="TECH_TIMEOUT_SECONDS")] = None
+    tech_temperature: Annotated[float | None, Field(alias="TECH_TEMPERATURE")] = None
+    news_timeout_seconds: Annotated[float | None, Field(alias="NEWS_TIMEOUT_SECONDS")] = None
+    news_temperature: Annotated[float | None, Field(alias="NEWS_TEMPERATURE")] = None
+    synthesis_timeout_seconds: Annotated[float | None, Field(alias="SYNTHESIS_TIMEOUT_SECONDS")] = (
+        None
+    )
+    synthesis_temperature: Annotated[float | None, Field(alias="SYNTHESIS_TEMPERATURE")] = None
+    verifier_timeout_seconds: Annotated[float | None, Field(alias="VERIFIER_TIMEOUT_SECONDS")] = (
+        None
+    )
+    verifier_temperature: Annotated[float | None, Field(alias="VERIFIER_TEMPERATURE")] = None
+
     # --- Storage ---
     storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path(
         "db/forex_research_assistant.sqlite3"
