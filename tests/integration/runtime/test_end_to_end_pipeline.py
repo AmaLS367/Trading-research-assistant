@@ -156,33 +156,32 @@ def test_end_to_end_pipeline_offline():
 
         from unittest.mock import patch
 
-        with patch.object(router, "generate", side_effect=mock_generate):
-
-        technical_analyst = TechnicalAnalyst(router)
-        news_analyst = NewsAnalyst(router)
-        synthesizer = Synthesizer(router)
-        verifier = VerifierAgent(router)
-
         from src.storage.sqlite.repositories.verification_repository import (
             VerificationRepository,
         )
 
-        verification_repo = VerificationRepository(db)
+        with patch.object(router, "generate", side_effect=mock_generate):
+            technical_analyst = TechnicalAnalyst(router)
+            news_analyst = NewsAnalyst(router)
+            synthesizer = Synthesizer(router)
+            verifier = VerifierAgent(router)
 
-        orchestrator = RuntimeOrchestrator(
-            storage=storage,
-            artifact_store=artifact_store,
-            market_data_provider=MockMarketDataProvider(),
-            news_provider=MockNewsProvider(),
-            technical_analyst=technical_analyst,
-            news_analyst=news_analyst,
-            synthesizer=synthesizer,
-            candles_repository=None,
-            verifier_agent=verifier,
-            verification_repository=verification_repo,
-        )
+            verification_repo = VerificationRepository(db)
 
-        run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
+            orchestrator = RuntimeOrchestrator(
+                storage=storage,
+                artifact_store=artifact_store,
+                market_data_provider=MockMarketDataProvider(),
+                news_provider=MockNewsProvider(),
+                technical_analyst=technical_analyst,
+                news_analyst=news_analyst,
+                synthesizer=synthesizer,
+                candles_repository=None,
+                verifier_agent=verifier,
+                verification_repository=verification_repo,
+            )
+
+            run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
 
             assert run_id > 0
 
