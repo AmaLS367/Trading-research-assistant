@@ -65,9 +65,51 @@ GDELT_BASE_URL=https://api.gdeltproject.org
 NEWSAPI_API_KEY=your_newsapi_key
 NEWSAPI_BASE_URL=https://newsapi.org
 
-# --- Ollama (LLM) ---
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+# --- LLM Providers (Multi-provider routing) ---
+# Ollama Local (default fallback)
+OLLAMA_LOCAL_URL=http://localhost:11434
+OLLAMA_MODEL=llama3:latest
+
+# Ollama Server (optional remote)
+OLLAMA_SERVER_URL=http://server:11434
+
+# DeepSeek API (optional)
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_API_BASE=https://api.deepseek.com
+
+# LLM Router Configuration
+LLM_ROUTER_MODE=sequential
+LLM_VERIFIER_ENABLED=false
+LLM_VERIFIER_MODE=soft
+LLM_VERIFIER_MAX_REPAIRS=1
+LLM_MAX_RETRIES=3
+LLM_TIMEOUT_SECONDS=60.0
+LLM_TEMPERATURE=0.2
+
+# Task-specific routing (optional, falls back to ollama_local + llama3:latest)
+TECH_PRIMARY_PROVIDER=deepseek_api
+TECH_PRIMARY_MODEL=deepseek-chat
+TECH_FALLBACK1_PROVIDER=ollama_server
+TECH_FALLBACK1_MODEL=qwen2.5:32b
+
+NEWS_PRIMARY_PROVIDER=ollama_local
+NEWS_PRIMARY_MODEL=llama3:latest
+
+SYNTHESIS_PRIMARY_PROVIDER=deepseek_api
+SYNTHESIS_PRIMARY_MODEL=deepseek-chat
+
+VERIFIER_PRIMARY_PROVIDER=ollama_local
+VERIFIER_PRIMARY_MODEL=llama3:latest
+
+# Per-task overrides (optional)
+TECH_TIMEOUT_SECONDS=120.0
+TECH_TEMPERATURE=0.3
+NEWS_TIMEOUT_SECONDS=60.0
+NEWS_TEMPERATURE=0.2
+SYNTHESIS_TIMEOUT_SECONDS=90.0
+SYNTHESIS_TEMPERATURE=0.2
+VERIFIER_TIMEOUT_SECONDS=60.0
+VERIFIER_TEMPERATURE=0.1
 
 # --- Storage ---
 STORAGE_SQLITE_DB_PATH=db/forex_research_assistant.sqlite3
@@ -147,6 +189,12 @@ python src/app/main.py analyze --symbol EURUSD --timeframe 1h --verbose
 After running analysis, artifacts are saved in `artifacts/run_{run_id}/`:
 - `recommendation.json` — JSON with recommendation data
 - `rationales.md` — Markdown file with all rationales (Technical, News, Synthesis)
+- `llm/` — Directory containing LLM exchange artifacts:
+  - `llm/tech_analysis/` — Technical analysis request/response
+  - `llm/news_analysis/` — News analysis request/response
+  - `llm/synthesis/` — Synthesis request/response
+  - `llm/verification/` — Verification request/response (if enabled)
+  - Each task directory contains `request.json`, `response.json`, and `response.txt`
 
 To view artifacts:
 ```bash
@@ -158,6 +206,9 @@ cat artifacts/run_123/recommendation.json
 
 # View rationales for a specific run
 cat artifacts/run_123/rationales.md
+
+# View LLM exchange for technical analysis
+cat artifacts/run_123/llm/tech_analysis/response.json
 ```
 
 **--verbose mode:**
@@ -230,9 +281,17 @@ Confidence is also color-coded:
 
 **With --details flag:**
 After the recommendation table, displays saved rationales from the database:
-- **Technical Analysis** — technical analysis performed by LLM
-- **News Context** — news context used in analysis
-- **AI Synthesis** — final recommendation rationale
+- **Technical Analysis** — technical analysis performed by LLM (includes LLM metadata: provider, model, latency, attempts)
+- **News Context** — news context used in analysis (includes LLM metadata if available)
+- **AI Synthesis** — final recommendation rationale (includes LLM metadata)
+- **Verification Report** — if verification is enabled, shows verification results with issues and suggested fixes
+
+LLM metadata includes:
+- Provider name (e.g., `ollama_local`, `deepseek_api`)
+- Model name (e.g., `llama3:latest`, `deepseek-chat`)
+- Latency in milliseconds
+- Number of attempts (if fallback was used)
+- Error message (if any)
 
 If the recommendation doesn't have a `run_id` (old entries created before the run tracking system was implemented), an appropriate message is displayed.
 
@@ -465,6 +524,53 @@ WantedBy=timers.target
 
 </details>
 
+## Utility Scripts
+
+The project includes utility scripts in `scripts/python/`:
+
+### Model Management
+
+**Download models from routing configuration:**
+```bash
+python scripts/python/download_models.py --from-routing
+```
+
+**Download specific models:**
+```bash
+# Download Hugging Face model
+python scripts/python/download_models.py --hf-model Qwen/Qwen2.5-7B-Instruct
+
+# Pull Ollama model
+python scripts/python/download_models.py --ollama-model qwen2.5:7b
+
+# Prefetch HF models in Ollama after download
+python scripts/python/download_models.py --from-routing --prefetch-ollama
+```
+
+### System Profiling
+
+**Check GPU and RAM:**
+```bash
+python scripts/python/check_gpu.py
+```
+
+This script shows:
+- System RAM (total, available, used)
+- GPU VRAM (if available)
+- Model size recommendations based on available resources
+
+**Check environment:**
+```bash
+python scripts/python/check_environment.py
+```
+
+This script verifies:
+- Python version
+- Required dependencies
+- Environment variables
+- Database accessibility
+- LLM provider connectivity (Ollama local/server, DeepSeek API)
+
 ## Tips and Recommendations
 
 1. **Start with testing**: Use demo account and small amounts to verify the system
@@ -473,6 +579,8 @@ WantedBy=timers.target
 4. **Use multiple timeframes**: Analyze one symbol on different timeframes
 5. **Check news**: Consider fundamental analysis when making decisions
 6. **Update regularly**: Keep track of system and dependency updates
+7. **Configure LLM routing**: Set up task-specific routing for optimal performance
+8. **Enable verification**: Use `LLM_VERIFIER_ENABLED=true` for additional safety checks
 
 ## Additional Information
 

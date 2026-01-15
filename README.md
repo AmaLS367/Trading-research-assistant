@@ -274,7 +274,12 @@ For detailed architecture documentation, see:
 - **NewsAPI** — news aggregator
 
 ### LLM
-- **Ollama** — local or remote server
+- **Multi-provider routing** — Support for Ollama (local/server) and DeepSeek API
+- **Task-based routing** — Configure different models for different tasks (tech analysis, news analysis, synthesis, verification)
+- **Automatic fallback** — Falls back to available providers if primary fails
+- **Health checks** — Provider availability checking with caching
+- **Verification stage** — Optional LLM-based verification of agent outputs
+- **Legacy support** — Backward compatible with `OLLAMA_BASE_URL` and `OLLAMA_MODEL` during transition
 
 ---
 
