@@ -23,6 +23,7 @@ from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
 from src.core.pipeline_trace import PipelineTrace
 from src.core.services.reporter import Reporter
+from src.runtime.preflight import run_preflight
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
 from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
@@ -310,6 +311,10 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         return
 
     try:
+        from loguru import logger
+
+        run_preflight(settings, logger, verbose=verbose)
+
         if verbose:
             from src.ui.cli.verbose_reporter import RichVerboseReporter
 
