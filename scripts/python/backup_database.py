@@ -197,8 +197,8 @@ def main() -> int:
             return 0
 
         console.print(Panel.fit("[bold blue]Database Backup[/bold blue]", border_style="blue"))
-        backup_path = backup_database(compress=args.compress)
-        if backup_path:
+        created_backup_path: Path | None = backup_database(compress=args.compress)
+        if created_backup_path:
             return 0
         return 1
 

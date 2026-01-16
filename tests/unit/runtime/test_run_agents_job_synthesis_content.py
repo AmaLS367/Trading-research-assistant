@@ -37,10 +37,22 @@ def test_synthesis_content_includes_system_note_for_low_quality() -> None:
     news_provider.get_news_digest.return_value = news_digest
 
     news_analyst = Mock()
-    news_analyst.analyze.return_value = news_digest
+    news_analyst.analyze.return_value = (news_digest, None)
 
     technical_analyst = Mock()
-    technical_analyst.analyze.return_value = "Technical view: bullish"
+    from src.core.models.llm import LlmResponse
+
+    technical_analyst.analyze.return_value = (
+        "Technical view: bullish",
+        LlmResponse(
+            text="Technical view: bullish",
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    )
 
     synthesizer = Mock()
     synthesizer.synthesize.return_value = (
@@ -60,6 +72,7 @@ def test_synthesis_content_includes_system_note_for_low_quality() -> None:
             "retry_raw_output": None,
             "brief_warning": None,
         },
+        None,
     )
 
     recommendations_repo = Mock()
@@ -123,10 +136,22 @@ def test_synthesis_content_no_system_note_for_medium_quality() -> None:
     news_provider.get_news_digest.return_value = news_digest
 
     news_analyst = Mock()
-    news_analyst.analyze.return_value = news_digest
+    news_analyst.analyze.return_value = (news_digest, None)
 
     technical_analyst = Mock()
-    technical_analyst.analyze.return_value = "Technical view: bullish"
+    from src.core.models.llm import LlmResponse
+
+    technical_analyst.analyze.return_value = (
+        "Technical view: bullish",
+        LlmResponse(
+            text="Technical view: bullish",
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    )
 
     synthesizer = Mock()
     synthesizer.synthesize.return_value = (
@@ -146,6 +171,7 @@ def test_synthesis_content_no_system_note_for_medium_quality() -> None:
             "retry_raw_output": None,
             "brief_warning": None,
         },
+        None,
     )
 
     recommendations_repo = Mock()
@@ -209,10 +235,22 @@ def test_synthesis_content_no_system_note_for_high_quality() -> None:
     news_provider.get_news_digest.return_value = news_digest
 
     news_analyst = Mock()
-    news_analyst.analyze.return_value = news_digest
+    news_analyst.analyze.return_value = (news_digest, None)
 
     technical_analyst = Mock()
-    technical_analyst.analyze.return_value = "Technical view: bullish"
+    from src.core.models.llm import LlmResponse
+
+    technical_analyst.analyze.return_value = (
+        "Technical view: bullish",
+        LlmResponse(
+            text="Technical view: bullish",
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    )
 
     synthesizer = Mock()
     synthesizer.synthesize.return_value = (
@@ -232,6 +270,7 @@ def test_synthesis_content_no_system_note_for_high_quality() -> None:
             "retry_raw_output": None,
             "brief_warning": None,
         },
+        None,
     )
 
     recommendations_repo = Mock()

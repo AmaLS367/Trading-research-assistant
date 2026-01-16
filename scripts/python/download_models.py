@@ -29,7 +29,7 @@ def get_hf_cache_dir() -> Path:
     Priority order:
     1. HUGGINGFACE_HUB_CACHE (use as-is)
     2. HF_HOME -> HF_HOME/hub
-    3. MODEL_STORAGE_DIR -> MODEL_STORAGE_DIR/models_cache
+    3. MODEL_STORAGE_DIR -> MODEL_STORAGE_DIR/.cache/huggingface/hub
     4. Default: ~/.cache/huggingface/hub (Windows: %USERPROFILE%\\.cache\\huggingface\\hub)
     """
     hf_hub_cache = os.environ.get("HUGGINGFACE_HUB_CACHE")
@@ -46,7 +46,7 @@ def get_hf_cache_dir() -> Path:
 
     model_storage_dir = os.environ.get("MODEL_STORAGE_DIR")
     if model_storage_dir:
-        cache_dir = Path(model_storage_dir) / "models_cache"
+        cache_dir = Path(model_storage_dir) / ".cache" / "huggingface" / "hub"
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
 
@@ -55,15 +55,29 @@ def get_hf_cache_dir() -> Path:
     return default_cache
 
 
+def get_hf_token() -> str | None:
+    """Get Hugging Face token from environment variables.
+    Priority: HF_TOKEN > HUGGINGFACE_HUB_TOKEN
+    Returns None if no token is set.
+    """
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+    return token if token else None
+
+
 def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
     """Download a model from Hugging Face using huggingface_hub library."""
     try:
         from huggingface_hub import snapshot_download
 
+        token = get_hf_token()
+        token_status = "yes" if token else "no"
+        print(f"Downloading {model_id} (token provided: {token_status})...")
+
         snapshot_download(
             repo_id=model_id,
             cache_dir=str(hf_cache_dir),
-            token=None,
+            token=token,
+            local_files_only=False,
         )
         print(f"✓ Downloaded {model_id}")
         return True

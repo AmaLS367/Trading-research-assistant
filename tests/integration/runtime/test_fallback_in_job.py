@@ -38,7 +38,19 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
     news_provider.get_news_summary.return_value = "No news"
 
     technical_analyst = Mock()
-    technical_analyst.analyze.return_value = "Technical view: bullish"
+    from src.core.models.llm import LlmResponse
+
+    technical_analyst.analyze.return_value = (
+        "Technical view: bullish",
+        LlmResponse(
+            text="Technical view: bullish",
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    )
 
     synthesizer = Mock()
     from src.core.models.recommendation import Recommendation
@@ -60,6 +72,7 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
             "retry_raw_output": None,
             "brief_warning": None,
         },
+        None,
     )
 
     recommendations_repo = Mock()
@@ -79,7 +92,7 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
         quality="MEDIUM",
         quality_reason="Test",
     )
-    news_analyst.analyze.return_value = news_digest
+    news_analyst.analyze.return_value = (news_digest, None)
     news_provider.get_news_digest.return_value = news_digest
 
     job = RunAgentsJob(
@@ -137,10 +150,22 @@ def test_job_uses_primary_when_successful() -> None:
     news_provider.get_news_digest.return_value = news_digest
 
     news_analyst = Mock()
-    news_analyst.analyze.return_value = news_digest
+    news_analyst.analyze.return_value = (news_digest, None)
 
     technical_analyst = Mock()
-    technical_analyst.analyze.return_value = "Technical view: bullish"
+    from src.core.models.llm import LlmResponse
+
+    technical_analyst.analyze.return_value = (
+        "Technical view: bullish",
+        LlmResponse(
+            text="Technical view: bullish",
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
+    )
 
     synthesizer = Mock()
     from src.core.models.recommendation import Recommendation
@@ -162,6 +187,7 @@ def test_job_uses_primary_when_successful() -> None:
             "retry_raw_output": None,
             "brief_warning": None,
         },
+        None,
     )
 
     recommendations_repo = Mock()

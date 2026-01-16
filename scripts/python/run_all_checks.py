@@ -78,7 +78,7 @@ def main() -> int:
 
     console.print(Panel.fit("[bold blue]Code Quality Checks[/bold blue]", border_style="blue"))
 
-    results: list[tuple[str, bool]] = []
+    results: list[tuple[str, bool | None]] = []
 
     ruff_check_cmd = find_command("ruff")
     if ruff_check_cmd:
@@ -138,15 +138,16 @@ def main() -> int:
     table.add_column("Check", style="cyan")
     table.add_column("Status", style="bold")
 
-    all_passed = True
-    for check_name, success in results:
-        if success is None:
+    all_passed: bool = True
+    for check_name, success_raw in results:
+        if success_raw is None:
             status = "[yellow]Skipped[/yellow]"
-        elif success:
-            status = "[green]✓ Passed[/green]"
         else:
-            status = "[red]✗ Failed[/red]"
-            all_passed = False
+            if success_raw:
+                status = "[green]✓ Passed[/green]"
+            else:
+                status = "[red]✗ Failed[/red]"
+                all_passed = False
         table.add_row(check_name, status)
 
     console.print(table)

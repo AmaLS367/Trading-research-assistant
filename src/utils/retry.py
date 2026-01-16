@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 import httpx
 from tenacity import (
@@ -26,7 +26,7 @@ def retry_network_call(
                 (httpx.TransportError, httpx.TimeoutException, httpx.NetworkError, TimeoutError)
             ),
         )
-        return cast(Callable[..., T], retry_decorator(f))
+        return retry_decorator(f)
 
     if func is None:
         return decorator

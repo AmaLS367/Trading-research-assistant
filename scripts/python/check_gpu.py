@@ -92,9 +92,9 @@ def print_summary() -> None:
         print(f"GPU: {len(gpu_info)} device(s) found")
         for gpu in gpu_info:
             print(f"  GPU {gpu['index']}: {gpu['name']}")
-            print(f"    Total VRAM: {format_size(gpu['total_gb'])}")
-            print(f"    Used VRAM:  {format_size(gpu['used_gb'])} ({gpu['percent']:.1f}%)")
-            print(f"    Free VRAM:  {format_size(gpu['free_gb'])}")
+            print(f"    Total VRAM: {format_size(float(gpu['total_gb']))}")
+            print(f"    Used VRAM:  {format_size(float(gpu['used_gb']))} ({gpu['percent']:.1f}%)")
+            print(f"    Free VRAM:  {format_size(float(gpu['free_gb']))}")
             print()
 
     print("=" * 60)

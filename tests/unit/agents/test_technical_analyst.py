@@ -52,7 +52,7 @@ def test_technical_analyst_analyze() -> None:
         indicators=indicators,
     )
 
-    result = analyst.analyze(snapshot, "EURUSD", Timeframe.H1)
+    result, llm_response = analyst.analyze(snapshot, "EURUSD", Timeframe.H1)
 
     assert "Market shows bullish momentum with RSI above 70." in result
     mock_router.generate.assert_called_once()
@@ -87,7 +87,7 @@ def test_technical_analyst_output_guard_wrong_pair() -> None:
         indicators=indicators,
     )
 
-    result = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
+    result, llm_response = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
 
     assert "Analysis scope: GBP/USD" in result
     assert "model mentioned other instruments" in result
