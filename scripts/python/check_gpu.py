@@ -5,18 +5,13 @@ GPU and RAM profiling script for LLM model selection.
 Checks available VRAM (GPU) and RAM to help determine which models can be run locally.
 """
 
+import argparse
+import json
+import os
+import subprocess
 import sys
 
-try:
-    import psutil
-except ImportError:
-    print("ERROR: psutil not installed. Install with: pip install psutil")
-    sys.exit(1)
-
-try:
-    import pynvml
-except ImportError:
-    pynvml = None
+import psutil
 
 
 def get_ram_info() -> dict[str, float]:
@@ -30,39 +25,99 @@ def get_ram_info() -> dict[str, float]:
     }
 
 
-def get_gpu_info() -> list[dict[str, float | int | str]] | None:
-    """Get GPU VRAM information in GB. Returns None if no GPU or pynvml not available."""
-    if pynvml is None:
-        return None
-
+def detect_gpu_nvidia_smi() -> tuple[dict[str, object] | None, str | None]:
+    """Detect GPU using nvidia-smi command. Returns (gpu_dict, error)."""
     try:
-        pynvml.nvmlInit()
-        device_count = pynvml.nvmlDeviceGetCount()
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,memory.used,memory.free",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
 
-        gpus: list[dict[str, float | int | str]] = []
-        for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            name = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+        lines = result.stdout.strip().split("\n")
+        if not lines or not lines[0]:
+            return None, "nvidia-smi returned empty output"
 
-            mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            total_gb = mem_info.total / (1024**3)
-            used_gb = mem_info.used / (1024**3)
-            free_gb = mem_info.free / (1024**3)
+        first_line = lines[0].strip()
+        parts = [p.strip() for p in first_line.split(",")]
+        if len(parts) < 4:
+            return None, f"nvidia-smi returned unexpected format: {first_line}"
 
-            gpus.append(
-                {
-                    "index": i,
-                    "name": name,
-                    "total_gb": total_gb,
-                    "used_gb": used_gb,
-                    "free_gb": free_gb,
-                    "percent": (used_gb / total_gb) * 100 if total_gb > 0 else 0.0,
-                }
-            )
+        name = parts[0]
+        total_mib = float(parts[1])
+        used_mib = float(parts[2])
+        free_mib = float(parts[3])
 
-        return gpus
-    except Exception:
-        return None
+        total_gb = total_mib / 1024.0
+        used_gb = used_mib / 1024.0
+        free_gb = free_mib / 1024.0
+
+        return {
+            "vendor": "nvidia",
+            "name": name,
+            "total_vram_gb": total_gb,
+            "used_vram_gb": used_gb,
+            "free_vram_gb": free_gb,
+        }, None
+
+    except subprocess.CalledProcessError as e:
+        return None, f"nvidia-smi failed: {e.stderr.strip()}"
+    except FileNotFoundError:
+        return None, "nvidia-smi not found in PATH"
+    except subprocess.TimeoutExpired:
+        return None, "nvidia-smi timeout"
+    except Exception as e:
+        return None, f"nvidia-smi error: {str(e)}"
+
+
+def detect_gpu_torch() -> tuple[dict[str, object] | None, str | None]:
+    """Detect GPU using torch.cuda. Returns (gpu_dict, error)."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return None, "torch.cuda.is_available() returned False"
+
+        device_count = torch.cuda.device_count()
+        if device_count == 0:
+            return None, "torch.cuda.device_count() returned 0"
+
+        device = torch.cuda.get_device_properties(0)
+        name = device.name
+        total_bytes = device.total_memory
+        total_gb = total_bytes / (1024**3)
+
+        return {
+            "vendor": "nvidia",
+            "name": name,
+            "total_vram_gb": total_gb,
+            "used_vram_gb": None,
+            "free_vram_gb": None,
+        }, None
+
+    except ImportError:
+        return None, "torch not installed"
+    except Exception as e:
+        return None, f"torch.cuda error: {str(e)}"
+
+
+def detect_gpu() -> tuple[dict[str, object] | None, str, str | None]:
+    """Detect GPU using primary (nvidia-smi) and fallback (torch) methods."""
+    gpu, error = detect_gpu_nvidia_smi()
+    if gpu is not None:
+        return gpu, "nvidia_smi", None
+
+    gpu, error = detect_gpu_torch()
+    if gpu is not None:
+        return gpu, "torch", None
+
+    return None, "none", error
 
 
 def format_size(gb: float) -> str:
@@ -84,51 +139,111 @@ def print_summary() -> None:
     print(f"  Used:      {format_size(ram_info['used_gb'])} ({ram_info['percent']:.1f}%)")
     print()
 
-    gpu_info = get_gpu_info()
-    if gpu_info is None:
-        print("GPU: Not available or pynvml not installed")
-        print("  Install with: pip install nvidia-ml-py")
+    gpu, detect_method, detect_error = detect_gpu()
+    if gpu is None:
+        print("GPU: Not detected")
+        if detect_error:
+            print(f"  Error: {detect_error}")
+        print(f"  Method: {detect_method}")
     else:
-        print(f"GPU: {len(gpu_info)} device(s) found")
-        for gpu in gpu_info:
-            print(f"  GPU {gpu['index']}: {gpu['name']}")
-            print(f"    Total VRAM: {format_size(float(gpu['total_gb']))}")
-            print(f"    Used VRAM:  {format_size(float(gpu['used_gb']))} ({gpu['percent']:.1f}%)")
-            print(f"    Free VRAM:  {format_size(float(gpu['free_gb']))}")
-            print()
+        gpu_name = str(gpu.get("name", "Unknown"))
+        gpu_vendor = str(gpu.get("vendor", "Unknown"))
+        print(f"GPU: {gpu_name} ({gpu_vendor})")
+        total_vram = gpu.get("total_vram_gb")
+        if isinstance(total_vram, (int, float)):
+            print(f"  Total VRAM: {format_size(float(total_vram))}")
+        used_vram = gpu.get("used_vram_gb")
+        if isinstance(used_vram, (int, float)):
+            print(f"  Used VRAM:  {format_size(float(used_vram))}")
+        free_vram = gpu.get("free_vram_gb")
+        if isinstance(free_vram, (int, float)):
+            print(f"  Free VRAM:  {format_size(float(free_vram))}")
+        print(f"  Detection method: {detect_method}")
+        print()
 
     print("=" * 60)
     print("Model Size Recommendations:")
     print("=" * 60)
 
-    if gpu_info:
-        min_free_vram = min(float(gpu["free_gb"]) for gpu in gpu_info)
-        print(f"  Minimum free VRAM: {format_size(min_free_vram)}")
-        if min_free_vram >= 24:
-            print("  ✓ Can run: 32B+ models (qwen2.5:32b, llama3.1:70b)")
-        elif min_free_vram >= 12:
-            print("  ✓ Can run: 13B-16B models (llama3:70b quantized, qwen2.5:14b)")
-        elif min_free_vram >= 6:
-            print("  ✓ Can run: 7B-8B models (llama3:8b, qwen2.5:7b)")
-        else:
-            print("  ⚠ Limited VRAM. Consider smaller models or CPU-only mode.")
+    threshold_gb = float(os.getenv("LOCAL_GPU_MIN_VRAM_GB", "8.0"))
+    if gpu is not None:
+        free_vram_val = gpu.get("free_vram_gb")
+        if isinstance(free_vram_val, (int, float)):
+            free_vram = float(free_vram_val)
+            print(f"  Free VRAM: {format_size(free_vram)}")
+            print(f"  Threshold: {format_size(threshold_gb)}")
+            if free_vram >= threshold_gb:
+                print("  ✓ Profile: large (can run larger models)")
+            else:
+                print("  ⚠ Profile: small (limited VRAM)")
     else:
         available_ram = ram_info["available_gb"]
         print(f"  Available RAM: {format_size(available_ram)}")
-        if available_ram >= 32:
-            print("  ✓ Can run: 13B-16B models on CPU (slower)")
-        elif available_ram >= 16:
-            print("  ✓ Can run: 7B-8B models on CPU (slower)")
-        else:
-            print("  ⚠ Limited RAM. Consider API-based providers (DeepSeek API).")
+        print("  ⚠ Profile: small (no GPU detected)")
 
     print()
 
 
+def get_summary_json() -> dict[str, object]:
+    """Get GPU and RAM summary as JSON with required structure."""
+    ram_info = get_ram_info()
+    gpu, detect_method, detect_error = detect_gpu()
+
+    threshold_gb = float(os.getenv("LOCAL_GPU_MIN_VRAM_GB", "8.0"))
+
+    if gpu is not None and gpu.get("free_vram_gb") is not None:
+        free_vram_val = gpu["free_vram_gb"]
+        if isinstance(free_vram_val, (int, float)):
+            free_vram = float(free_vram_val)
+            min_free_vram = free_vram
+            if free_vram >= threshold_gb:
+                selected_profile = "large"
+                selected_profile_reason = (
+                    f"free_vram {free_vram:.1f} >= threshold {threshold_gb:.1f}"
+                )
+            else:
+                selected_profile = "small"
+                selected_profile_reason = (
+                    f"free_vram {free_vram:.1f} < threshold {threshold_gb:.1f}"
+                )
+        else:
+            min_free_vram = None
+            selected_profile = "small"
+            selected_profile_reason = "free_vram not available"
+    else:
+        min_free_vram = None
+        selected_profile = "small"
+        selected_profile_reason = "gpu not detected" if gpu is None else "free_vram not available"
+
+    result: dict[str, object] = {
+        "ram": ram_info,
+        "gpu": gpu,
+        "gpu_detect_method": detect_method,
+        "gpu_detect_error": detect_error,
+        "min_free_vram_gb": min_free_vram,
+        "selected_profile": selected_profile,
+        "selected_profile_reason": selected_profile_reason,
+    }
+
+    return result
+
+
 def main() -> int:
     """Main entry point."""
+    parser = argparse.ArgumentParser(description="GPU and RAM profiling script")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON",
+    )
+    args = parser.parse_args()
+
     try:
-        print_summary()
+        if args.json:
+            result = get_summary_json()
+            print(json.dumps(result, indent=2))
+        else:
+            print_summary()
         return 0
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
