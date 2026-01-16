@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class VerificationIssueSeverity(str, Enum):
@@ -17,6 +17,8 @@ class VerificationIssue(BaseModel):
 
 
 class VerificationReport(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     passed: bool
     issues: list[VerificationIssue]
     suggested_fix: str | None = None

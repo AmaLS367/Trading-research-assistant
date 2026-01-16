@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     tech_fallback1_model: Annotated[str | None, Field(alias="TECH_FALLBACK1_MODEL")] = None
     tech_fallback2_provider: Annotated[str | None, Field(alias="TECH_FALLBACK2_PROVIDER")] = None
     tech_fallback2_model: Annotated[str | None, Field(alias="TECH_FALLBACK2_MODEL")] = None
+    tech_fallback3_provider: Annotated[str | None, Field(alias="TECH_FALLBACK3_PROVIDER")] = None
+    tech_fallback3_model: Annotated[str | None, Field(alias="TECH_FALLBACK3_MODEL")] = None
 
     # --- Task Routing (NEWS) ---
     news_primary_provider: Annotated[str | None, Field(alias="NEWS_PRIMARY_PROVIDER")] = None
@@ -89,6 +91,8 @@ class Settings(BaseSettings):
     news_fallback1_model: Annotated[str | None, Field(alias="NEWS_FALLBACK1_MODEL")] = None
     news_fallback2_provider: Annotated[str | None, Field(alias="NEWS_FALLBACK2_PROVIDER")] = None
     news_fallback2_model: Annotated[str | None, Field(alias="NEWS_FALLBACK2_MODEL")] = None
+    news_fallback3_provider: Annotated[str | None, Field(alias="NEWS_FALLBACK3_PROVIDER")] = None
+    news_fallback3_model: Annotated[str | None, Field(alias="NEWS_FALLBACK3_MODEL")] = None
 
     # --- Task Routing (SYNTHESIS) ---
     synthesis_primary_provider: Annotated[str | None, Field(alias="SYNTHESIS_PRIMARY_PROVIDER")] = (
@@ -107,6 +111,12 @@ class Settings(BaseSettings):
     synthesis_fallback2_model: Annotated[str | None, Field(alias="SYNTHESIS_FALLBACK2_MODEL")] = (
         None
     )
+    synthesis_fallback3_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_FALLBACK3_PROVIDER")
+    ] = None
+    synthesis_fallback3_model: Annotated[str | None, Field(alias="SYNTHESIS_FALLBACK3_MODEL")] = (
+        None
+    )
 
     # --- Task Routing (VERIFIER) ---
     verifier_primary_provider: Annotated[str | None, Field(alias="VERIFIER_PRIMARY_PROVIDER")] = (
@@ -121,6 +131,10 @@ class Settings(BaseSettings):
         str | None, Field(alias="VERIFIER_FALLBACK2_PROVIDER")
     ] = None
     verifier_fallback2_model: Annotated[str | None, Field(alias="VERIFIER_FALLBACK2_MODEL")] = None
+    verifier_fallback3_provider: Annotated[
+        str | None, Field(alias="VERIFIER_FALLBACK3_PROVIDER")
+    ] = None
+    verifier_fallback3_model: Annotated[str | None, Field(alias="VERIFIER_FALLBACK3_MODEL")] = None
 
     # --- Per-Task Overrides ---
     tech_timeout_seconds: Annotated[float | None, Field(alias="TECH_TIMEOUT_SECONDS")] = None
@@ -268,6 +282,11 @@ class Settings(BaseSettings):
         fallback2_model = getattr(self, f"{task_prefix}_fallback2_model", None)
         if fallback2_provider and fallback2_model:
             steps.append(LlmRouteStep(provider=fallback2_provider, model=fallback2_model))
+
+        fallback3_provider = getattr(self, f"{task_prefix}_fallback3_provider", None)
+        fallback3_model = getattr(self, f"{task_prefix}_fallback3_model", None)
+        if fallback3_provider and fallback3_model:
+            steps.append(LlmRouteStep(provider=fallback3_provider, model=fallback3_model))
 
         if not steps:
             default_model = self.ollama_model or "llama3:latest"

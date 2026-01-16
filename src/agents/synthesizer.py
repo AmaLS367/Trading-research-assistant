@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -26,7 +28,6 @@ class Synthesizer:
         technical_view: str,
         news_digest: NewsDigest,
     ) -> tuple[Recommendation, dict[str, Any], LlmResponse | None]:
-        from src.core.models.llm import LlmResponse
 
         system_prompt = get_synthesis_system_prompt()
 

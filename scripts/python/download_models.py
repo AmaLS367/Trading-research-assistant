@@ -15,8 +15,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.app.settings import settings
-from src.core.ports.llm_tasks import (
+from src.app.settings import settings  # noqa: E402
+from src.core.ports.llm_tasks import (  # noqa: E402
     TASK_NEWS_ANALYSIS,
     TASK_SYNTHESIS,
     TASK_TECH_ANALYSIS,
@@ -24,39 +24,54 @@ from src.core.ports.llm_tasks import (
 )
 
 
-def get_hf_cache_dir() -> Path | None:
-    """Get Hugging Face cache directory from environment or default."""
+def get_hf_cache_dir() -> Path:
+    """Get Hugging Face cache directory from environment or default.
+    Priority order:
+    1. HUGGINGFACE_HUB_CACHE (use as-is)
+    2. HF_HOME -> HF_HOME/hub
+    3. MODEL_STORAGE_DIR -> MODEL_STORAGE_DIR/models_cache
+    4. Default: ~/.cache/huggingface/hub (Windows: %USERPROFILE%\\.cache\\huggingface\\hub)
+    """
+    hf_hub_cache = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if hf_hub_cache:
+        cache_dir = Path(hf_hub_cache)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+
     hf_home = os.environ.get("HF_HOME")
     if hf_home:
-        return Path(hf_home) / "hub"
+        cache_dir = Path(hf_home) / "hub"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
 
-    cache_home = os.environ.get("XDG_CACHE_HOME")
-    if cache_home:
-        return Path(cache_home) / "huggingface" / "hub"
+    model_storage_dir = os.environ.get("MODEL_STORAGE_DIR")
+    if model_storage_dir:
+        cache_dir = Path(model_storage_dir) / "models_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
 
-    if sys.platform == "win32":
-        default_cache = Path.home() / ".cache" / "huggingface" / "hub"
-    else:
-        default_cache = Path.home() / ".cache" / "huggingface" / "hub"
-
-    return default_cache if default_cache.exists() else None
+    default_cache = Path.home() / ".cache" / "huggingface" / "hub"
+    default_cache.mkdir(parents=True, exist_ok=True)
+    return default_cache
 
 
-def download_hf_model(model_id: str, hf_cache_dir: Path | None) -> bool:
-    """Download a model from Hugging Face using huggingface-cli."""
+def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
+    """Download a model from Hugging Face using huggingface_hub library."""
     try:
-        cmd = ["huggingface-cli", "download", model_id]
-        if hf_cache_dir:
-            cmd.extend(["--cache-dir", str(hf_cache_dir)])
+        from huggingface_hub import snapshot_download
 
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        snapshot_download(
+            repo_id=model_id,
+            cache_dir=str(hf_cache_dir),
+            token=None,
+        )
         print(f"✓ Downloaded {model_id}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"✗ Failed to download {model_id}: {e.stderr}")
+    except ImportError:
+        print("✗ huggingface_hub not found. Install with: pip install huggingface-hub")
         return False
-    except FileNotFoundError:
-        print("✗ huggingface-cli not found. Install with: pip install huggingface-hub")
+    except Exception as e:
+        print(f"✗ Failed to download {model_id}: {e}")
         return False
 
 

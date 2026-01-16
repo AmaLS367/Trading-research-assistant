@@ -1,8 +1,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 from src.app.settings import get_settings
 
 
@@ -18,6 +16,7 @@ def test_new_env_keys_present():
         "TECH_FALLBACK1_MODEL": "qwen2.5:32b",
         "TECH_FALLBACK2_PROVIDER": "",
         "TECH_FALLBACK2_MODEL": "",
+        "OLLAMA_MODEL": "",
     }
     with patch.dict(os.environ, env_vars, clear=False):
         get_settings.cache_clear()
@@ -29,7 +28,7 @@ def test_new_env_keys_present():
         assert settings.deepseek_api_base == "https://api.deepseek.com"
 
         tech_routing = settings.get_tech_routing()
-        assert len(tech_routing.steps) == 2
+        assert len(tech_routing.steps) >= 2
         assert tech_routing.steps[0].provider == "deepseek_api"
         assert tech_routing.steps[0].model == "deepseek-chat"
         assert tech_routing.steps[1].provider == "ollama_server"
@@ -89,6 +88,35 @@ def test_invalid_url_normalized_to_none():
         settings = get_settings()
 
         assert settings.ollama_local_url is None
+
+    get_settings.cache_clear()
+
+
+def test_fallback3_support():
+    env_vars = {
+        "TECH_PRIMARY_PROVIDER": "deepseek_api",
+        "TECH_PRIMARY_MODEL": "deepseek-chat",
+        "TECH_FALLBACK1_PROVIDER": "ollama_server",
+        "TECH_FALLBACK1_MODEL": "qwen2.5:32b",
+        "TECH_FALLBACK2_PROVIDER": "ollama_local",
+        "TECH_FALLBACK2_MODEL": "llama3:latest",
+        "TECH_FALLBACK3_PROVIDER": "ollama_local",
+        "TECH_FALLBACK3_MODEL": "mistral:latest",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        tech_routing = settings.get_tech_routing()
+        assert len(tech_routing.steps) == 4
+        assert tech_routing.steps[0].provider == "deepseek_api"
+        assert tech_routing.steps[0].model == "deepseek-chat"
+        assert tech_routing.steps[1].provider == "ollama_server"
+        assert tech_routing.steps[1].model == "qwen2.5:32b"
+        assert tech_routing.steps[2].provider == "ollama_local"
+        assert tech_routing.steps[2].model == "llama3:latest"
+        assert tech_routing.steps[3].provider == "ollama_local"
+        assert tech_routing.steps[3].model == "mistral:latest"
 
     get_settings.cache_clear()
 

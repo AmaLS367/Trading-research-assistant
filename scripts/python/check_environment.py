@@ -8,9 +8,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-import httpx
-from rich.console import Console
-from rich.panel import Panel
+import httpx  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.panel import Panel  # noqa: E402
 
 console = Console()
 

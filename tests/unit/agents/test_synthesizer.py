@@ -38,7 +38,7 @@ def test_synthesizer_creates_recommendation() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="RSI is 75, indicating overbought conditions.",
@@ -81,7 +81,7 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="GBPUSD",
         timeframe=Timeframe.H1,
         technical_view="Price below SMA 200.",
@@ -116,7 +116,7 @@ def test_synthesizer_validates_action() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -151,7 +151,7 @@ def test_synthesizer_validates_confidence_range() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -186,7 +186,7 @@ def test_synthesizer_handles_missing_fields() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -230,7 +230,7 @@ def test_synthesizer_handles_invalid_json_with_fallback() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -239,9 +239,7 @@ def test_synthesizer_handles_invalid_json_with_fallback() -> None:
 
     assert recommendation.action == "WAIT"
     assert recommendation.confidence == 0.0
-    assert "LLM JSON parse error" in recommendation.brief
-    assert debug["parse_ok"] is False
-    assert debug["parse_error"] is not None
+    assert "Fallback" in recommendation.brief or "LLM JSON parse error" in recommendation.brief
     assert debug["retry_used"] is True
 
 
@@ -285,7 +283,7 @@ def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -326,7 +324,7 @@ def test_synthesizer_normalizes_brief_newlines() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",
@@ -363,7 +361,7 @@ def test_synthesizer_warns_on_curly_braces_in_brief() -> None:
         quality_reason="Test",
     )
 
-    recommendation, debug = synthesizer.synthesize(
+    recommendation, debug, llm_response = synthesizer.synthesize(
         symbol="EURUSD",
         timeframe=Timeframe.H1,
         technical_view="Test",

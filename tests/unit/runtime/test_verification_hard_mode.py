@@ -3,36 +3,11 @@ from unittest.mock import Mock
 from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
 from src.core.models.llm import LlmResponse
-from src.core.models.verification import (
-    VerificationIssue,
-    VerificationIssueSeverity,
-    VerificationReport,
-)
 from src.llm.providers.llm_router import LlmRouter
 
 
 def test_verifier_hard_mode_does_repair(monkeypatch):
     mock_router = Mock(spec=LlmRouter)
-
-    initial_verification = VerificationReport(
-        passed=False,
-        issues=[
-            VerificationIssue(
-                code="unsupported_claim",
-                message="Test issue",
-                severity=VerificationIssueSeverity.MEDIUM,
-            )
-        ],
-        suggested_fix="Fix the issue",
-        policy_version="1.0",
-    )
-
-    repair_verification = VerificationReport(
-        passed=True,
-        issues=[],
-        suggested_fix=None,
-        policy_version="1.0",
-    )
 
     mock_router.generate.side_effect = [
         LlmResponse(
@@ -43,7 +18,14 @@ def test_verifier_hard_mode_does_repair(monkeypatch):
             attempts=1,
             error=None,
         ),
-        repair_verification,
+        LlmResponse(
+            text='{"passed": true, "issues": [], "suggested_fix": null}',
+            provider_name="test",
+            model_name="test",
+            latency_ms=100,
+            attempts=1,
+            error=None,
+        ),
     ]
 
     verifier = VerifierAgent(mock_router)

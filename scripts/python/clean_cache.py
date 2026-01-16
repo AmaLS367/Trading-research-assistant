@@ -33,10 +33,7 @@ OPTIONAL_CLEANUP = [
 def should_exclude_path(path: Path) -> bool:
     """Check if path should be excluded from cleanup."""
     parts = path.parts
-    for exclude_dir in EXCLUDE_DIRS:
-        if exclude_dir in parts:
-            return True
-    return False
+    return any(exclude_dir in parts for exclude_dir in EXCLUDE_DIRS)
 
 
 def find_cache_items(pattern: str, item_type: str) -> list[Path]:

@@ -8,8 +8,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console  # noqa: E402
+from rich.panel import Panel  # noqa: E402
 
 console = Console()
 
@@ -37,7 +37,7 @@ def install_dependencies() -> bool:
 
     console.print("[bold blue]Installing dependencies...[/bold blue]")
     try:
-        result = subprocess.run(
+        subprocess.run(
             [uv_cmd, "sync", "--extra", "dev"],
             check=True,
             capture_output=True,
@@ -94,7 +94,7 @@ def init_database() -> bool:
         else:
             cmd = [python_cmd, "-m", "src.app.main", "init-db"]
 
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             check=True,
             capture_output=True,

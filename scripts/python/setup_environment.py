@@ -7,9 +7,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.console import Console  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.prompt import Confirm, Prompt  # noqa: E402
 
 console = Console()
 
@@ -119,10 +119,9 @@ def setup_interactive() -> None:
     console.print(Panel.fit("[bold blue]Environment Setup[/bold blue]", border_style="blue"))
 
     existing = load_existing_env()
-    if existing:
-        if not Confirm.ask("Found existing .env file. Overwrite?", default=False):
-            console.print("[yellow]Setup cancelled.[/yellow]")
-            return
+    if existing and not Confirm.ask("Found existing .env file. Overwrite?", default=False):
+        console.print("[yellow]Setup cancelled.[/yellow]")
+        return
 
     env_vars: dict[str, str] = existing.copy()
 

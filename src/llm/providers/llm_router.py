@@ -1,7 +1,7 @@
 import time
 from typing import TYPE_CHECKING
 
-from src.app.settings import LlmRoutingConfig, LlmTaskRouting
+from src.app.settings import LlmRoutingConfig, LlmTaskRouting, settings
 from src.core.models.llm import LlmRequest, LlmResponse
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.llm_provider_name import PROVIDER_OLLAMA_LOCAL
@@ -81,12 +81,30 @@ class LlmRouter:
         task_routing = self.task_routings[task]
         routing_config = self.routing_config
 
+        temperature = routing_config.temperature
+        timeout_seconds = routing_config.timeout_seconds
+
+        task_prefix_map = {
+            "tech_analysis": "tech",
+            "news_analysis": "news",
+            "synthesis": "synthesis",
+            "verification": "verifier",
+        }
+        task_prefix = task_prefix_map.get(task)
+        if task_prefix:
+            task_temperature = getattr(settings, f"{task_prefix}_temperature", None)
+            task_timeout = getattr(settings, f"{task_prefix}_timeout_seconds", None)
+            if task_temperature is not None:
+                temperature = task_temperature
+            if task_timeout is not None:
+                timeout_seconds = task_timeout
+
         request = LlmRequest(
             task=task,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            temperature=routing_config.temperature,
-            timeout_seconds=routing_config.timeout_seconds,
+            temperature=temperature,
+            timeout_seconds=timeout_seconds,
             max_retries=routing_config.max_retries,
             model_name=None,
             response_format=None,

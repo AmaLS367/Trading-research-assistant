@@ -102,7 +102,9 @@ class RunAgentsJob:
             )
 
             self._log("[dim]→ Running technical analysis (LLM)...[/dim]")
-            technical_view = self.technical_analyst.analyze(snapshot, symbol, timeframe)
+            technical_view, technical_llm_response = self.technical_analyst.analyze(
+                snapshot, symbol, timeframe
+            )
             self._log("[green]✓[/green] [dim]Technical analysis complete[/dim]")
             if self.verbose and self.console:
                 from rich.panel import Panel
@@ -130,7 +132,7 @@ class RunAgentsJob:
             self._log("[green]✓[/green] [dim]News context retrieved[/dim]")
 
             self._log("[dim]→ Analyzing news with LLM...[/dim]")
-            news_digest = self.news_analyst.analyze(news_digest)
+            news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
             self._log("[green]✓[/green] [dim]News analysis complete[/dim]")
 
             news_content_parts: list[str] = [f"Quality: {news_digest.quality}"]
@@ -230,7 +232,7 @@ class RunAgentsJob:
             )
 
             self._log("[dim]→ Synthesizing recommendation (LLM)...[/dim]")
-            recommendation, synthesis_debug = self.synthesizer.synthesize(
+            recommendation, synthesis_debug, synthesis_llm_response = self.synthesizer.synthesize(
                 symbol=symbol,
                 timeframe=timeframe,
                 technical_view=technical_view,

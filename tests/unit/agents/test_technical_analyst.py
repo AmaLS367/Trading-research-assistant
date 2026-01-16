@@ -119,10 +119,8 @@ def test_technical_analyst_output_guard_correct_pair() -> None:
         indicators=indicators,
     )
 
-    result = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
+    result, llm_response = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
 
     assert result == "The GBP/USD pair shows bullish momentum with RSI above 70."
     assert "Analysis scope" not in result
     assert "ignore those references" not in result
-
-

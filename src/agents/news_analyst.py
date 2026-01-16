@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from typing import TYPE_CHECKING
 
@@ -15,7 +17,6 @@ class NewsAnalyst:
         self.llm_router = llm_router
 
     def analyze(self, digest: NewsDigest) -> tuple[NewsDigest, LlmResponse | None]:
-        from src.core.models.llm import LlmResponse
 
         if digest.quality == "LOW":
             digest.summary = "Not enough relevant news"

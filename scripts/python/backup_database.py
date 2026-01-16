@@ -10,9 +10,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Confirm
+from rich.console import Console  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.prompt import Confirm  # noqa: E402
 
 console = Console()
 
@@ -87,10 +87,11 @@ def restore_database(backup_path: Path, compress: bool = False) -> bool:
             console.print(f"[red]✗[/red] Backup file not found: {backup_path}")
             return False
 
-        if db_path.exists():
-            if not Confirm.ask(f"Database file exists at {db_path}. Overwrite?", default=False):
-                console.print("[yellow]Restore cancelled.[/yellow]")
-                return False
+        if db_path.exists() and not Confirm.ask(
+            f"Database file exists at {db_path}. Overwrite?", default=False
+        ):
+            console.print("[yellow]Restore cancelled.[/yellow]")
+            return False
 
         if compress or backup_path.suffix == ".gz":
             with gzip.open(backup_path, "rb") as src, open(db_path, "wb") as dst:

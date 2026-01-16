@@ -56,6 +56,7 @@ def test_safety_policy_validate_report_passed_with_issues():
 
     valid, error = policy.validate_report(report)
     assert valid is False
+    assert error is not None
     assert "passed but contains issues" in error
 
 
@@ -70,6 +71,7 @@ def test_safety_policy_validate_report_failed_without_issues():
 
     valid, error = policy.validate_report(report)
     assert valid is False
+    assert error is not None
     assert "failed but has no issues" in error
 
 
@@ -90,6 +92,7 @@ def test_safety_policy_validate_report_failed_without_fix():
 
     valid, error = policy.validate_report(report)
     assert valid is False
+    assert error is not None
     assert "failed but has no suggested_fix" in error
 
 

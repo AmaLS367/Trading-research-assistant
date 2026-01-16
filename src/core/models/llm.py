@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class LlmRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     task: str
     system_prompt: str
     user_prompt: str
@@ -13,6 +14,8 @@ class LlmRequest(BaseModel):
 
 
 class LlmResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     text: str
     provider_name: str
     model_name: str
