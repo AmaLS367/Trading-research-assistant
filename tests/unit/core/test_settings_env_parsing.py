@@ -144,3 +144,71 @@ def test_routing_config():
         assert config.temperature == 0.5
 
     get_settings.cache_clear()
+
+
+def test_logging_settings_parsing():
+    env_vars = {
+        "LOG_DIR": "custom_logs",
+        "LOG_LEVEL": "DEBUG",
+        "LOG_CONSOLE_LEVEL": "WARNING",
+        "LOG_FORMAT": "text",
+        "LOG_ROTATION": "12:00",
+        "LOG_RETENTION": "60 days",
+        "LOG_COMPRESSION": "gz",
+        "LOG_MASK_AUTH": "false",
+        "LOG_HTTP_LEVEL": "ERROR",
+        "LOG_SPLIT_FILES": "false",
+        "LOG_ENABLE_HTTP_FILE": "true",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert str(settings.log_dir) == "custom_logs"
+        assert settings.log_level == "DEBUG"
+        assert settings.log_console_level == "WARNING"
+        assert settings.log_format == "text"
+        assert settings.log_rotation == "12:00"
+        assert settings.log_retention == "60 days"
+        assert settings.log_compression == "gz"
+        assert settings.log_mask_auth is False
+        assert settings.log_http_level == "ERROR"
+        assert settings.log_split_files is False
+        assert settings.log_enable_http_file is True
+
+    get_settings.cache_clear()
+
+
+def test_logging_settings_defaults():
+    keys_to_remove = [
+        "LOG_DIR",
+        "LOG_LEVEL",
+        "LOG_CONSOLE_LEVEL",
+        "LOG_FORMAT",
+        "LOG_ROTATION",
+        "LOG_RETENTION",
+        "LOG_COMPRESSION",
+        "LOG_MASK_AUTH",
+        "LOG_HTTP_LEVEL",
+        "LOG_SPLIT_FILES",
+        "LOG_ENABLE_HTTP_FILE",
+    ]
+    for key in keys_to_remove:
+        os.environ.pop(key, None)
+
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    assert str(settings.log_dir) == "logs"
+    assert settings.log_level == "INFO"
+    assert settings.log_console_level == "INFO"
+    assert settings.log_format == "json"
+    assert settings.log_rotation == "00:00"
+    assert settings.log_retention == "30 days"
+    assert settings.log_compression == "zip"
+    assert settings.log_mask_auth is True
+    assert settings.log_http_level == "WARNING"
+    assert settings.log_split_files is True
+    assert settings.log_enable_http_file is False
+
+    get_settings.cache_clear()

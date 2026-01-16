@@ -1,7 +1,6 @@
 import argparse
 import json
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 from rich.console import Console
@@ -9,6 +8,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from src.app.logging_config import configure_logging
 from src.app.settings import settings
 from src.app.wiring import (
     create_minute_loop,
@@ -26,7 +26,6 @@ from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
 from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
-from src.utils.logging import setup_logging
 
 console = Console()
 db = DBConnection(str(settings.storage_sqlite_db_path))
@@ -434,12 +433,6 @@ def report() -> None:
 
 
 def main() -> None:
-    log_level = "INFO" if not settings.is_development() else "DEBUG"
-    log_file = None
-    if settings.is_development():
-        log_file = Path("logs/app.log")
-    setup_logging(level=log_level, log_file=log_file)
-
     parser = argparse.ArgumentParser(description="Trading Research Assistant CLI")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -481,6 +474,10 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Configure logging before any operations
+    verbose = getattr(args, "verbose", False)
+    configure_logging(verbose=verbose)
 
     if args.command == "init-db":
         init_db()

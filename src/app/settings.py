@@ -176,6 +176,19 @@ class Settings(BaseSettings):
         int, Field(alias="RUNTIME_MARKET_DATA_WINDOW_CANDLES")
     ] = 300
 
+    # --- Logging ---
+    log_dir: Annotated[Path, Field(alias="LOG_DIR")] = Path("logs")
+    log_level: Annotated[str, Field(alias="LOG_LEVEL")] = "INFO"
+    log_console_level: Annotated[str, Field(alias="LOG_CONSOLE_LEVEL")] = "INFO"
+    log_format: Annotated[str, Field(alias="LOG_FORMAT")] = "json"
+    log_rotation: Annotated[str, Field(alias="LOG_ROTATION")] = "00:00"
+    log_retention: Annotated[str, Field(alias="LOG_RETENTION")] = "30 days"
+    log_compression: Annotated[str, Field(alias="LOG_COMPRESSION")] = "zip"
+    log_mask_auth: Annotated[bool, Field(alias="LOG_MASK_AUTH")] = True
+    log_http_level: Annotated[str, Field(alias="LOG_HTTP_LEVEL")] = "WARNING"
+    log_split_files: Annotated[bool, Field(alias="LOG_SPLIT_FILES")] = True
+    log_enable_http_file: Annotated[bool, Field(alias="LOG_ENABLE_HTTP_FILE")] = False
+
     @field_validator("runtime_mvp_timeframe", mode="before")
     @classmethod
     def validate_timeframe(cls, value: str) -> str:
@@ -206,7 +219,7 @@ class Settings(BaseSettings):
             raise ValueError("market_data_window_candles must be at least 50")
         return int_value
 
-    @field_validator("storage_sqlite_db_path", "storage_artifacts_dir", mode="before")
+    @field_validator("storage_sqlite_db_path", "storage_artifacts_dir", "log_dir", mode="before")
     @classmethod
     def _as_path(cls, value: str | Path) -> Path:
         if isinstance(value, Path):
