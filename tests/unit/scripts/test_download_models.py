@@ -54,8 +54,9 @@ def test_get_hf_cache_dir_priority_model_storage_dir(tmp_path: Path) -> None:
 
 def test_get_hf_cache_dir_default(tmp_path: Path) -> None:
     """Test that default cache directory is used when no env vars are set."""
-    with patch.dict(os.environ, {}, clear=False), patch(
-        "scripts.python.download_models.Path.home", return_value=tmp_path
+    with (
+        patch.dict(os.environ, {}, clear=False),
+        patch("scripts.python.download_models.Path.home", return_value=tmp_path),
     ):
         from scripts.python.download_models import get_hf_cache_dir
 
@@ -128,9 +129,10 @@ def test_download_hf_model_with_token(tmp_path: Path) -> None:
     model_id = "test/model"
     env_vars = {"HF_TOKEN": "test_token"}
 
-    with patch.dict(os.environ, env_vars, clear=False), patch(
-        "huggingface_hub.snapshot_download"
-    ) as mock_download:
+    with (
+        patch.dict(os.environ, env_vars, clear=False),
+        patch("huggingface_hub.snapshot_download") as mock_download,
+    ):
         mock_download.return_value = None
 
         from scripts.python.download_models import download_hf_model
@@ -146,7 +148,9 @@ def test_download_hf_model_with_token(tmp_path: Path) -> None:
         )
 
 
-def test_download_hf_model_handles_import_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_download_hf_model_handles_import_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test download_hf_model handles ImportError gracefully."""
     cache_dir = tmp_path / "cache"
     model_id = "test/model"
@@ -200,9 +204,10 @@ def test_download_hf_model_cache_dir_passed_correctly(tmp_path: Path) -> None:
     custom_cache = tmp_path / "custom"
     env_vars = {"HUGGINGFACE_HUB_CACHE": str(custom_cache)}
 
-    with patch.dict(os.environ, env_vars, clear=False), patch(
-        "huggingface_hub.snapshot_download"
-    ) as mock_download:
+    with (
+        patch.dict(os.environ, env_vars, clear=False),
+        patch("huggingface_hub.snapshot_download") as mock_download,
+    ):
         mock_download.return_value = None
 
         from scripts.python.download_models import download_hf_model, get_hf_cache_dir

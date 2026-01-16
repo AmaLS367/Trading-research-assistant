@@ -179,6 +179,7 @@ def test_end_to_end_pipeline_offline():
                 candles_repository=None,
                 verifier_agent=verifier,
                 verification_repository=verification_repo,
+                verifier_enabled=True,
             )
 
             run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)

@@ -44,6 +44,7 @@ class RuntimeOrchestrator:
         candles_repository: CandlesRepository | None = None,
         verifier_agent: VerifierAgent | None = None,
         verification_repository: VerificationRepository | None = None,
+        verifier_enabled: bool | None = None,
     ) -> None:
         self.storage = storage
         self.artifact_store = artifact_store
@@ -55,6 +56,7 @@ class RuntimeOrchestrator:
         self.candles_repository = candles_repository
         self.verifier_agent = verifier_agent
         self.verification_repository = verification_repository
+        self.verifier_enabled = verifier_enabled
         self.logger = get_logger(__name__)
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
@@ -267,7 +269,11 @@ Based on the above information, provide your trading recommendation as JSON."""
                 )
 
             verification_report: VerificationReport | None = None
-            if settings.llm_verifier_enabled and self.verifier_agent:
+            verifier_enabled_value = self.verifier_enabled
+            if verifier_enabled_value is None:
+                verifier_enabled_value = settings.llm_verifier_enabled
+
+            if verifier_enabled_value and self.verifier_agent:
                 inputs_summary = (
                     f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
                 )

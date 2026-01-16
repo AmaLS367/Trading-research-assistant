@@ -17,7 +17,6 @@ class NewsAnalyst:
         self.llm_router = llm_router
 
     def analyze(self, digest: NewsDigest) -> tuple[NewsDigest, LlmResponse | None]:
-
         if digest.quality == "LOW":
             digest.summary = "Not enough relevant news"
             digest.sentiment = "NEU"

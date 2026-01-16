@@ -28,7 +28,6 @@ class Synthesizer:
         technical_view: str,
         news_digest: NewsDigest,
     ) -> tuple[Recommendation, dict[str, Any], LlmResponse | None]:
-
         system_prompt = get_synthesis_system_prompt()
 
         news_section_parts: list[str] = []

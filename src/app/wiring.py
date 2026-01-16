@@ -218,6 +218,7 @@ def create_orchestrator() -> OrchestratorProtocol:
         candles_repository=candles_repository,
         verifier_agent=verifier_agent,
         verification_repository=verification_repository,
+        verifier_enabled=settings.llm_verifier_enabled,
     )
 
 
