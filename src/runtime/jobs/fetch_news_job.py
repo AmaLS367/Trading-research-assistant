@@ -11,7 +11,7 @@ class FetchNewsJob:
     def run(self, symbol: str, timeframe: Timeframe) -> JobResult[NewsDigest]:
         try:
             digest = self.news_provider.get_news_digest(symbol=symbol, timeframe=timeframe)
-            return JobResult(ok=True, value=digest, error="")
+            return JobResult[NewsDigest](ok=True, value=digest, error="")
 
         except Exception as e:
             low_quality_digest = NewsDigest(
@@ -22,4 +22,4 @@ class FetchNewsJob:
                 quality="LOW",
                 quality_reason=f"Provider error: {str(e)}",
             )
-            return JobResult(ok=True, value=low_quality_digest, error="")
+            return JobResult[NewsDigest](ok=True, value=low_quality_digest, error="")

@@ -1,3 +1,6 @@
+from core.models.candle import Candle
+
+
 from src.core.models.candle import Candle
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
@@ -30,7 +33,7 @@ class FetchMarketDataJob:
             )
 
             if len(candles) < 200:
-                return JobResult(
+                return JobResult[list[Candle]](
                     ok=False,
                     value=None,
                     error=f"Insufficient candles: got {len(candles)}, need at least 200",
@@ -41,11 +44,11 @@ class FetchMarketDataJob:
                     symbol=symbol, timeframe=timeframe, candles=candles
                 )
 
-            return JobResult(ok=True, value=candles, error="")
+            return JobResult[list[Candle]](ok=True, value=candles, error="")
 
         except Exception as e:
             self.logger.exception(f"Market data provider error for {symbol} {timeframe.value}: {e}")
-            return JobResult(
+            return JobResult[list[Candle]](
                 ok=False,
                 value=None,
                 error=f"Failed to fetch market data: {str(e)}",

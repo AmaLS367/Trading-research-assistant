@@ -12,6 +12,8 @@ import httpx  # noqa: E402
 from rich.console import Console  # noqa: E402
 from rich.panel import Panel  # noqa: E402
 
+from src.app.settings import settings  # noqa: E402
+
 console = Console()
 
 
@@ -57,8 +59,6 @@ def check_deepseek() -> bool:
 def check_ollama() -> bool:
     """Check if Ollama server is accessible."""
     try:
-        from src.app.settings import settings
-
         base_url = settings.ollama_base_url
         response = httpx.get(f"{base_url}/api/tags", timeout=5.0)
         if response.status_code == 200:
@@ -67,9 +67,6 @@ def check_ollama() -> bool:
         console.print(
             f"[yellow]⚠[/yellow] Ollama server at {base_url} returned status {response.status_code}"
         )
-        return False
-    except ImportError:
-        console.print("[yellow]⚠[/yellow] Cannot import settings (check .env file)")
         return False
     except httpx.RequestError as e:
         console.print(f"[yellow]⚠[/yellow] Ollama server not accessible: {e}")
@@ -92,8 +89,6 @@ def check_env_file() -> bool:
 def check_environment_variables() -> tuple[bool, list[str]]:
     """Check required environment variables."""
     try:
-        from src.app.settings import settings
-
         missing: list[str] = []
         required_vars = [
             ("OANDA_API_KEY", settings.oanda_api_key),
@@ -114,9 +109,6 @@ def check_environment_variables() -> tuple[bool, list[str]]:
             return True, []
         console.print(f"[yellow]⚠[/yellow] Missing environment variables: {', '.join(missing)}")
         return False, missing
-    except ImportError:
-        console.print("[yellow]⚠[/yellow] Cannot import settings")
-        return False, []
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Error checking environment variables: {e}")
         return False, []
@@ -125,8 +117,6 @@ def check_environment_variables() -> tuple[bool, list[str]]:
 def check_database() -> bool:
     """Check if database file exists and is accessible."""
     try:
-        from src.app.settings import settings
-
         db_path = Path(settings.storage_sqlite_db_path)
         if db_path.exists():
             console.print(f"[green]✓[/green] Database file found at {db_path}")
@@ -135,9 +125,6 @@ def check_database() -> bool:
             f"[yellow]⚠[/yellow] Database file not found at {db_path} (run init-db to create)"
         )
         return True
-    except ImportError:
-        console.print("[yellow]⚠[/yellow] Cannot import settings")
-        return False
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Error checking database: {e}")
         return False

@@ -1,3 +1,9 @@
+from features.snapshots.feature_snapshot import FeatureSnapshot
+
+
+from core.models.signal import Signal
+
+
 from datetime import datetime
 
 from src.core.models.candle import Candle
@@ -19,7 +25,7 @@ class BuildFeaturesJob:
     ) -> JobResult[tuple[FeatureSnapshot, Signal]]:
         try:
             if len(candles) < 200:
-                return JobResult(
+                return JobResult[tuple[FeatureSnapshot, Signal]](
                     ok=False,
                     value=None,
                     error=f"Insufficient candles: got {len(candles)}, need at least 200",
@@ -45,10 +51,10 @@ class BuildFeaturesJob:
                 volatility=volatility,
             )
 
-            return JobResult(ok=True, value=(snapshot, signal), error="")
+            return JobResult[tuple[FeatureSnapshot, Signal]](ok=True, value=(snapshot, signal), error="")
 
         except Exception as e:
-            return JobResult(
+            return JobResult[tuple[FeatureSnapshot, Signal]](
                 ok=False,
                 value=None,
                 error=f"Failed to build features: {str(e)}",

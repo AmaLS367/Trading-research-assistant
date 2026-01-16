@@ -14,6 +14,8 @@ from rich.console import Console  # noqa: E402
 from rich.panel import Panel  # noqa: E402
 from rich.prompt import Confirm  # noqa: E402
 
+from src.app.settings import settings  # noqa: E402
+
 console = Console()
 
 
@@ -32,8 +34,6 @@ def get_backup_path(compress: bool = False) -> Path:
 def backup_database(compress: bool = False) -> Path | None:
     """Create a backup of the database."""
     try:
-        from src.app.settings import settings
-
         db_path = Path(settings.storage_sqlite_db_path)
         if not db_path.exists():
             console.print(f"[red]✗[/red] Database file not found at {db_path}")
@@ -54,9 +54,6 @@ def backup_database(compress: bool = False) -> Path | None:
         console.print(f"  Size: {size_mb:.2f} MB")
 
         return backup_path
-    except ImportError:
-        console.print("[red]✗[/red] Cannot import settings")
-        return None
     except Exception as e:
         console.print(f"[red]✗[/red] Error creating backup: {e}")
         return None
@@ -79,8 +76,6 @@ def list_backups() -> list[Path]:
 def restore_database(backup_path: Path, compress: bool = False) -> bool:
     """Restore database from backup."""
     try:
-        from src.app.settings import settings
-
         db_path = Path(settings.storage_sqlite_db_path)
 
         if not backup_path.exists():
@@ -101,9 +96,6 @@ def restore_database(backup_path: Path, compress: bool = False) -> bool:
 
         console.print(f"[green]✓[/green] Database restored from {backup_path}")
         return True
-    except ImportError:
-        console.print("[red]✗[/red] Cannot import settings")
-        return False
     except Exception as e:
         console.print(f"[red]✗[/red] Error restoring backup: {e}")
         return False

@@ -11,6 +11,8 @@ sys.path.insert(0, str(project_root))
 from rich.console import Console  # noqa: E402
 from rich.panel import Panel  # noqa: E402
 
+from src.app.settings import settings  # noqa: E402
+
 console = Console()
 
 
@@ -124,23 +126,18 @@ def verify_setup() -> bool:
     else:
         console.print("[yellow]⚠[/yellow] .env file not found")
 
-    try:
-        from src.app.settings import settings
+    db_path = Path(settings.storage_sqlite_db_path)
+    if db_path.exists():
+        console.print("[green]✓[/green] Database file exists")
+        checks_passed += 1
+    else:
+        console.print("[yellow]⚠[/yellow] Database file not found (run init-db)")
 
-        db_path = Path(settings.storage_sqlite_db_path)
-        if db_path.exists():
-            console.print("[green]✓[/green] Database file exists")
-            checks_passed += 1
-        else:
-            console.print("[yellow]⚠[/yellow] Database file not found (run init-db)")
-
-        if settings.oanda_api_key:
-            console.print("[green]✓[/green] OANDA API key configured")
-            checks_passed += 1
-        else:
-            console.print("[yellow]⚠[/yellow] OANDA API key not configured")
-    except ImportError:
-        console.print("[yellow]⚠[/yellow] Cannot import settings")
+    if settings.oanda_api_key:
+        console.print("[green]✓[/green] OANDA API key configured")
+        checks_passed += 1
+    else:
+        console.print("[yellow]⚠[/yellow] OANDA API key not configured")
 
     return checks_passed == total_checks
 

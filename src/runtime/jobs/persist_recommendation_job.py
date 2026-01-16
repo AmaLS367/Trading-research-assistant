@@ -69,10 +69,10 @@ class PersistRecommendationJob:
                 content=rationales_markdown,
             )
 
-            return JobResult(ok=True, value=None, error="")
+            return JobResult[None](ok=True, value=None, error="")
 
         except Exception as e:
-            return JobResult(
+            return JobResult[None](
                 ok=False,
                 value=None,
                 error=f"Failed to persist recommendation: {str(e)}",
