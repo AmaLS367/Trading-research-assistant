@@ -104,13 +104,14 @@ def create_llm_providers() -> dict[str, LlmProvider]:
         provider_name=PROVIDER_OLLAMA_LOCAL,
     )
 
-    ollama_server_url = settings._get_ollama_server_url()
-    if ollama_server_url:
-        providers[PROVIDER_OLLAMA_SERVER] = OllamaClient(
-            base_url=ollama_server_url,
-            model=settings.ollama_model or "llama3:latest",
-            provider_name=PROVIDER_OLLAMA_SERVER,
-        )
+    if settings.ollama_server_enabled:
+        ollama_server_url = settings._get_ollama_server_url()
+        if ollama_server_url:
+            providers[PROVIDER_OLLAMA_SERVER] = OllamaClient(
+                base_url=ollama_server_url,
+                model=settings.ollama_model or "llama3:latest",
+                provider_name=PROVIDER_OLLAMA_SERVER,
+            )
 
     if settings.deepseek_api_key:
         deepseek_base = settings.deepseek_api_base or "https://api.deepseek.com"

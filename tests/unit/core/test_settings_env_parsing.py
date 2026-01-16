@@ -265,6 +265,48 @@ def test_ollama_server_url_valid_domain_accepted():
     get_settings.cache_clear()
 
 
+def test_ollama_server_enabled_false_for_placeholder():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "http://your-server-ip:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_enabled is False
+
+    get_settings.cache_clear()
+
+
+def test_ollama_server_enabled_true_for_valid_url():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "http://123.45.67.89:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_enabled is True
+
+    get_settings.cache_clear()
+
+
+def test_ollama_server_enabled_false_when_none():
+    with patch.dict(os.environ, {}, clear=True):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_enabled is False
+
+    get_settings.cache_clear()
+
+
 def test_new_routing_schema_local():
     env_vars = {
         "RUNTIME_ENV": "local",

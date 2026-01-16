@@ -1,6 +1,7 @@
 from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
 from src.core.models.llm import LlmRequest, LlmResponse
 from src.core.ports.llm_provider import HealthCheckResult, LlmProvider
+from src.core.ports.llm_provider_name import PROVIDER_OLLAMA_SERVER
 from src.llm.providers.llm_router import LlmRouter
 
 
@@ -149,3 +150,61 @@ def test_router_unknown_task():
 
     assert response.error is not None
     assert "Unknown task" in response.error
+
+
+def test_router_skips_disabled_ollama_server():
+    primary = MockProvider("primary", available=True, should_fail=True)
+    disabled_server = MockProvider(PROVIDER_OLLAMA_SERVER, available=True)
+
+    providers = {"primary": primary}
+    routing_config = LlmRoutingConfig(
+        router_mode="sequential",
+        verifier_enabled=False,
+        max_retries=1,
+        timeout_seconds=60.0,
+        temperature=0.2,
+    )
+    task_routing = LlmTaskRouting(
+        steps=[
+            LlmRouteStep(provider="primary", model="model1"),
+            LlmRouteStep(provider=PROVIDER_OLLAMA_SERVER, model="model2"),
+        ]
+    )
+    task_routings = {"test_task": task_routing}
+
+    router = LlmRouter(providers, routing_config, task_routings)
+    response = router.generate("test_task", "system", "user")
+
+    assert not disabled_server.generate_called
+    assert response.error is not None
+
+
+def test_router_all_failed_logs_error(caplog):
+    primary = MockProvider("primary", available=True, should_fail=True)
+    fallback = MockProvider("fallback", available=True, should_fail=True)
+
+    providers = {"primary": primary, "fallback": fallback}
+    routing_config = LlmRoutingConfig(
+        router_mode="sequential",
+        verifier_enabled=False,
+        max_retries=1,
+        timeout_seconds=60.0,
+        temperature=0.2,
+    )
+    task_routing = LlmTaskRouting(
+        steps=[
+            LlmRouteStep(provider="primary", model="model1"),
+            LlmRouteStep(provider="fallback", model="model2"),
+        ]
+    )
+    task_routings = {"test_task": task_routing}
+
+    router = LlmRouter(providers, routing_config, task_routings)
+
+    with caplog.at_level("ERROR"):
+        response = router.generate("test_task", "system", "user")
+
+    error_logs = [record for record in caplog.records if record.levelname == "ERROR"]
+    assert len(error_logs) > 0
+    assert any("All configured providers failed" in str(record.message) for record in error_logs)
+    assert response.error is not None

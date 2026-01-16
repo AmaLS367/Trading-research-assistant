@@ -536,6 +536,14 @@ class Settings(BaseSettings):
             return self.ollama_local_url
         return self.ollama_base_url
 
+    @property
+    def ollama_server_enabled(self) -> bool:
+        """Check if ollama_server provider is enabled and valid."""
+        url = self._get_ollama_server_url()
+        if not url:
+            return False
+        return Settings._is_valid_ollama_server_url(url)
+
     def _get_ollama_server_url(self) -> str | None:
         if self.ollama_server_url:
             return self.ollama_server_url
