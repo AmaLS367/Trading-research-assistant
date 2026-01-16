@@ -263,3 +263,92 @@ def test_ollama_server_url_valid_domain_accepted():
         assert settings.ollama_server_url == "https://api.myserver.com:11434"
 
     get_settings.cache_clear()
+
+
+def test_new_routing_schema_local():
+    env_vars = {
+        "RUNTIME_ENV": "local",
+        "TECH_LOCAL_PRIMARY_PROVIDER": "ollama_local",
+        "TECH_LOCAL_PRIMARY_MODEL": "llama3:latest",
+        "TECH_LOCAL_FALLBACK1_PROVIDER": "deepseek_api",
+        "TECH_LOCAL_FALLBACK1_MODEL": "deepseek-chat",
+        "LLM_LAST_RESORT_PROVIDER": "ollama_local",
+        "LLM_LAST_RESORT_MODEL": "llama3:latest",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.runtime_env == "local"
+        candidates = settings.get_task_candidates("tech_analysis")
+        assert len(candidates) == 2
+        assert candidates[0].provider == "ollama_local"
+        assert candidates[0].model == "llama3:latest"
+        assert candidates[1].provider == "deepseek_api"
+        assert candidates[1].model == "deepseek-chat"
+
+        last_resort = settings.llm_last_resort
+        assert last_resort.provider == "ollama_local"
+        assert last_resort.model == "llama3:latest"
+
+    get_settings.cache_clear()
+
+
+def test_new_routing_schema_server():
+    env_vars = {
+        "RUNTIME_ENV": "server",
+        "TECH_SERVER_PRIMARY_PROVIDER": "ollama_server",
+        "TECH_SERVER_PRIMARY_MODEL": "qwen2.5:32b",
+        "TECH_SERVER_FALLBACK1_PROVIDER": "deepseek_api",
+        "TECH_SERVER_FALLBACK1_MODEL": "deepseek-chat",
+        "LLM_LAST_RESORT_PROVIDER": "ollama_local",
+        "LLM_LAST_RESORT_MODEL": "llama3:latest",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.runtime_env == "server"
+        candidates = settings.get_task_candidates("tech_analysis")
+        assert len(candidates) == 2
+        assert candidates[0].provider == "ollama_server"
+        assert candidates[0].model == "qwen2.5:32b"
+        assert candidates[1].provider == "deepseek_api"
+        assert candidates[1].model == "deepseek-chat"
+
+    get_settings.cache_clear()
+
+
+def test_backward_compatibility_old_schema():
+    env_vars = {
+        "TECH_PRIMARY_PROVIDER": "deepseek_api",
+        "TECH_PRIMARY_MODEL": "deepseek-chat",
+        "TECH_FALLBACK1_PROVIDER": "ollama_local",
+        "TECH_FALLBACK1_MODEL": "llama3:latest",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "TECH_LOCAL_PRIMARY_PROVIDER": "",
+        "TECH_SERVER_PRIMARY_PROVIDER": "",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        candidates = settings.get_task_candidates("tech_analysis")
+        assert len(candidates) >= 2
+        assert candidates[0].provider == "deepseek_api"
+        assert candidates[0].model == "deepseek-chat"
+        assert any(c.provider == "ollama_local" and c.model == "llama3:latest" for c in candidates)
+
+    get_settings.cache_clear()
+
+
+def test_last_resort_default():
+    with patch.dict(os.environ, {}, clear=False):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        last_resort = settings.llm_last_resort
+        assert last_resort.provider == "ollama_local"
+        assert last_resort.model == "llama3:latest"
+
+    get_settings.cache_clear()

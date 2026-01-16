@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
@@ -13,6 +13,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 @dataclass
 class LlmRouteStep:
+    provider: str
+    model: str
+
+
+@dataclass
+class RouteCandidate:
     provider: str
     model: str
 
@@ -162,6 +168,7 @@ class Settings(BaseSettings):
     )
 
     # --- Runtime ---
+    runtime_env: Annotated[Literal["local", "server"], Field(alias="RUNTIME_ENV")] = "local"
     runtime_mvp_symbols_raw: Annotated[str, Field(alias="RUNTIME_MVP_SYMBOLS_RAW")] = (
         "EURUSD,GBPUSD,USDJPY"
     )
@@ -178,6 +185,210 @@ class Settings(BaseSettings):
         int, Field(alias="RUNTIME_MARKET_DATA_WINDOW_CANDLES")
     ] = 300
 
+    # --- LLM Last Resort ---
+    llm_last_resort_provider: Annotated[str | None, Field(alias="LLM_LAST_RESORT_PROVIDER")] = None
+    llm_last_resort_model: Annotated[str | None, Field(alias="LLM_LAST_RESORT_MODEL")] = None
+
+    # --- Task Routing (NEW SCHEMA - TECH) ---
+    tech_local_primary_provider: Annotated[
+        str | None, Field(alias="TECH_LOCAL_PRIMARY_PROVIDER")
+    ] = None
+    tech_local_primary_model: Annotated[str | None, Field(alias="TECH_LOCAL_PRIMARY_MODEL")] = None
+    tech_local_fallback1_provider: Annotated[
+        str | None, Field(alias="TECH_LOCAL_FALLBACK1_PROVIDER")
+    ] = None
+    tech_local_fallback1_model: Annotated[str | None, Field(alias="TECH_LOCAL_FALLBACK1_MODEL")] = (
+        None
+    )
+    tech_local_fallback2_provider: Annotated[
+        str | None, Field(alias="TECH_LOCAL_FALLBACK2_PROVIDER")
+    ] = None
+    tech_local_fallback2_model: Annotated[str | None, Field(alias="TECH_LOCAL_FALLBACK2_MODEL")] = (
+        None
+    )
+    tech_local_fallback3_provider: Annotated[
+        str | None, Field(alias="TECH_LOCAL_FALLBACK3_PROVIDER")
+    ] = None
+    tech_local_fallback3_model: Annotated[str | None, Field(alias="TECH_LOCAL_FALLBACK3_MODEL")] = (
+        None
+    )
+
+    tech_server_primary_provider: Annotated[
+        str | None, Field(alias="TECH_SERVER_PRIMARY_PROVIDER")
+    ] = None
+    tech_server_primary_model: Annotated[str | None, Field(alias="TECH_SERVER_PRIMARY_MODEL")] = (
+        None
+    )
+    tech_server_fallback1_provider: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK1_PROVIDER")
+    ] = None
+    tech_server_fallback1_model: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK1_MODEL")
+    ] = None
+    tech_server_fallback2_provider: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK2_PROVIDER")
+    ] = None
+    tech_server_fallback2_model: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK2_MODEL")
+    ] = None
+    tech_server_fallback3_provider: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK3_PROVIDER")
+    ] = None
+    tech_server_fallback3_model: Annotated[
+        str | None, Field(alias="TECH_SERVER_FALLBACK3_MODEL")
+    ] = None
+
+    # --- Task Routing (NEW SCHEMA - NEWS) ---
+    news_local_primary_provider: Annotated[
+        str | None, Field(alias="NEWS_LOCAL_PRIMARY_PROVIDER")
+    ] = None
+    news_local_primary_model: Annotated[str | None, Field(alias="NEWS_LOCAL_PRIMARY_MODEL")] = None
+    news_local_fallback1_provider: Annotated[
+        str | None, Field(alias="NEWS_LOCAL_FALLBACK1_PROVIDER")
+    ] = None
+    news_local_fallback1_model: Annotated[str | None, Field(alias="NEWS_LOCAL_FALLBACK1_MODEL")] = (
+        None
+    )
+    news_local_fallback2_provider: Annotated[
+        str | None, Field(alias="NEWS_LOCAL_FALLBACK2_PROVIDER")
+    ] = None
+    news_local_fallback2_model: Annotated[str | None, Field(alias="NEWS_LOCAL_FALLBACK2_MODEL")] = (
+        None
+    )
+    news_local_fallback3_provider: Annotated[
+        str | None, Field(alias="NEWS_LOCAL_FALLBACK3_PROVIDER")
+    ] = None
+    news_local_fallback3_model: Annotated[str | None, Field(alias="NEWS_LOCAL_FALLBACK3_MODEL")] = (
+        None
+    )
+
+    news_server_primary_provider: Annotated[
+        str | None, Field(alias="NEWS_SERVER_PRIMARY_PROVIDER")
+    ] = None
+    news_server_primary_model: Annotated[str | None, Field(alias="NEWS_SERVER_PRIMARY_MODEL")] = (
+        None
+    )
+    news_server_fallback1_provider: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK1_PROVIDER")
+    ] = None
+    news_server_fallback1_model: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK1_MODEL")
+    ] = None
+    news_server_fallback2_provider: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK2_PROVIDER")
+    ] = None
+    news_server_fallback2_model: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK2_MODEL")
+    ] = None
+    news_server_fallback3_provider: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK3_PROVIDER")
+    ] = None
+    news_server_fallback3_model: Annotated[
+        str | None, Field(alias="NEWS_SERVER_FALLBACK3_MODEL")
+    ] = None
+
+    # --- Task Routing (NEW SCHEMA - SYNTHESIS) ---
+    synthesis_local_primary_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_PRIMARY_PROVIDER")
+    ] = None
+    synthesis_local_primary_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_PRIMARY_MODEL")
+    ] = None
+    synthesis_local_fallback1_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK1_PROVIDER")
+    ] = None
+    synthesis_local_fallback1_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK1_MODEL")
+    ] = None
+    synthesis_local_fallback2_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK2_PROVIDER")
+    ] = None
+    synthesis_local_fallback2_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK2_MODEL")
+    ] = None
+    synthesis_local_fallback3_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK3_PROVIDER")
+    ] = None
+    synthesis_local_fallback3_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_LOCAL_FALLBACK3_MODEL")
+    ] = None
+
+    synthesis_server_primary_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_PRIMARY_PROVIDER")
+    ] = None
+    synthesis_server_primary_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_PRIMARY_MODEL")
+    ] = None
+    synthesis_server_fallback1_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK1_PROVIDER")
+    ] = None
+    synthesis_server_fallback1_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK1_MODEL")
+    ] = None
+    synthesis_server_fallback2_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK2_PROVIDER")
+    ] = None
+    synthesis_server_fallback2_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK2_MODEL")
+    ] = None
+    synthesis_server_fallback3_provider: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK3_PROVIDER")
+    ] = None
+    synthesis_server_fallback3_model: Annotated[
+        str | None, Field(alias="SYNTHESIS_SERVER_FALLBACK3_MODEL")
+    ] = None
+
+    # --- Task Routing (NEW SCHEMA - VERIFIER) ---
+    verifier_local_primary_provider: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_PRIMARY_PROVIDER")
+    ] = None
+    verifier_local_primary_model: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_PRIMARY_MODEL")
+    ] = None
+    verifier_local_fallback1_provider: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK1_PROVIDER")
+    ] = None
+    verifier_local_fallback1_model: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK1_MODEL")
+    ] = None
+    verifier_local_fallback2_provider: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK2_PROVIDER")
+    ] = None
+    verifier_local_fallback2_model: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK2_MODEL")
+    ] = None
+    verifier_local_fallback3_provider: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK3_PROVIDER")
+    ] = None
+    verifier_local_fallback3_model: Annotated[
+        str | None, Field(alias="VERIFIER_LOCAL_FALLBACK3_MODEL")
+    ] = None
+
+    verifier_server_primary_provider: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_PRIMARY_PROVIDER")
+    ] = None
+    verifier_server_primary_model: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_PRIMARY_MODEL")
+    ] = None
+    verifier_server_fallback1_provider: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK1_PROVIDER")
+    ] = None
+    verifier_server_fallback1_model: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK1_MODEL")
+    ] = None
+    verifier_server_fallback2_provider: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK2_PROVIDER")
+    ] = None
+    verifier_server_fallback2_model: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK2_MODEL")
+    ] = None
+    verifier_server_fallback3_provider: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK3_PROVIDER")
+    ] = None
+    verifier_server_fallback3_model: Annotated[
+        str | None, Field(alias="VERIFIER_SERVER_FALLBACK3_MODEL")
+    ] = None
+
     # --- Logging ---
     log_dir: Annotated[Path, Field(alias="LOG_DIR")] = Path("logs")
     log_level: Annotated[str, Field(alias="LOG_LEVEL")] = "INFO"
@@ -190,6 +401,14 @@ class Settings(BaseSettings):
     log_http_level: Annotated[str, Field(alias="LOG_HTTP_LEVEL")] = "WARNING"
     log_split_files: Annotated[bool, Field(alias="LOG_SPLIT_FILES")] = True
     log_enable_http_file: Annotated[bool, Field(alias="LOG_ENABLE_HTTP_FILE")] = False
+
+    @field_validator("runtime_env", mode="before")
+    @classmethod
+    def validate_runtime_env(cls, value: str) -> Literal["local", "server"]:
+        normalized_value = str(value).strip().lower()
+        if normalized_value not in {"local", "server"}:
+            raise ValueError(f"Unsupported runtime_env: {normalized_value}")
+        return normalized_value  # type: ignore[return-value]
 
     @field_validator("runtime_mvp_timeframe", mode="before")
     @classmethod
@@ -267,7 +486,7 @@ class Settings(BaseSettings):
             return False
 
         hostname = parsed.hostname
-        if not hostname:
+        if not hostname or not isinstance(hostname, str):
             return False
 
         invalid_hostnames = {"your-server-ip", "example.com", "localhost", "127.0.0.1", "0.0.0.0"}
@@ -371,6 +590,93 @@ class Settings(BaseSettings):
             timeout_seconds=self.llm_timeout_seconds,
             temperature=self.llm_temperature,
         )
+
+    @property
+    def llm_last_resort(self) -> RouteCandidate:
+        provider = self.llm_last_resort_provider or "ollama_local"
+        model = self.llm_last_resort_model or self.ollama_model or "llama3:latest"
+        return RouteCandidate(provider=provider, model=model)
+
+    def _build_candidates_from_new_schema(
+        self, task_prefix: str, branch: Literal["local", "server"]
+    ) -> list[RouteCandidate]:
+        candidates: list[RouteCandidate] = []
+
+        primary_provider = getattr(self, f"{task_prefix}_{branch}_primary_provider", None)
+        primary_model = getattr(self, f"{task_prefix}_{branch}_primary_model", None)
+        if primary_provider and primary_model:
+            candidates.append(RouteCandidate(provider=primary_provider, model=primary_model))
+
+        for fallback_num in [1, 2, 3]:
+            fallback_provider = getattr(
+                self, f"{task_prefix}_{branch}_fallback{fallback_num}_provider", None
+            )
+            fallback_model = getattr(
+                self, f"{task_prefix}_{branch}_fallback{fallback_num}_model", None
+            )
+            if fallback_provider and fallback_model:
+                candidates.append(RouteCandidate(provider=fallback_provider, model=fallback_model))
+
+        return candidates
+
+    def _build_candidates_from_old_schema(self, task_prefix: str) -> list[RouteCandidate]:
+        candidates: list[RouteCandidate] = []
+
+        primary_provider = getattr(self, f"{task_prefix}_primary_provider", None)
+        primary_model = getattr(self, f"{task_prefix}_primary_model", None)
+        if primary_provider and primary_model:
+            candidates.append(RouteCandidate(provider=primary_provider, model=primary_model))
+
+        for fallback_num in [1, 2, 3]:
+            fallback_provider = getattr(
+                self, f"{task_prefix}_fallback{fallback_num}_provider", None
+            )
+            fallback_model = getattr(self, f"{task_prefix}_fallback{fallback_num}_model", None)
+            if fallback_provider and fallback_model:
+                candidates.append(RouteCandidate(provider=fallback_provider, model=fallback_model))
+
+        return candidates
+
+    def _has_new_schema(self, task_prefix: str) -> bool:
+        local_provider = getattr(self, f"{task_prefix}_local_primary_provider", None)
+        server_provider = getattr(self, f"{task_prefix}_server_primary_provider", None)
+        return (local_provider is not None and local_provider != "") or (
+            server_provider is not None and server_provider != ""
+        )
+
+    @property
+    def llm_routes(self) -> dict[str, dict[str, list[RouteCandidate]]]:
+        routes: dict[str, dict[str, list[RouteCandidate]]] = {}
+
+        task_prefixes = ["tech", "news", "synthesis", "verifier"]
+        for task_prefix in task_prefixes:
+            routes[task_prefix] = {}
+            routes[task_prefix]["local"] = self._build_candidates_from_new_schema(
+                task_prefix, "local"
+            )
+            routes[task_prefix]["server"] = self._build_candidates_from_new_schema(
+                task_prefix, "server"
+            )
+
+        return routes
+
+    def get_task_candidates(self, task_name: str) -> list[RouteCandidate]:
+        task_name_to_prefix = {
+            "tech_analysis": "tech",
+            "news_analysis": "news",
+            "synthesis": "synthesis",
+            "verification": "verifier",
+        }
+
+        task_prefix = task_name_to_prefix.get(task_name)
+        if not task_prefix:
+            return []
+
+        if self._has_new_schema(task_prefix):
+            branch = self.runtime_env
+            return self._build_candidates_from_new_schema(task_prefix, branch)
+
+        return self._build_candidates_from_old_schema(task_prefix)
 
     model_config = SettingsConfigDict(
         env_file=".env",

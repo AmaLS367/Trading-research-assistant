@@ -124,15 +124,16 @@ def create_llm_providers() -> dict[str, LlmProvider]:
 
 
 def create_llm_router() -> LlmRouter:
+    from src.app.settings import LlmRouteStep, LlmTaskRouting
+
     providers = create_llm_providers()
     routing_config = settings.get_llm_routing_config()
 
-    task_routings = {
-        TASK_TECH_ANALYSIS: settings.get_tech_routing(),
-        TASK_NEWS_ANALYSIS: settings.get_news_routing(),
-        TASK_SYNTHESIS: settings.get_synthesis_routing(),
-        TASK_VERIFICATION: settings.get_verifier_routing(),
-    }
+    task_routings = {}
+    for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
+        candidates = settings.get_task_candidates(task_name)
+        steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
+        task_routings[task_name] = LlmTaskRouting(steps=steps)
 
     return LlmRouter(providers, routing_config, task_routings)
 
