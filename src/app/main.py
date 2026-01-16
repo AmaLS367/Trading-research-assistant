@@ -312,6 +312,10 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         orchestrator = create_orchestrator()
 
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
+        if verbose:
+            from src.app.settings import settings
+
+            console.print(f"[dim]Verbose logging enabled. Logs directory: {settings.log_dir}[/dim]")
         console.print()
         run_id = orchestrator.run_analysis(symbol=symbol, timeframe=timeframe)
         console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")

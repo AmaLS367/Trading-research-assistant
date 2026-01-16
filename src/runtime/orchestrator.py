@@ -6,6 +6,7 @@ from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
+from src.core.logging_helpers import stage_timer
 from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
 from src.core.models.recommendation import Recommendation
@@ -68,16 +69,21 @@ class RuntimeOrchestrator:
         )
         run_id = self.storage.runs.create(run)
         self.logger.info(f"Starting run {run_id} for {symbol} on {timeframe.value}")
+        self.logger.debug(
+            f"Run config: symbol={symbol}, timeframe={timeframe.value}, "
+            f"llm_enabled={settings.runtime_llm_enabled}"
+        )
 
         try:
-            fetch_market_data_job = FetchMarketDataJob(
-                self.market_data_provider, candles_repository=self.candles_repository
-            )
-            market_result = fetch_market_data_job.run(
-                symbol=symbol,
-                timeframe=timeframe,
-                count=300,
-            )
+            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=300):
+                fetch_market_data_job = FetchMarketDataJob(
+                    self.market_data_provider, candles_repository=self.candles_repository
+                )
+                market_result = fetch_market_data_job.run(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    count=300,
+                )
             if not market_result.ok:
                 self.logger.error(
                     f"Run {run_id} failed at market data fetch: {market_result.error}"
@@ -90,12 +96,19 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No candles returned from market data job")
                 return run_id
 
-            build_features_job = BuildFeaturesJob()
-            features_result = build_features_job.run(
-                symbol=symbol,
-                timeframe=timeframe,
-                candles=candles,
+            self.logger.debug(
+                f"Candles fetched: count={len(candles)}, "
+                f"first_ts={candles[0].timestamp if candles else None}, "
+                f"last_ts={candles[-1].timestamp if candles else None}"
             )
+
+            with stage_timer("build_features", symbol=symbol, candles_count=len(candles)):
+                build_features_job = BuildFeaturesJob()
+                features_result = build_features_job.run(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    candles=candles,
+                )
             if not features_result.ok:
                 self._mark_run_failed(run_id, features_result.error)
                 return run_id
@@ -109,9 +122,22 @@ class RuntimeOrchestrator:
                 return run_id
 
             snapshot, signal = features_value
+            self.logger.debug(
+                f"Indicators calculated: indicators_count={len(snapshot.indicators)}, "
+                f"regime={signal.regime}, "
+                f"volatility={signal.volatility if hasattr(signal, 'volatility') else None}"
+            )
 
-            technical_view, tech_llm_response = self.technical_analyst.analyze(
-                snapshot, symbol, timeframe
+            with stage_timer("tech_analysis", symbol=symbol, timeframe=timeframe.value):
+                technical_view, tech_llm_response = self.technical_analyst.analyze(
+                    snapshot, symbol, timeframe
+                )
+            self.logger.debug(
+                f"Tech analysis complete: provider={tech_llm_response.provider_name}, "
+                f"model={tech_llm_response.model_name}, "
+                f"latency_ms={tech_llm_response.latency_ms}, "
+                f"attempts={tech_llm_response.attempts}, "
+                f"error={tech_llm_response.error or 'none'}"
             )
             technical_rationale = Rationale(
                 run_id=run_id,
@@ -143,8 +169,9 @@ class RuntimeOrchestrator:
                 run_id, TASK_TECH_ANALYSIS, tech_request, tech_llm_response
             )
 
-            fetch_news_job = FetchNewsJob(self.news_provider)
-            news_result = fetch_news_job.run(symbol=symbol, timeframe=timeframe)
+            with stage_timer("fetch_news", symbol=symbol, timeframe=timeframe.value):
+                fetch_news_job = FetchNewsJob(self.news_provider)
+                news_result = fetch_news_job.run(symbol=symbol, timeframe=timeframe)
             if not news_result.ok:
                 self._mark_run_failed(run_id, news_result.error)
                 return run_id
@@ -154,7 +181,21 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No news digest returned from fetch news job")
                 return run_id
 
-            analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
+            self.logger.debug(
+                f"News fetched: provider={news_digest.provider_used or 'N/A'}, "
+                f"quality={news_digest.quality}, articles_count={len(news_digest.articles) if news_digest.articles else 0}"
+            )
+
+            with stage_timer("news_analysis", symbol=symbol):
+                analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
+            if news_llm_response:
+                self.logger.debug(
+                    f"News analysis complete: provider={news_llm_response.provider_name}, "
+                    f"model={news_llm_response.model_name}, "
+                    f"latency_ms={news_llm_response.latency_ms}, "
+                    f"attempts={news_llm_response.attempts}, "
+                    f"error={news_llm_response.error or 'none'}"
+                )
             news_content = (
                 f"Quality: {analyzed_news_digest.quality}\n"
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
@@ -197,12 +238,24 @@ Provide your analysis as JSON."""
                     run_id, TASK_NEWS_ANALYSIS, news_request, news_llm_response
                 )
 
-            recommendation, synthesis_debug, synthesis_llm_response = self.synthesizer.synthesize(
-                symbol=symbol,
-                timeframe=timeframe,
-                technical_view=technical_view,
-                news_digest=analyzed_news_digest,
-            )
+            with stage_timer("synthesis", symbol=symbol, timeframe=timeframe.value):
+                recommendation, synthesis_debug, synthesis_llm_response = (
+                    self.synthesizer.synthesize(
+                        symbol=symbol,
+                        timeframe=timeframe,
+                        technical_view=technical_view,
+                        news_digest=analyzed_news_digest,
+                    )
+                )
+            if synthesis_llm_response:
+                self.logger.debug(
+                    f"Synthesis complete: provider={synthesis_llm_response.provider_name}, "
+                    f"model={synthesis_llm_response.model_name}, "
+                    f"latency_ms={synthesis_llm_response.latency_ms}, "
+                    f"attempts={synthesis_llm_response.attempts}, "
+                    f"error={synthesis_llm_response.error or 'none'}, "
+                    f"action={recommendation.action}, confidence={recommendation.confidence:.2%}"
+                )
 
             synthesis_content = (
                 f"Action: {recommendation.action}\n"
@@ -274,16 +327,24 @@ Based on the above information, provide your trading recommendation as JSON."""
                 verifier_enabled_value = settings.llm_verifier_enabled
 
             if verifier_enabled_value and self.verifier_agent:
-                inputs_summary = (
-                    f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
-                )
-                author_output = f"Action: {recommendation.action}\nBrief: {recommendation.brief}\nConfidence: {recommendation.confidence:.2%}"
+                with stage_timer("verification", symbol=symbol):
+                    inputs_summary = (
+                        f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
+                    )
+                    author_output = f"Action: {recommendation.action}\nBrief: {recommendation.brief}\nConfidence: {recommendation.confidence:.2%}"
 
-                verification_report = self.verifier_agent.verify(
-                    task_name=TASK_SYNTHESIS,
-                    inputs_summary=inputs_summary,
-                    author_output=author_output,
-                )
+                    verification_report = self.verifier_agent.verify(
+                        task_name=TASK_SYNTHESIS,
+                        inputs_summary=inputs_summary,
+                        author_output=author_output,
+                    )
+                if verification_report.provider_name:
+                    self.logger.debug(
+                        f"Verification complete: provider={verification_report.provider_name}, "
+                        f"model={verification_report.model_name or 'N/A'}, "
+                        f"passed={verification_report.passed}, "
+                        f"issues_count={len(verification_report.issues) if verification_report.issues else 0}"
+                    )
 
                 if self.verification_repository:
                     self.verification_repository.create(run_id, verification_report)
@@ -465,15 +526,20 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     last_synthesis_llm_response,
                                 )
 
-            persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
-            persist_result = persist_job.run(
-                run_id=run_id,
-                recommendation=recommendation,
-                rationales=[technical_rationale, news_rationale, synthesis_rationale],
-            )
+            with stage_timer("persistence", run_id=run_id):
+                persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
+                persist_result = persist_job.run(
+                    run_id=run_id,
+                    recommendation=recommendation,
+                    rationales=[technical_rationale, news_rationale, synthesis_rationale],
+                )
             if not persist_result.ok:
                 self._mark_run_failed(run_id, persist_result.error)
                 return run_id
+
+            self.logger.debug(
+                f"Persistence complete: run_id={run_id}, recommendation_id={persist_result.value}"
+            )
 
             self._mark_run_success(run_id)
             self.logger.info(f"Run {run_id} completed successfully")

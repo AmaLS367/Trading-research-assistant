@@ -7,9 +7,12 @@ from src.core.models.timeframe import Timeframe
 from src.core.ports.llm_tasks import TASK_TECH_ANALYSIS
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
 from src.llm.providers.llm_router import LlmRouter
+from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from src.core.models.llm import LlmResponse
+
+logger = get_logger(__name__)
 
 
 class TechnicalAnalyst:
@@ -71,6 +74,11 @@ class TechnicalAnalyst:
         system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
         user_prompt = snapshot.to_markdown()
 
+        logger.debug(
+            f"Tech analysis prompt built: symbol={symbol}, timeframe={timeframe.value}, "
+            f"system_prompt_chars={len(system_prompt)}, user_prompt_chars={len(user_prompt)}"
+        )
+
         llm_response = self.llm_router.generate(
             task=TASK_TECH_ANALYSIS,
             system_prompt=system_prompt,
@@ -82,5 +90,20 @@ class TechnicalAnalyst:
             technical_view = f"[LLM Error: {llm_response.error}] {technical_view}"
 
         guarded_view = self._apply_output_guard(technical_view, symbol, display_symbol)
+
+        # Extract key info from response for logging
+        action_bias = None
+        if "CALL" in guarded_view.upper() or "BUY" in guarded_view.upper():
+            action_bias = "CALL"
+        elif "PUT" in guarded_view.upper() or "SELL" in guarded_view.upper():
+            action_bias = "PUT"
+
+        logger.debug(
+            f"Tech analysis result parsed: action_bias={action_bias}, "
+            f"response_chars={len(guarded_view)}, "
+            f"rationale_summary={guarded_view[:100]}..."
+            if len(guarded_view) > 100
+            else f"rationale={guarded_view}"
+        )
 
         return guarded_view, llm_response

@@ -82,13 +82,27 @@ class InterceptHandler(logging.Handler):
         except ValueError:
             level = str(record.levelno)
 
+        # Find the frame that called the logger, skipping logging module and this handler
         frame: FrameType | None = logging.currentframe()
         depth = 2
-        while frame is not None and frame.f_code.co_filename == logging.__file__:
-            frame = frame.f_back
-            depth += 1
+        while frame is not None:
+            frame_filename = frame.f_code.co_filename
+            # Skip frames from logging module and this handler
+            if frame_filename == logging.__file__ or (
+                frame.f_code.co_name == "emit" and "logging_config" in frame_filename
+            ):
+                frame = frame.f_back
+                depth += 1
+            else:
+                break
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        # Use record.name as the logger name by patching the record
+        logger_opt = logger.opt(depth=depth, exception=record.exc_info)
+        # Patch the record to use the original logger name
+        def patcher(r: "Record") -> None:
+            r["name"] = record.name
+
+        logger_opt.patch(patcher).log(level, record.getMessage())
 
 
 def should_filter_http_libs(record: "Record") -> bool:
@@ -153,19 +167,20 @@ def configure_logging(*, verbose: bool = False) -> None:
     )
 
     # File sinks with JSON format
+    # Use DEBUG level for files to capture all details for debugging
+    file_level = "DEBUG"
     if settings.log_split_files:
-        # app.log - INFO and above
+        # app.log - DEBUG and above (for full debugging)
         logger.add(
             str(log_dir / "app.log"),
             format="{message}",
-            level=settings.log_level.upper(),
+            level=file_level,
             rotation=settings.log_rotation,
             retention=settings.log_retention,
             compression=settings.log_compression,
             serialize=True,
             backtrace=True,
             diagnose=True,
-            filter=lambda record: record["level"].no >= logger.level(settings.log_level.upper()).no,
         )
 
         # warnings.log - WARNING and above
@@ -194,11 +209,11 @@ def configure_logging(*, verbose: bool = False) -> None:
             diagnose=True,
         )
     else:
-        # Single app.log file
+        # Single app.log file - DEBUG level for full debugging
         logger.add(
             str(log_dir / "app.log"),
             format="{message}",
-            level=settings.log_level.upper(),
+            level=file_level,
             rotation=settings.log_rotation,
             retention=settings.log_retention,
             compression=settings.log_compression,
