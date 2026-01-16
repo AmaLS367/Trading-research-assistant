@@ -206,7 +206,6 @@ def test_end_to_end_pipeline_offline():
 
 
 def test_end_to_end_pipeline_with_trace():
-
     from src.core.pipeline_trace import PipelineTrace
 
     with tempfile.TemporaryDirectory() as tmpdir:
