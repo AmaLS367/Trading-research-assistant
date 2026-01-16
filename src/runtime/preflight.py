@@ -38,7 +38,7 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
             logger.info("→ Checking GPU/VRAM availability...")
 
         result = subprocess.run(
-            [str(Path(sys.executable)), "-m", "scripts.python.check_gpu"],
+            [str(Path(sys.executable)), "-m", "scripts.python.check_gpu", "--json"],
             cwd=str(project_root),
             capture_output=True,
             text=True,
@@ -46,21 +46,38 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
         )
 
         if result.returncode != 0:
-            logger.warning(f"Preflight: GPU check failed: {result.stderr[:200]}")
+            logger.error(f"Preflight: GPU check failed: {result.stderr[:200]}")
             return
 
-        gpu_info = _parse_gpu_check_output(result.stdout)
+        gpu_data = _parse_gpu_check_output(result.stdout)
+
+        profile = gpu_data.get("selected_profile") if gpu_data else None
+        if not profile and gpu_data:
+            threshold = getattr(settings, "local_gpu_min_vram_gb", 8.0)
+            gpu = gpu_data.get("gpu")
+            if gpu and isinstance(gpu, dict):
+                free_vram = gpu.get("free_vram_gb")
+                if isinstance(free_vram, (int, float)):
+                    profile = "large" if float(free_vram) >= threshold else "small"
+            if not profile:
+                profile = "small"
+
+        if not profile:
+            profile = "small"
 
         if verbose:
-            if gpu_info:
-                vram_gb = gpu_info.get("min_free_vram_gb", 0)
-                logger.info(f"✓ GPU check complete (VRAM: {vram_gb:.1f} GB)")
-            else:
-                logger.info("✓ GPU check complete (no GPU detected)")
+            free_vram_str = ""
+            if gpu_data:
+                gpu = gpu_data.get("gpu")
+                if gpu and isinstance(gpu, dict):
+                    free_vram = gpu.get("free_vram_gb")
+                    if isinstance(free_vram, (int, float)):
+                        free_vram_str = f", free_vram: {float(free_vram):.1f} GB"
+            logger.info(f"✓ GPU check complete (profile: {profile}{free_vram_str})")
 
         if download_models_script.exists():
             if verbose:
-                logger.info("→ Downloading models from routing configuration...")
+                logger.info("→ Downloading required models...")
 
             download_result = subprocess.run(
                 [
@@ -68,6 +85,8 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
                     "-m",
                     "scripts.python.download_models",
                     "--from-routing",
+                    "--profile",
+                    str(profile),
                 ],
                 cwd=str(project_root),
                 capture_output=True,
@@ -76,30 +95,42 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
             )
 
             if download_result.returncode != 0:
-                logger.warning(
+                logger.error(
                     f"Preflight: Model download failed: {download_result.stderr[:200] or download_result.stdout[:200]}"
                 )
             elif verbose:
                 logger.info("✓ Model download complete")
 
     except subprocess.TimeoutExpired:
-        logger.warning("Preflight: Script execution timed out, continuing with analysis")
+        logger.error("Preflight: Script execution timed out, continuing with analysis")
     except FileNotFoundError:
-        logger.warning("Preflight: Python executable not found, skipping preflight")
+        logger.error("Preflight: Python executable not found, skipping preflight")
     except Exception as e:
-        logger.warning(f"Preflight: Unexpected error: {e}, continuing with analysis")
+        logger.error(f"Preflight: Unexpected error: {e}, continuing with analysis")
 
 
-def _parse_gpu_check_output(output: str) -> dict[str, float] | None:
+def _parse_gpu_check_output(output: str) -> dict[str, object] | None:
     """
-    Parse GPU check output to extract VRAM information.
+    Parse GPU check output to extract VRAM information and profile.
 
     Supports:
-    - JSON output (if check_gpu.py is updated to output JSON)
-    - Text output with "Minimum free VRAM: X.XX GB" pattern
-    - Text output with "Free VRAM: X.XX GB" pattern
+    - JSON output (multi-line JSON from check_gpu.py --json)
+    - Text output with "Minimum free VRAM: X.XX GB" pattern (fallback)
+    - Text output with "Free VRAM: X.XX GB" pattern (fallback)
     """
     try:
+        stripped = output.strip()
+        if stripped:
+            try:
+                data = json.loads(stripped)
+                if isinstance(data, dict):
+                    if "selected_profile" in data:
+                        return data
+                    if "gpu" in data or "min_free_vram_gb" in data:
+                        return data
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+
         lines = output.split("\n")
         for line in lines:
             line = line.strip()
@@ -109,8 +140,11 @@ def _parse_gpu_check_output(output: str) -> dict[str, float] | None:
             if line.startswith("{") and line.endswith("}"):
                 try:
                     data = json.loads(line)
-                    if isinstance(data, dict) and "min_free_vram_gb" in data:
-                        return {"min_free_vram_gb": float(data["min_free_vram_gb"])}
+                    if isinstance(data, dict):
+                        if "selected_profile" in data:
+                            return data
+                        if "gpu" in data or "min_free_vram_gb" in data:
+                            return data
                 except (json.JSONDecodeError, KeyError, ValueError, TypeError):
                     pass
 
