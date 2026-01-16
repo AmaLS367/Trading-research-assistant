@@ -3,9 +3,13 @@
 GPU and RAM profiling script for LLM model selection.
 
 Checks available VRAM (GPU) and RAM to help determine which models can be run locally.
+
+Profile selection threshold is controlled by LOCAL_GPU_MIN_VRAM_GB environment variable
+(default: 8.0 GB). If free VRAM >= threshold, profile is "large", otherwise "small".
 """
 
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -40,34 +44,52 @@ def detect_gpu_nvidia_smi() -> tuple[dict[str, object] | None, str | None]:
             check=True,
         )
 
-        lines = result.stdout.strip().split("\n")
+        stdout = result.stdout.strip()
+        if not stdout:
+            return None, "nvidia-smi returned empty output"
+
+        lines = stdout.split("\n")
         if not lines or not lines[0]:
             return None, "nvidia-smi returned empty output"
 
         first_line = lines[0].strip()
-        parts = [p.strip() for p in first_line.split(",")]
-        if len(parts) < 4:
-            return None, f"nvidia-smi returned unexpected format: {first_line}"
+        if not first_line:
+            return None, "nvidia-smi returned empty first line"
 
-        name = parts[0]
-        total_mib = float(parts[1])
-        used_mib = float(parts[2])
-        free_mib = float(parts[3])
+        try:
+            reader = csv.reader([first_line])
+            parts = next(reader)
+            if len(parts) < 4:
+                error_msg = first_line[:250] if len(first_line) > 250 else first_line
+                return (
+                    None,
+                    f"nvidia-smi returned unexpected format (expected 4 fields, got {len(parts)}): {error_msg}",
+                )
 
-        total_gb = total_mib / 1024.0
-        used_gb = used_mib / 1024.0
-        free_gb = free_mib / 1024.0
+            name = parts[0].strip()
+            total_mib = float(parts[1].strip())
+            used_mib = float(parts[2].strip())
+            free_mib = float(parts[3].strip())
 
-        return {
-            "vendor": "nvidia",
-            "name": name,
-            "total_vram_gb": total_gb,
-            "used_vram_gb": used_gb,
-            "free_vram_gb": free_gb,
-        }, None
+            total_gb = total_mib / 1024.0
+            used_gb = used_mib / 1024.0
+            free_gb = free_mib / 1024.0
+
+            return {
+                "vendor": "nvidia",
+                "name": name,
+                "total_vram_gb": total_gb,
+                "used_vram_gb": used_gb,
+                "free_vram_gb": free_gb,
+            }, None
+
+        except (ValueError, StopIteration) as e:
+            error_msg = first_line[:250] if len(first_line) > 250 else first_line
+            return None, f"nvidia-smi parse error: {str(e)}, output: {error_msg}"
 
     except subprocess.CalledProcessError as e:
-        return None, f"nvidia-smi failed: {e.stderr.strip()}"
+        stderr_msg = e.stderr.strip()[:250] if e.stderr else "no stderr"
+        return None, f"nvidia-smi failed (exit {e.returncode}): {stderr_msg}"
     except FileNotFoundError:
         return None, "nvidia-smi not found in PATH"
     except subprocess.TimeoutExpired:
@@ -79,7 +101,7 @@ def detect_gpu_nvidia_smi() -> tuple[dict[str, object] | None, str | None]:
 def detect_gpu_torch() -> tuple[dict[str, object] | None, str | None]:
     """Detect GPU using torch.cuda. Returns (gpu_dict, error)."""
     try:
-        import torch  # type: ignore[import-untyped]
+        import torch
 
         if not torch.cuda.is_available():
             return None, "torch.cuda.is_available() returned False"
@@ -230,7 +252,10 @@ def get_summary_json() -> dict[str, object]:
 
 def main() -> int:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="GPU and RAM profiling script")
+    parser = argparse.ArgumentParser(
+        description="GPU and RAM profiling script for LLM model selection. "
+        "Profile threshold controlled by LOCAL_GPU_MIN_VRAM_GB (default: 8.0 GB)."
+    )
     parser.add_argument(
         "--json",
         action="store_true",
