@@ -1,6 +1,3 @@
-from core.models.candle import Candle
-
-
 from src.core.models.candle import Candle
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider

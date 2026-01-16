@@ -1,9 +1,3 @@
-from features.snapshots.feature_snapshot import FeatureSnapshot
-
-
-from core.models.signal import Signal
-
-
 from datetime import datetime
 
 from src.core.models.candle import Candle
@@ -51,7 +45,9 @@ class BuildFeaturesJob:
                 volatility=volatility,
             )
 
-            return JobResult[tuple[FeatureSnapshot, Signal]](ok=True, value=(snapshot, signal), error="")
+            return JobResult[tuple[FeatureSnapshot, Signal]](
+                ok=True, value=(snapshot, signal), error=""
+            )
 
         except Exception as e:
             return JobResult[tuple[FeatureSnapshot, Signal]](
