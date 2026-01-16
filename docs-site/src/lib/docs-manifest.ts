@@ -86,7 +86,10 @@ function getGroupForFile(fileName: string): string {
     return 'Getting Started';
   }
   
-  if (baseName === 'architecture' || baseName === 'import_rules' || baseName === 'import-rules') {
+  if (baseName === 'architecture' || baseName === 'import_rules' || baseName === 'import-rules' || 
+      baseName === 'env_configuration' || baseName === 'env-configuration' ||
+      baseName === 'llm_task_routing' || baseName === 'llm-task-routing' ||
+      baseName === 'logging') {
     return 'Reference';
   }
   
@@ -109,11 +112,16 @@ function getFileOrder(fileName: string): number {
     'usage_guide': 3,
     'usage-guide': 4,
     'architecture': 5,
-    'import_rules': 6,
-    'import-rules': 7,
-    'safety_policy': 8,
-    'safety-policy': 9,
-    'troubleshooting': 10,
+    'env_configuration': 6,
+    'env-configuration': 7,
+    'llm_task_routing': 8,
+    'llm-task-routing': 9,
+    'logging': 10,
+    'import_rules': 11,
+    'import-rules': 12,
+    'safety_policy': 13,
+    'safety-policy': 14,
+    'troubleshooting': 15,
   };
   
   return orderMap[baseName] || 999;
