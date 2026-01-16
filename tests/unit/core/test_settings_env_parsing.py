@@ -199,3 +199,67 @@ def test_logging_settings_defaults():
     assert isinstance(settings.log_enable_http_file, bool)
 
     get_settings.cache_clear()
+
+
+def test_ollama_server_url_placeholder_rejected():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "http://your-server-ip:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_url is None
+
+    get_settings.cache_clear()
+
+
+def test_ollama_server_url_localhost_rejected():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "http://127.0.0.1:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_url is None
+
+    get_settings.cache_clear()
+
+
+def test_ollama_server_url_valid_ipv4_accepted():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "http://123.45.67.89:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_url == "http://123.45.67.89:11434"
+
+    get_settings.cache_clear()
+
+
+def test_ollama_server_url_valid_domain_accepted():
+    with patch.dict(
+        os.environ,
+        {
+            "OLLAMA_SERVER_URL": "https://api.myserver.com:11434",
+        },
+        clear=False,
+    ):
+        get_settings.cache_clear()
+        settings = get_settings()
+
+        assert settings.ollama_server_url == "https://api.myserver.com:11434"
+
+    get_settings.cache_clear()

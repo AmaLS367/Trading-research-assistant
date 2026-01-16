@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -228,7 +230,6 @@ class Settings(BaseSettings):
 
     @field_validator(
         "ollama_local_url",
-        "ollama_server_url",
         "deepseek_api_base",
         mode="before",
     )
@@ -242,6 +243,49 @@ class Settings(BaseSettings):
         if not normalized.startswith(("http://", "https://")):
             return None
         return normalized
+
+    @field_validator("ollama_server_url", mode="before")
+    @classmethod
+    def _normalize_ollama_server_url(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+        if not Settings._is_valid_ollama_server_url(normalized):
+            return None
+        return normalized
+
+    @staticmethod
+    def _is_valid_ollama_server_url(url: str) -> bool:
+        if not url.startswith(("http://", "https://")):
+            return False
+
+        try:
+            parsed = urlparse(url)
+        except Exception:
+            return False
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        invalid_hostnames = {"your-server-ip", "example.com", "localhost", "127.0.0.1", "0.0.0.0"}
+        if hostname.lower() in invalid_hostnames:
+            return False
+
+        port = parsed.port
+        if port is not None and (port < 1 or port > 65535):
+            return False
+
+        ipv4_pattern = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
+        if ipv4_pattern.match(hostname):
+            parts = [int(p) for p in hostname.split(".")]
+            if all(0 <= p <= 255 for p in parts):
+                return True
+
+        domain_pattern = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+$")
+        return bool(domain_pattern.match(hostname) and "." in hostname)
 
     @field_validator("deepseek_api_key", mode="before")
     @classmethod
