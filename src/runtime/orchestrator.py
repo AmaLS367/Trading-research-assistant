@@ -78,7 +78,12 @@ class RuntimeOrchestrator:
         )
 
         try:
-            self.trace.emit(f"candles | start | symbol={symbol} timeframe={timeframe.value}")
+            provider_name = self.market_data_provider.__class__.__name__.replace(
+                "MarketDataProvider", ""
+            )
+            if not provider_name:
+                provider_name = self.market_data_provider.__class__.__name__
+            self.trace.step_start(f"Fetching market data from {provider_name}...")
             with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=300):
                 fetch_market_data_job = FetchMarketDataJob(
                     self.market_data_provider, candles_repository=self.candles_repository
@@ -100,9 +105,9 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No candles returned from market data job")
                 return run_id
 
-            self.trace.emit(f"candles | done | count={len(candles)}")
+            self.trace.step_done(f"Loaded {len(candles)} candles")
 
-            self.trace.emit(f"indicators | start | candles={len(candles)}")
+            self.trace.step_start("Calculating technical indicators...")
             with stage_timer("build_features", symbol=symbol, candles_count=len(candles)):
                 build_features_job = BuildFeaturesJob()
                 features_result = build_features_job.run(
@@ -123,16 +128,17 @@ class RuntimeOrchestrator:
                 return run_id
 
             snapshot, signal = features_value
-            self.trace.emit("indicators | done | ok")
+            indicators_count = len(snapshot.indicators) if snapshot.indicators else 0
+            self.trace.step_done(f"Calculated {indicators_count} indicators")
 
+            display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol.upper()
+            self.trace.step_start("Running technical analysis (LLM)...")
             with stage_timer("tech_analysis", symbol=symbol, timeframe=timeframe.value):
                 technical_view, tech_llm_response = self.technical_analyst.analyze(
                     snapshot, symbol, timeframe
                 )
-            self.trace.emit(
-                f"tech_llm | start | provider={tech_llm_response.provider_name} model={tech_llm_response.model_name}"
-            )
-            self.trace.emit("tech_llm | done | ok")
+            provider_model = f"{tech_llm_response.provider_name}/{tech_llm_response.model_name}"
+            self.trace.step_done(f"Technical analysis complete ({provider_model})")
             technical_rationale = Rationale(
                 run_id=run_id,
                 rationale_type=RationaleType.TECHNICAL,
@@ -147,7 +153,6 @@ class RuntimeOrchestrator:
 
             from src.agents.prompts.technical_prompts import get_technical_system_prompt
 
-            display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol.upper()
             tech_system_prompt = get_technical_system_prompt(display_symbol, timeframe.value)
             tech_user_prompt = snapshot.to_markdown()
 
@@ -163,7 +168,12 @@ class RuntimeOrchestrator:
                 run_id, TASK_TECH_ANALYSIS, tech_request, tech_llm_response
             )
 
-            self.trace.emit("news | start | providers=GDELT,NewsAPI")
+            self.trace.panel(
+                f"Technical Rationale ({display_symbol} {timeframe.value})",
+                technical_view,
+            )
+
+            self.trace.step_start("Fetching news context...")
             with stage_timer("fetch_news", symbol=symbol, timeframe=timeframe.value):
                 fetch_news_job = FetchNewsJob(self.news_provider)
                 news_result = fetch_news_job.run(symbol=symbol, timeframe=timeframe)
@@ -176,18 +186,22 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No news digest returned from fetch news job")
                 return run_id
 
-            articles_count = len(news_digest.articles) if news_digest.articles else 0
-            self.trace.emit(
-                f"news | done | articles={articles_count} quality={news_digest.quality.lower()}"
-            )
+            self.trace.step_done("News context retrieved")
 
-            with stage_timer("news_analysis", symbol=symbol):
-                analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
-            if news_llm_response:
-                self.trace.emit(
-                    f"news_llm | start | provider={news_llm_response.provider_name} model={news_llm_response.model_name}"
-                )
-                self.trace.emit("news_llm | done | ok")
+            if news_digest.quality != "LOW":
+                self.trace.step_start("Analyzing news with LLM...")
+                with stage_timer("news_analysis", symbol=symbol):
+                    analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
+                if news_llm_response:
+                    provider_model = (
+                        f"{news_llm_response.provider_name}/{news_llm_response.model_name}"
+                    )
+                    self.trace.step_done(f"News analysis complete ({provider_model})")
+                else:
+                    self.trace.step_done("News analysis complete")
+            else:
+                analyzed_news_digest = news_digest
+                news_llm_response = None
             news_content = (
                 f"Quality: {analyzed_news_digest.quality}\n"
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
@@ -204,6 +218,47 @@ class RuntimeOrchestrator:
                 attempts=news_llm_response.attempts if news_llm_response else None,
                 error=news_llm_response.error if news_llm_response else None,
             )
+
+            news_panel_lines: list[str] = []
+            news_panel_lines.append(
+                f"Provider used: {analyzed_news_digest.provider_used or 'NONE'}"
+            )
+            if analyzed_news_digest.provider_used is None:
+                news_panel_lines.append(
+                    f"Reason: {analyzed_news_digest.quality_reason or 'News quality too low'}"
+                )
+            news_panel_lines.append(f"Quality: {analyzed_news_digest.quality}")
+            if analyzed_news_digest.summary:
+                news_panel_lines.append(f"Summary: {analyzed_news_digest.summary}")
+            if analyzed_news_digest.sentiment:
+                news_panel_lines.append(f"Sentiment: {analyzed_news_digest.sentiment}")
+            if analyzed_news_digest.impact_score is not None:
+                news_panel_lines.append(f"Impact Score: {analyzed_news_digest.impact_score:.2f}")
+            if analyzed_news_digest.quality_reason:
+                news_panel_lines.append(f"Reason: {analyzed_news_digest.quality_reason}")
+            if analyzed_news_digest.candidates_total > 0:
+                news_panel_lines.append(
+                    f"Candidates: {analyzed_news_digest.candidates_total} total, {analyzed_news_digest.articles_after_filter} after filtering"
+                )
+            if analyzed_news_digest.pass_counts:
+                pass_stats: list[str] = []
+                for filter_type, counts in analyzed_news_digest.pass_counts.items():
+                    pass_stats.append(
+                        f"{filter_type}: strict={counts.get('strict', 0)}, medium={counts.get('medium', 0)}, broad={counts.get('broad', 0)}"
+                    )
+                if pass_stats:
+                    news_panel_lines.append("Pass Statistics:")
+                    news_panel_lines.extend(f"  {stat}" for stat in pass_stats)
+            if analyzed_news_digest.queries_used:
+                news_panel_lines.append("Top Queries:")
+                for query_tag, query_text in list(analyzed_news_digest.queries_used.items())[:5]:
+                    news_panel_lines.append(f"  {query_tag}: {query_text[:80]}...")
+            if analyzed_news_digest.gdelt_debug:
+                news_panel_lines.append("GDELT Diagnostics:")
+                for key, value in list(analyzed_news_digest.gdelt_debug.items())[:5]:
+                    news_panel_lines.append(f"  {key}: {value}")
+
+            self.trace.panel("News Digest", "\n".join(news_panel_lines))
 
             if news_llm_response:
                 from src.agents.prompts.news_prompts import get_news_analysis_system_prompt
@@ -230,6 +285,7 @@ Provide your analysis as JSON."""
                     run_id, TASK_NEWS_ANALYSIS, news_request, news_llm_response
                 )
 
+            self.trace.step_start("Synthesizing recommendation (LLM)...")
             with stage_timer("synthesis", symbol=symbol, timeframe=timeframe.value):
                 recommendation, synthesis_debug, synthesis_llm_response = (
                     self.synthesizer.synthesize(
@@ -240,10 +296,12 @@ Provide your analysis as JSON."""
                     )
                 )
             if synthesis_llm_response:
-                self.trace.emit(
-                    f"synthesis_llm | start | provider={synthesis_llm_response.provider_name} model={synthesis_llm_response.model_name}"
+                provider_model = (
+                    f"{synthesis_llm_response.provider_name}/{synthesis_llm_response.model_name}"
                 )
-                self.trace.emit("synthesis_llm | done | ok")
+                self.trace.step_done(f"Recommendation synthesized ({provider_model})")
+            else:
+                self.trace.step_done("Recommendation synthesized")
 
             synthesis_content = (
                 f"Action: {recommendation.action}\n"
@@ -263,6 +321,17 @@ Provide your analysis as JSON."""
                 attempts=synthesis_llm_response.attempts if synthesis_llm_response else None,
                 error=synthesis_llm_response.error if synthesis_llm_response else None,
             )
+
+            synthesis_panel_lines: list[str] = []
+            synthesis_panel_lines.append(f"Action: {recommendation.action}")
+            synthesis_panel_lines.append(f"Confidence: {recommendation.confidence:.2%}")
+            synthesis_panel_lines.append("")
+            synthesis_panel_lines.append(recommendation.brief)
+            if analyzed_news_digest.quality == "LOW":
+                synthesis_panel_lines.append("")
+                synthesis_panel_lines.append("System Note: News ignored due to LOW quality")
+
+            self.trace.panel("Synthesis Logic", "\n".join(synthesis_panel_lines))
 
             if synthesis_llm_response:
                 from src.agents.prompts.synthesis_prompts import get_synthesis_system_prompt
@@ -315,6 +384,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                 verifier_enabled_value = settings.llm_verifier_enabled
 
             if verifier_enabled_value and self.verifier_agent:
+                self.trace.step_start("Verifying recommendation (LLM)...")
                 with stage_timer("verification", symbol=symbol):
                     inputs_summary = (
                         f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
@@ -327,10 +397,10 @@ Based on the above information, provide your trading recommendation as JSON."""
                         author_output=author_output,
                     )
                 if verification_report.provider_name:
-                    self.trace.emit(
-                        f"verify_llm | start | provider={verification_report.provider_name} model={verification_report.model_name or 'N/A'}"
-                    )
-                    self.trace.emit("verify_llm | done | ok")
+                    provider_model = f"{verification_report.provider_name}/{verification_report.model_name or 'N/A'}"
+                    self.trace.step_done(f"Verification complete ({provider_model})")
+                else:
+                    self.trace.step_done("Verification complete")
 
                 if self.verification_repository:
                     self.verification_repository.create(run_id, verification_report)
@@ -512,6 +582,7 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     last_synthesis_llm_response,
                                 )
 
+            self.trace.step_start("Saving to database...")
             with stage_timer("persistence", run_id=run_id):
                 persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
                 persist_result = persist_job.run(
@@ -523,7 +594,9 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                 self._mark_run_failed(run_id, persist_result.error)
                 return run_id
 
-            # Emit LLM usage summary
+            recommendation_id = recommendation.id if recommendation.id else run_id
+            self.trace.step_done(f"Saved with ID: {recommendation_id}")
+
             tech_summary = f"{tech_llm_response.provider_name}/{tech_llm_response.model_name}"
             news_summary = (
                 f"{news_llm_response.provider_name}/{news_llm_response.model_name}"
@@ -540,9 +613,7 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                 if verification_report and verification_report.provider_name
                 else "none"
             )
-            self.trace.emit(
-                f"llm_used | summary | tech={tech_summary} news={news_summary} synthesis={synthesis_summary} verify={verify_summary}"
-            )
+            self.trace.llm_summary(tech_summary, news_summary, synthesis_summary, verify_summary)
 
             self._mark_run_success(run_id)
             self.logger.info(f"Run {run_id} completed successfully")

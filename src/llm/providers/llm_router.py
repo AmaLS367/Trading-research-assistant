@@ -197,7 +197,7 @@ class LlmRouter:
                 f"duration_ms={request_duration_ms:.1f}, error={response.error}, attempts={attempts}"
             )
 
-        logger.warning(
+        logger.error(
             f"All configured providers failed for task={request.task}, "
             f"attempts={attempts}, last_error={last_error}, trying last resort"
         )

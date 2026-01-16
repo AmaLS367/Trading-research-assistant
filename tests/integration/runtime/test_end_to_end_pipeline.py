@@ -206,7 +206,6 @@ def test_end_to_end_pipeline_offline():
 
 
 def test_end_to_end_pipeline_with_trace():
-    import io
 
     from src.core.pipeline_trace import PipelineTrace
 
@@ -284,8 +283,10 @@ def test_end_to_end_pipeline_with_trace():
             news_analyst = NewsAnalyst(router)
             synthesizer = Synthesizer(router)
 
-            trace = PipelineTrace(enabled=True)
-            captured_output = io.StringIO()
+            from unittest.mock import MagicMock
+
+            mock_reporter = MagicMock()
+            trace = PipelineTrace(enabled=True, reporter=mock_reporter)
 
             orchestrator = RuntimeOrchestrator(
                 storage=storage,
@@ -302,18 +303,28 @@ def test_end_to_end_pipeline_with_trace():
                 trace=trace,
             )
 
-            with patch("sys.stdout", captured_output):
-                run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
+            run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
 
             assert run_id > 0
 
-            output = captured_output.getvalue()
+            # Check that verbose reporter methods were called
+            assert mock_reporter.step_start.called
+            assert mock_reporter.step_done.called
+            assert mock_reporter.panel.called
+            assert mock_reporter.llm_summary.called
 
-            # Check for trace messages
-            assert "TRACE | candles |" in output
-            assert "TRACE | indicators |" in output
-            assert "TRACE | tech_llm | start | provider=" in output
-            assert "TRACE | news |" in output
-            # news_llm may not appear if news quality is LOW and no LLM analysis is done
-            assert "TRACE | synthesis_llm | start | provider=" in output
-            assert "TRACE | llm_used | summary |" in output
+            # Check specific step calls
+            step_start_calls = [str(call) for call in mock_reporter.step_start.call_args_list]
+            step_done_calls = [str(call) for call in mock_reporter.step_done.call_args_list]
+
+            assert any("Fetching market data" in str(call) for call in step_start_calls)
+            assert any("candles" in str(call) for call in step_done_calls)
+            assert any("Calculating technical indicators" in str(call) for call in step_start_calls)
+            assert any("indicators" in str(call) for call in step_done_calls)
+            assert any("technical analysis" in str(call).lower() for call in step_start_calls)
+
+            # Check panel calls
+            panel_calls = [str(call) for call in mock_reporter.panel.call_args_list]
+            assert any("Technical Rationale" in str(call) for call in panel_calls)
+            assert any("News Digest" in str(call) for call in panel_calls)
+            assert any("Synthesis Logic" in str(call) for call in panel_calls)

@@ -310,15 +310,30 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         return
 
     try:
-        trace = PipelineTrace(enabled=verbose)
-        orchestrator = create_orchestrator(trace=trace)
+        if verbose:
+            from src.ui.cli.verbose_reporter import RichVerboseReporter
 
-        console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
-        console.print()
+            verbose_reporter = RichVerboseReporter(console)
+            trace = PipelineTrace(enabled=True, reporter=verbose_reporter)
+            console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
+            console.print()
+        else:
+            trace = PipelineTrace(enabled=False)
+            console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
+            console.print()
+
+        orchestrator = create_orchestrator(trace=trace)
         run_id = orchestrator.run_analysis(symbol=symbol, timeframe=timeframe)
-        console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")
-        console.print()
-        show_latest()
+
+        if not verbose:
+            console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")
+            console.print()
+            show_latest()
+        else:
+            console.print()
+            console.print(f"[green]Analysis complete! Recommendation ID: {run_id}[/green]")
+            console.print()
+            show_latest()
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
     except httpx.HTTPStatusError as e:
