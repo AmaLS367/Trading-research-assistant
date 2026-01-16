@@ -235,12 +235,14 @@ def test_collect_models_from_routing_skips_api_providers() -> None:
 
         from scripts.python.download_models import collect_models_from_routing
 
-        ollama_models, hf_models = collect_models_from_routing()
+        ollama_local_models, ollama_server_models, hf_models = collect_models_from_routing()
 
-        assert "llama3:latest" in ollama_models
-        assert "deepseek-chat" not in ollama_models
+        assert "llama3:latest" in ollama_local_models
+        assert "deepseek-chat" not in ollama_local_models
+        assert "deepseek-chat" not in ollama_server_models
         assert "deepseek-chat" not in hf_models
-        assert "gpt-4" not in ollama_models
+        assert "gpt-4" not in ollama_local_models
+        assert "gpt-4" not in ollama_server_models
         assert "gpt-4" not in hf_models
 
 

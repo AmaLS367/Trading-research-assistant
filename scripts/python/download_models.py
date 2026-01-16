@@ -15,8 +15,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.app.settings import settings  # noqa: E402
-from src.core.ports.llm_tasks import (  # noqa: E402
+from huggingface_hub import snapshot_download
+
+from src.app.settings import settings
+from src.core.ports.llm_tasks import (
     TASK_NEWS_ANALYSIS,
     TASK_SYNTHESIS,
     TASK_TECH_ANALYSIS,
@@ -67,8 +69,6 @@ def get_hf_token() -> str | None:
 def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
     """Download a model from Hugging Face using huggingface_hub library."""
     try:
-        from huggingface_hub import snapshot_download
-
         token = get_hf_token()
         token_status = "yes" if token else "no"
         print(f"Downloading {model_id} (token provided: {token_status})...")
@@ -81,9 +81,6 @@ def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
         )
         print(f"✓ Downloaded {model_id}")
         return True
-    except ImportError:
-        print("✗ huggingface_hub not found. Install with: pip install huggingface-hub")
-        return False
     except Exception as e:
         print(f"✗ Failed to download {model_id}: {e}")
         return False
@@ -109,12 +106,16 @@ def ollama_list_models(base_url: str | None = None) -> set[str]:
         return set()
 
 
-def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
+def ollama_pull(model_name: str, base_url: str | None = None, dry_run: bool = False) -> bool:
     """Ensure model exists in Ollama. Pull if not present."""
     try:
         available_models = ollama_list_models(base_url)
         if model_name in available_models:
             print(f"INFO: ensure model {model_name} ok (already present)")
+            return True
+
+        if dry_run:
+            print(f"INFO: would pull {model_name}")
             return True
 
         cmd = ["ollama", "pull", model_name]
@@ -133,18 +134,22 @@ def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
         return False
 
 
-def collect_models_from_routing() -> tuple[set[str], set[str]]:
+def collect_models_from_routing(profile: str = "small") -> tuple[set[str], set[str], set[str]]:
     """Collect all unique model names from routing configuration.
-    Returns (ollama_models, hf_models) based on provider type.
+    Returns (ollama_local_models, ollama_server_models, hf_models) based on provider type.
     Skips API providers (deepseek_api, openai, google, etc.).
+    Filters by profile and runtime_env.
     """
-    ollama_models: set[str] = set()
+    ollama_local_models: set[str] = set()
+    ollama_server_models: set[str] = set()
     hf_models: set[str] = set()
 
     from src.core.ports.llm_provider_name import (
         PROVIDER_OLLAMA_LOCAL,
         PROVIDER_OLLAMA_SERVER,
     )
+
+    runtime_env = settings.runtime_env
 
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
         candidates = settings.get_task_candidates(task_name)
@@ -156,18 +161,58 @@ def collect_models_from_routing() -> tuple[set[str], set[str]]:
             if not model:
                 continue
 
-            if provider.endswith("_api") or provider == "deepseek_api":
+            if provider.endswith("_api") or provider in [
+                "deepseek_api",
+                "openai_api",
+                "google_api",
+            ]:
                 print(f"INFO: skip api model {model} (provider: {provider})")
                 continue
 
-            if provider in [PROVIDER_OLLAMA_LOCAL, PROVIDER_OLLAMA_SERVER] or provider.startswith(
-                "ollama_"
-            ):
-                ollama_models.add(model)
-            elif provider == "hf_local":
+            if provider == PROVIDER_OLLAMA_LOCAL or provider.startswith("ollama_local"):
+                if profile == "small" or runtime_env == "local":
+                    ollama_local_models.add(model)
+            elif provider == PROVIDER_OLLAMA_SERVER or provider.startswith("ollama_server"):
+                if profile == "large" and runtime_env == "server":
+                    ollama_server_models.add(model)
+            elif provider == "hf_local" or provider.startswith("hf_"):
                 hf_models.add(model)
 
-    return ollama_models, hf_models
+    return ollama_local_models, ollama_server_models, hf_models
+
+
+def check_ollama_server_available() -> tuple[bool, str | None]:
+    """Check if Ollama server is available and valid."""
+    if not settings.ollama_server_enabled:
+        return False, "OLLAMA_SERVER_URL is not valid or disabled"
+    server_url = settings._get_ollama_server_url()
+    if not server_url:
+        return False, "OLLAMA_SERVER_URL not configured"
+    return True, None
+
+
+def check_ollama_server_model(model_name: str) -> tuple[bool, str | None]:
+    """Check if model exists on Ollama server. Returns (exists, error)."""
+    try:
+        import httpx
+
+        server_url = settings._get_ollama_server_url()
+        if not server_url:
+            return False, "OLLAMA_SERVER_URL not configured"
+
+        response = httpx.get(f"{server_url}/api/tags", timeout=10.0)
+        if response.status_code != 200:
+            return False, f"Server returned status {response.status_code}"
+
+        data = response.json()
+        models = data.get("models", [])
+        for model in models:
+            if model.get("name") == model_name:
+                return True, None
+
+        return False, None
+    except Exception as e:
+        return False, str(e)
 
 
 def main() -> int:
@@ -203,6 +248,18 @@ def main() -> int:
         type=str,
         help="Hugging Face cache directory (defaults to HF_HOME or XDG_CACHE_HOME)",
     )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        choices=["small", "large"],
+        default="small",
+        help="Profile to use (default: small)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without actually downloading",
+    )
 
     args = parser.parse_args()
 
@@ -213,39 +270,70 @@ def main() -> int:
     success = True
 
     if args.from_routing:
-        ollama_models, hf_models = collect_models_from_routing()
-        total_models = len(ollama_models) + len(hf_models)
+        ollama_local_models, ollama_server_models, hf_models = collect_models_from_routing(
+            args.profile
+        )
+        total_models = len(ollama_local_models) + len(ollama_server_models) + len(hf_models)
 
         if total_models == 0:
-            print("No models found in routing configuration")
-            return 1
+            print("No models found in routing configuration for this profile")
+            return 0 if args.dry_run else 1
 
-        print(f"Found {total_models} unique model(s) in routing:")
-        if ollama_models:
-            print(f"  Ollama models ({len(ollama_models)}):")
-            for model in sorted(ollama_models):
+        print(f"Found {total_models} unique model(s) in routing (profile: {args.profile}):")
+        if ollama_local_models:
+            print(f"  Ollama local models ({len(ollama_local_models)}):")
+            for model in sorted(ollama_local_models):
+                print(f"    - {model}")
+        if ollama_server_models:
+            print(f"  Ollama server models ({len(ollama_server_models)}):")
+            for model in sorted(ollama_server_models):
                 print(f"    - {model}")
         if hf_models:
             print(f"  Hugging Face models ({len(hf_models)}):")
             for model in sorted(hf_models):
                 print(f"    - {model}")
 
-        ollama_url = args.ollama_url
-        if not ollama_url:
-            ollama_url = settings._get_ollama_local_url()
+        ollama_local_url = args.ollama_url
+        if not ollama_local_url:
+            ollama_local_url = settings._get_ollama_local_url()
 
-        if ollama_models:
-            print("\nEnsuring Ollama models are available...")
-            for model in sorted(ollama_models):
-                if not ollama_pull(model, ollama_url):
+        if ollama_local_models:
+            print("\nEnsuring Ollama local models are available...")
+            for model in sorted(ollama_local_models):
+                if (
+                    not ollama_pull(model, ollama_local_url, dry_run=args.dry_run)
+                    and not args.dry_run
+                ):
                     success = False
+
+        if ollama_server_models:
+            print("\nChecking Ollama server models...")
+            server_available, server_error = check_ollama_server_available()
+            if not server_available:
+                print(f"WARNING: Ollama server not available: {server_error}")
+                print("Skipping server models")
+            else:
+                for model in sorted(ollama_server_models):
+                    exists, error = check_ollama_server_model(model)
+                    if exists:
+                        print(f"INFO: server model {model} ok (already present)")
+                    else:
+                        if error:
+                            print(f"ERROR: server model {model} not found: {error}")
+                            if not args.dry_run:
+                                success = False
+                        else:
+                            print(f"WARNING: server model {model} not found on server")
 
         if hf_models:
             hf_cache = Path(args.hf_cache_dir) if args.hf_cache_dir else get_hf_cache_dir()
             print("\nDownloading Hugging Face models...")
             for model in sorted(hf_models):
-                if not download_hf_model(model, hf_cache):
-                    success = False
+                if args.dry_run:
+                    print(f"INFO: would download {model}")
+                else:
+                    if not download_hf_model(model, hf_cache):
+                        success = False
 
             if args.prefetch_ollama:
                 print("\nPrefetching HF models in Ollama...")
@@ -254,7 +342,10 @@ def main() -> int:
                     ollama_url = settings._get_ollama_local_url()
 
                 for model in sorted(hf_models):
-                    if not ollama_pull(model, ollama_url):
+                    if (
+                        not ollama_pull(model, ollama_url, dry_run=args.dry_run)
+                        and not args.dry_run
+                    ):
                         success = False
 
     if args.hf_model:
@@ -268,8 +359,14 @@ def main() -> int:
         if not ollama_url:
             ollama_url = settings._get_ollama_local_url()
 
-        if not ollama_pull(args.ollama_model, ollama_url):
+        if (
+            not ollama_pull(args.ollama_model, ollama_url, dry_run=args.dry_run)
+            and not args.dry_run
+        ):
             success = False
+
+    if args.dry_run:
+        return 0
 
     return 0 if success else 1
 
