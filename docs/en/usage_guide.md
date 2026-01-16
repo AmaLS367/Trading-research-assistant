@@ -56,6 +56,8 @@ cp .env.example .env
 
 Then edit `.env` and replace placeholder values with your actual API keys.
 
+For detailed description of all environment variables, see [Environment Configuration](./env_configuration.md).
+
 ### Database Initialization
 
 Before first use, initialize the database:
@@ -518,6 +520,8 @@ This script verifies:
 <summary><strong>📚 Related Documentation</strong></summary>
 
 - [Project Architecture](./architecture.md) - Detailed architecture documentation
+- [Environment Configuration](./env_configuration.md) - Complete description of all .env variables
+- [LLM Task Routing](./llm_task_routing.md) - LLM routing by tasks and branches
 - [Import Rules](./import_rules.md) - Module dependency rules
 - [Safety Policy](./safety_policy.md) - Risk management policies
 - [Troubleshooting Guide](./troubleshooting.md) - Common issues and solutions

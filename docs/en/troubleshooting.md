@@ -19,6 +19,7 @@
 - [Database Problems](#-database-problems)
 - [Data Retrieval Issues](#-data-retrieval-issues)
 - [Performance Issues](#-performance-issues)
+- [Configuration and Environment Variable Issues](#-configuration-and-environment-variable-issues)
 - [General Tips](#-general-tips)
 
 </details>
@@ -626,6 +627,594 @@ python -c "import httpx; print(httpx.get('https://api-fxpractice.oanda.com/v3/ac
 # Check Ollama
 curl http://localhost:11434/api/tags
 ```
+
+---
+
+## 🔧 Configuration and Environment Variable Issues
+
+### Problem: Timeout at 60 seconds for Ollama
+
+**Symptoms:**
+```
+Provider response failed: task=news_analysis, provider=ollama_local, model=qwen2.5:7b, timeout_seconds=60.0, attempt=1, elapsed_ms=62000, error=timed out
+Provider timeout: timeout_seconds=60.0
+```
+
+**Cause:** Default timeout is too short for local Ollama models, especially for `news_analysis`, `synthesis`, and `verification` tasks.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check current timeout settings:**
+   ```bash
+   python -c "from src.app.settings import settings; print(f'OLLAMA_LOCAL_TIMEOUT_SECONDS: {settings.ollama_local_timeout_seconds}')"
+   ```
+
+2. **Increase timeout for specific task in `.env`:**
+   ```bash
+   # For news_analysis (recommended 240 seconds)
+   OLLAMA_LOCAL_NEWS_TIMEOUT_SECONDS=240.0
+   
+   # For synthesis (recommended 240 seconds)
+   OLLAMA_LOCAL_SYNTHESIS_TIMEOUT_SECONDS=240.0
+   
+   # For verification (recommended 240 seconds)
+   OLLAMA_LOCAL_VERIFIER_TIMEOUT_SECONDS=240.0
+   
+   # For tech_analysis (recommended 120 seconds)
+   OLLAMA_LOCAL_TECH_TIMEOUT_SECONDS=120.0
+   ```
+
+3. **Or set general timeout for ollama_local:**
+   ```bash
+   OLLAMA_LOCAL_TIMEOUT_SECONDS=240.0
+   ```
+
+4. **Check timeout priority:**
+   - Priority 1: `OLLAMA_LOCAL_{TASK}_TIMEOUT_SECONDS` (highest)
+   - Priority 2: `OLLAMA_LOCAL_TIMEOUT_SECONDS`
+   - Priority 3: `{TASK}_TIMEOUT_SECONDS` (e.g., `NEWS_TIMEOUT_SECONDS`)
+   - Priority 4: `LLM_TIMEOUT_SECONDS` (global, default 60.0)
+
+5. **Restart application** after changing `.env`
+
+</details>
+
+**Diagnostics:**
+- Check logs for `timeout_seconds=60.0` for tasks that should use Ollama
+- Ensure model is not overloaded by other processes
+- Check VRAM usage: `nvidia-smi` (if using GPU)
+
+---
+
+### Problem: Model not found (model not found)
+
+**Symptoms:**
+```
+Provider response failed: task=news_analysis, provider=ollama_local, model=qwen2.5:7b, error=model not found
+ollama: model 'qwen2.5:7b' not found, try pulling it first
+Error: model 'qwen2.5:7b' not found
+```
+
+**Cause:** Model is not loaded in Ollama or incorrect model name is specified.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check list of available models:**
+   ```bash
+   ollama list
+   ```
+
+2. **Check model name in `.env`:**
+   ```bash
+   # For local branch
+   NEWS_LOCAL_PRIMARY_MODEL=qwen2.5:7b
+   
+   # Ensure name exactly matches what `ollama list` shows
+   ```
+
+3. **Load model manually:**
+   ```bash
+   ollama pull qwen2.5:7b
+   ```
+
+4. **Or use automatic download:**
+   ```bash
+   python -m scripts.python.download_models --from-routing
+   ```
+
+5. **Verify model accessibility:**
+   ```bash
+   ollama run qwen2.5:7b "test"
+   ```
+
+6. **If model not found on Hugging Face:**
+   - Check that model exists: https://huggingface.co/models
+   - For gated models, set `HF_TOKEN` in `.env`
+   - Check internet connection
+
+</details>
+
+**Prevention:**
+- Use `python -m scripts.python.download_models --from-routing` before first run
+- Check preflight logs for model download errors
+- Ensure `HUGGINGFACE_HUB_CACHE` points to accessible directory
+
+---
+
+### Problem: Provider unavailable (provider unavailable)
+
+**Symptoms:**
+```
+Provider unavailable, skipping: provider=deepseek_api
+Provider health check failed: provider=deepseek_api, error=API key not set
+```
+
+**Cause:** API key is not set, invalid, or provider is unavailable.
+
+**Solutions:**
+
+<details>
+<summary><strong>Diagnostics and fix</strong></summary>
+
+1. **Check API key presence in `.env`:**
+   ```bash
+   # For DeepSeek
+   DEEPSEEK_API_KEY=your_api_key_here
+   ```
+
+2. **Check key validity:**
+   ```bash
+   python -c "from src.app.settings import settings; print('DeepSeek key set:', bool(settings.deepseek_api_key))"
+   ```
+
+3. **Check health check in logs:**
+   - Look for `Provider health check` lines in startup logs
+   - Verify provider is marked as `available=True`
+
+4. **For DeepSeek API:**
+   - Get key at https://platform.deepseek.com/
+   - Ensure key has API usage permissions
+   - Check account balance
+
+5. **For Ollama Server:**
+   - Check that `OLLAMA_SERVER_URL` is accessible
+   - Ensure URL is not `localhost` or `127.0.0.1` (for server branch)
+   - Verify server is running: `curl http://your-server:11434/api/tags`
+
+</details>
+
+**Diagnostics:**
+- Check preflight logs for health check errors
+- Ensure environment variables are loaded before application startup
+- Check network accessibility for remote providers
+
+---
+
+### Problem: OLLAMA_SERVER_URL not working
+
+**Symptoms:**
+```
+ConnectionRefusedError: [Errno 111] Connection refused
+httpx.ConnectTimeout: Connection timeout
+Provider response failed: provider=ollama_server, error=Connection refused
+```
+
+**Cause:** Ollama server is unavailable, incorrect URL, or server is not running.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check `OLLAMA_SERVER_URL` value in `.env`:**
+   ```bash
+   OLLAMA_SERVER_URL=http://your-server-ip:11434
+   # DO NOT use localhost or 127.0.0.1 for server branch
+   ```
+
+2. **Check server accessibility:**
+   ```bash
+   # Ping check
+   ping your-server-ip
+   
+   # HTTP endpoint check
+   curl http://your-server-ip:11434/api/tags
+   ```
+
+3. **Check firewall and network rules:**
+   - Ensure port 11434 is open
+   - For AWS/GCP: check security groups
+   - For corporate networks: check proxy settings
+
+4. **Verify server is running:**
+   ```bash
+   # On server
+   ollama serve
+   # or check systemd service
+   systemctl status ollama
+   ```
+
+5. **Check Ollama server logs:**
+   - On server, check logs for errors
+   - Ensure server is listening on correct interface
+
+</details>
+
+**Prevention:**
+- Use health check before running analysis
+- Set up monitoring for server availability
+- Use fallback providers
+
+---
+
+### Problem: All providers fail, last resort used
+
+**Symptoms:**
+```
+All configured providers failed, trying last resort
+Provider response failed: task=news_analysis, provider=ollama_local, error=...
+Provider response failed: task=news_analysis, provider=deepseek_api, error=...
+Switching to last resort: provider=ollama_local, model=llama3:latest
+```
+
+**Cause:** All configured providers are unavailable or failing with errors.
+
+**Solutions:**
+
+<details>
+<summary><strong>Diagnostics and fix</strong></summary>
+
+1. **Check last resort configuration in `.env`:**
+   ```bash
+   LLM_LAST_RESORT_PROVIDER=ollama_local
+   LLM_LAST_RESORT_MODEL=llama3:latest
+   OLLAMA_LOCAL_URL=http://localhost:11434
+   ```
+
+2. **Verify Ollama is running locally:**
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+3. **Verify `llama3:latest` model is loaded:**
+   ```bash
+   ollama list | grep llama3
+   # If not, load it:
+   ollama pull llama3:latest
+   ```
+
+4. **Check logs for provider failure reasons:**
+   - Look for specific errors for each provider
+   - Check timeouts (see "Timeout at 60 seconds" problem)
+   - Check API key availability
+
+5. **Temporary solution:**
+   - Use only `ollama_local` for all tasks
+   - Ensure all required models are loaded
+   - Increase timeouts for local models
+
+</details>
+
+**Prevention:**
+- Configure multiple fallback providers for each task
+- Regularly check health check of all providers
+- Monitor logs for early signs of problems
+
+---
+
+### Problem: RUNTIME_ENV does not switch branch
+
+**Symptoms:**
+- Providers from `local` branch are used, even though `RUNTIME_ENV=server` is set
+- Or vice versa: providers from `server` are used, even though `RUNTIME_ENV=local` is set
+
+**Cause:** Environment variable is not loaded or set after application startup.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check `RUNTIME_ENV` value in `.env`:**
+   ```bash
+   RUNTIME_ENV=local  # or server
+   ```
+
+2. **Ensure variable is set BEFORE application startup:**
+   ```bash
+   # Correct: set in .env and restart
+   # Incorrect: export in terminal after startup
+   ```
+
+3. **Check current value in runtime:**
+   ```bash
+   python -c "from src.app.settings import settings; print(f'RUNTIME_ENV: {settings.runtime_env}')"
+   ```
+
+4. **Check logs for branch selection:**
+   - Look for lines `Using routing branch: local` or `Using routing branch: server`
+   - Verify correct branch is used
+
+5. **Restart application** after changing `RUNTIME_ENV`
+
+</details>
+
+**Diagnostics:**
+- Check preflight logs for branch selection
+- Ensure `.env` file is loaded correctly
+- Check for conflicting environment variables in system
+
+---
+
+### Problem: HF models not downloading
+
+**Symptoms:**
+```
+Error downloading model from Hugging Face: model_id=..., error=...
+HTTP 401: Unauthorized
+HTTP 403: Forbidden
+Connection timeout
+```
+
+**Cause:** Issues with Hugging Face access, missing token for gated models, or network problems.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check `HF_TOKEN` for gated models:**
+   ```bash
+   HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+   - Get token at https://huggingface.co/settings/tokens
+   - Ensure token has `read` permissions
+
+2. **Check cache path:**
+   ```bash
+   HUGGINGFACE_HUB_CACHE=models/.cache
+   # Ensure path exists and is writable
+   ```
+
+3. **Check internet availability:**
+   ```bash
+   curl https://huggingface.co
+   ```
+
+4. **Check available disk space:**
+   - Some models take 10+ GB
+   - Ensure sufficient disk space
+
+5. **Try downloading model manually:**
+   ```bash
+   python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='your-model-id', cache_dir='models/.cache')"
+   ```
+
+6. **Check preflight logs:**
+   - Look for specific errors when downloading models
+   - Verify model exists on Hugging Face
+
+</details>
+
+**Prevention:**
+- Download models in advance via `download_models`
+- Use local cache for offline work
+- Regularly check model availability on Hugging Face
+
+---
+
+### Problem: Progress bars not showing
+
+**Symptoms:**
+- No progress indicator during model download
+- Download happens "silently"
+
+**Cause:** Environment variables disable progress bars.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Check variables in `.env`:**
+   ```bash
+   # Ensure these variables are NOT set or empty:
+   # HF_HUB_DISABLE_PROGRESS_BARS=
+   # TQDM_DISABLE=
+   ```
+
+2. **Or explicitly disable them:**
+   ```bash
+   HF_HUB_DISABLE_PROGRESS_BARS=
+   TQDM_DISABLE=
+   ```
+
+3. **Check that variables are not set in system:**
+   ```bash
+   # Windows PowerShell
+   $env:HF_HUB_DISABLE_PROGRESS_BARS
+   $env:TQDM_DISABLE
+   
+   # If set, remove or set to empty string
+   ```
+
+4. **Restart application** after changing variables
+
+</details>
+
+**Diagnostics:**
+- Check logs for model download messages
+- Ensure terminal supports ANSI escape codes
+- Check that output is not redirected to file
+
+---
+
+### Problem: Cache taking too much space
+
+**Symptoms:**
+- Directory `models/.cache` or `HUGGINGFACE_HUB_CACHE` takes too much space (10+ GB)
+- Insufficient disk space
+
+**Cause:** Cache accumulated downloaded models and their versions.
+
+**Solutions:**
+
+<details>
+<summary><strong>Cache cleanup</strong></summary>
+
+1. **Check cache size:**
+   ```bash
+   # Windows PowerShell
+   Get-ChildItem -Path models\.cache -Recurse | Measure-Object -Property Length -Sum
+   
+   # Linux/macOS
+   du -sh models/.cache
+   ```
+
+2. **Delete unused models:**
+   ```bash
+   # Delete entire cache directory (careful: deletes all models)
+   Remove-Item -Recurse -Force models\.cache  # Windows
+   rm -rf models/.cache  # Linux/macOS
+   ```
+
+3. **Or delete specific models:**
+   - Find model directories in `models/.cache/huggingface/hub/`
+   - Delete only unused models
+
+4. **Configure different cache path:**
+   ```bash
+   HUGGINGFACE_HUB_CACHE=/path/to/larger/disk/.cache
+   ```
+
+5. **Use symlinks to save space:**
+   - Create cache on different disk
+   - Create symlink in `models/.cache`
+
+</details>
+
+**Prevention:**
+- Regularly clean unused models
+- Use separate disk for model cache
+- Monitor cache size
+
+---
+
+### Problem: API keys visible in logs
+
+**Symptoms:**
+- Full API keys visible in logs
+- Secret data appears in logs
+
+**Cause:** Auth masking is disabled or not working.
+
+**Solutions:**
+
+<details>
+<summary><strong>Step-by-step fix</strong></summary>
+
+1. **Enable masking in `.env`:**
+   ```bash
+   LOG_MASK_AUTH=true
+   ```
+
+2. **Verify masking works:**
+   ```bash
+   python -c "from src.app.settings import settings; print(f'LOG_MASK_AUTH: {settings.log_mask_auth}')"
+   ```
+
+3. **Restart application** after changing
+
+4. **Check logs:**
+   - API keys should be masked as `***` or `[MASKED]`
+   - If still visible, check logging code
+
+5. **If problem persists:**
+   - Verify `LOG_MASK_AUTH` is loaded from `.env`
+   - Ensure no conflicting environment variables
+   - Check code version (masking may not be implemented for all providers)
+
+</details>
+
+**Prevention:**
+- Always use `LOG_MASK_AUTH=true` in production
+- Do not commit logs with secrets to git
+- Regularly rotate API keys
+
+---
+
+### Problem: Switching to fallback too often
+
+**Symptoms:**
+```
+Switching to fallback: reason=timeout, next_provider=ollama_local, next_model=llama3:latest
+Switching to fallback: reason=error: Connection refused, next_provider=deepseek_api, next_model=deepseek-chat
+Provider response failed: task=news_analysis, provider=ollama_local, error=...
+```
+
+**Cause:** Primary provider regularly fails or doesn't respond in time, system constantly switches to fallback.
+
+**Solutions:**
+
+<details>
+<summary><strong>Diagnostics and fix</strong></summary>
+
+1. **Check reason in logs:**
+   - Look for lines `Switching to fallback: reason=...`
+   - Determine main cause: `timeout`, `error: Connection refused`, `error: model not found`, etc.
+
+2. **If reason is timeout:**
+   - Increase timeouts for primary provider:
+     ```bash
+     OLLAMA_LOCAL_NEWS_TIMEOUT_SECONDS=300.0
+     OLLAMA_LOCAL_SYNTHESIS_TIMEOUT_SECONDS=300.0
+     ```
+   - Check that model is not overloaded by other processes
+   - Check VRAM usage: `nvidia-smi` (if using GPU)
+
+3. **If reason is Connection refused:**
+   - Check that Ollama is running: `ollama list`
+   - Check `OLLAMA_LOCAL_URL` or `OLLAMA_SERVER_URL` in `.env`
+   - Check server accessibility: `curl http://your-server:11434/api/tags`
+
+4. **If reason is model not found:**
+   - Load model: `ollama pull qwen2.5:7b`
+   - Or use script: `python -m scripts.python.download_models --from-routing --profile small`
+   - Check model name in `.env`: must exactly match `ollama list`
+
+5. **If reason is provider unavailable:**
+   - Check health check in logs: `Health check: provider=..., available=false`
+   - Check API keys: `DEEPSEEK_API_KEY`, `OLLAMA_SERVER_URL`, etc.
+   - Check account balance for paid APIs
+
+6. **Configuration optimization:**
+   - If primary provider constantly fails, consider switching primary to more reliable one
+   - For example, if `ollama_local` constantly times out, use `deepseek_api` as primary
+   - Or switch task to server branch: `RUNTIME_ENV=server`
+
+7. **Monitoring:**
+   - Regularly check logs for fallback switch frequency
+   - Set up alerts for frequent fallback switches
+   - Analyze patterns: which tasks switch most often
+
+</details>
+
+**Diagnostics:**
+- Count number of `Switching to fallback` in logs per session
+- Determine which tasks switch most often
+- Verify that primary provider is actually unavailable or just slow
+
+**Prevention:**
+- Configure correct timeouts for each provider and task
+- Use health check before running analysis
+- Regularly check availability of all providers
+- Monitor performance of primary providers
 
 ---
 
