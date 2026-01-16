@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -219,3 +219,75 @@ def test_download_hf_model_cache_dir_passed_correctly(tmp_path: Path) -> None:
         mock_download.assert_called_once()
         call_kwargs = mock_download.call_args[1]
         assert call_kwargs["cache_dir"] == str(custom_cache)
+
+
+def test_collect_models_from_routing_skips_api_providers() -> None:
+    """Test that API providers are skipped when collecting models."""
+
+    from src.app.settings import RouteCandidate
+
+    with patch("scripts.python.download_models.settings") as mock_settings:
+        mock_settings.get_task_candidates.return_value = [
+            RouteCandidate(provider="deepseek_api", model="deepseek-chat"),
+            RouteCandidate(provider="ollama_local", model="llama3:latest"),
+            RouteCandidate(provider="openai_api", model="gpt-4"),
+        ]
+
+        from scripts.python.download_models import collect_models_from_routing
+
+        ollama_models, hf_models = collect_models_from_routing()
+
+        assert "llama3:latest" in ollama_models
+        assert "deepseek-chat" not in ollama_models
+        assert "deepseek-chat" not in hf_models
+        assert "gpt-4" not in ollama_models
+        assert "gpt-4" not in hf_models
+
+
+def test_ollama_list_models() -> None:
+    """Test ollama_list_models function."""
+    from scripts.python.download_models import ollama_list_models
+
+    with patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.stdout = "NAME                    SIZE\nllama3:latest           4.7 GB\nqwen2.5:7b              4.2 GB\n"
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        models = ollama_list_models()
+
+        assert "llama3:latest" in models
+        assert "qwen2.5:7b" in models
+
+
+def test_ollama_pull_skips_if_already_present() -> None:
+    """Test that ollama_pull skips pull if model is already present."""
+    from scripts.python.download_models import ollama_pull
+
+    with patch("scripts.python.download_models.ollama_list_models") as mock_list:
+        mock_list.return_value = {"llama3:latest"}
+
+        with patch("subprocess.run") as mock_run:
+            result = ollama_pull("llama3:latest")
+
+            assert result is True
+            mock_run.assert_not_called()
+
+
+def test_ollama_pull_pulls_if_not_present() -> None:
+    """Test that ollama_pull pulls model if not present."""
+    from scripts.python.download_models import ollama_pull
+
+    with patch("scripts.python.download_models.ollama_list_models") as mock_list:
+        mock_list.return_value = set()
+
+        with patch("subprocess.run") as mock_run:
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_run.return_value = mock_result
+
+            result = ollama_pull("llama3:latest")
+
+            assert result is True
+            mock_run.assert_called_once()
+            assert "pull" in str(mock_run.call_args)

@@ -89,27 +89,54 @@ def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
         return False
 
 
-def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
-    """Pull a model in Ollama."""
+def ollama_list_models(base_url: str | None = None) -> set[str]:
+    """List available models in Ollama."""
     try:
-        cmd = ["ollama", "pull", model_name]
+        cmd = ["ollama", "list"]
+        env = os.environ.copy()
         if base_url:
-            os.environ["OLLAMA_HOST"] = base_url
+            env["OLLAMA_HOST"] = base_url
 
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print(f"✓ Pulled {model_name} in Ollama")
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
+        models: set[str] = set()
+        for line in result.stdout.split("\n")[1:]:
+            if line.strip():
+                model_name = line.split()[0] if line.split() else ""
+                if model_name:
+                    models.add(model_name)
+        return models
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return set()
+
+
+def ollama_pull(model_name: str, base_url: str | None = None) -> bool:
+    """Ensure model exists in Ollama. Pull if not present."""
+    try:
+        available_models = ollama_list_models(base_url)
+        if model_name in available_models:
+            print(f"INFO: ensure model {model_name} ok (already present)")
+            return True
+
+        cmd = ["ollama", "pull", model_name]
+        env = os.environ.copy()
+        if base_url:
+            env["OLLAMA_HOST"] = base_url
+
+        subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
+        print(f"INFO: ensure model {model_name} ok (pulled)")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"✗ Failed to pull {model_name} in Ollama: {e.stderr}")
+        print(f"ERROR: Failed to pull {model_name} in Ollama: {e.stderr}")
         return False
     except FileNotFoundError:
-        print("✗ ollama command not found. Install Ollama from https://ollama.ai")
+        print("ERROR: ollama command not found. Install Ollama from https://ollama.ai")
         return False
 
 
 def collect_models_from_routing() -> tuple[set[str], set[str]]:
     """Collect all unique model names from routing configuration.
     Returns (ollama_models, hf_models) based on provider type.
+    Skips API providers (deepseek_api, openai, google, etc.).
     """
     ollama_models: set[str] = set()
     hf_models: set[str] = set()
@@ -120,21 +147,25 @@ def collect_models_from_routing() -> tuple[set[str], set[str]]:
     )
 
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
-        if task_name == TASK_TECH_ANALYSIS:
-            routing = settings.get_tech_routing()
-        elif task_name == TASK_NEWS_ANALYSIS:
-            routing = settings.get_news_routing()
-        elif task_name == TASK_SYNTHESIS:
-            routing = settings.get_synthesis_routing()
-        else:
-            routing = settings.get_verifier_routing()
+        candidates = settings.get_task_candidates(task_name)
 
-        for step in routing.steps:
-            if step.model:
-                if step.provider in [PROVIDER_OLLAMA_LOCAL, PROVIDER_OLLAMA_SERVER]:
-                    ollama_models.add(step.model)
-                else:
-                    hf_models.add(step.model)
+        for candidate in candidates:
+            provider = candidate.provider
+            model = candidate.model
+
+            if not model:
+                continue
+
+            if provider.endswith("_api") or provider == "deepseek_api":
+                print(f"INFO: skip api model {model} (provider: {provider})")
+                continue
+
+            if provider in [PROVIDER_OLLAMA_LOCAL, PROVIDER_OLLAMA_SERVER] or provider.startswith(
+                "ollama_"
+            ):
+                ollama_models.add(model)
+            elif provider == "hf_local":
+                hf_models.add(model)
 
     return ollama_models, hf_models
 
@@ -204,7 +235,7 @@ def main() -> int:
             ollama_url = settings._get_ollama_local_url()
 
         if ollama_models:
-            print("\nPulling Ollama models...")
+            print("\nEnsuring Ollama models are available...")
             for model in sorted(ollama_models):
                 if not ollama_pull(model, ollama_url):
                     success = False
