@@ -13,6 +13,7 @@ from src.core.models.recommendation import Recommendation
 from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
 from src.core.models.verification import VerificationReport
+from src.core.pipeline_trace import PipelineTrace
 from src.core.ports.llm_tasks import (
     TASK_NEWS_ANALYSIS,
     TASK_SYNTHESIS,
@@ -46,6 +47,7 @@ class RuntimeOrchestrator:
         verifier_agent: VerifierAgent | None = None,
         verification_repository: VerificationRepository | None = None,
         verifier_enabled: bool | None = None,
+        trace: PipelineTrace | None = None,
     ) -> None:
         self.storage = storage
         self.artifact_store = artifact_store
@@ -58,6 +60,7 @@ class RuntimeOrchestrator:
         self.verifier_agent = verifier_agent
         self.verification_repository = verification_repository
         self.verifier_enabled = verifier_enabled
+        self.trace = trace or PipelineTrace(enabled=False)
         self.logger = get_logger(__name__)
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
@@ -75,6 +78,7 @@ class RuntimeOrchestrator:
         )
 
         try:
+            self.trace.emit(f"candles | start | symbol={symbol} timeframe={timeframe.value}")
             with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=300):
                 fetch_market_data_job = FetchMarketDataJob(
                     self.market_data_provider, candles_repository=self.candles_repository
@@ -96,12 +100,9 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No candles returned from market data job")
                 return run_id
 
-            self.logger.debug(
-                f"Candles fetched: count={len(candles)}, "
-                f"first_ts={candles[0].timestamp if candles else None}, "
-                f"last_ts={candles[-1].timestamp if candles else None}"
-            )
+            self.trace.emit(f"candles | done | count={len(candles)}")
 
+            self.trace.emit(f"indicators | start | candles={len(candles)}")
             with stage_timer("build_features", symbol=symbol, candles_count=len(candles)):
                 build_features_job = BuildFeaturesJob()
                 features_result = build_features_job.run(
@@ -122,23 +123,16 @@ class RuntimeOrchestrator:
                 return run_id
 
             snapshot, signal = features_value
-            self.logger.debug(
-                f"Indicators calculated: indicators_count={len(snapshot.indicators)}, "
-                f"regime={signal.regime}, "
-                f"volatility={signal.volatility if hasattr(signal, 'volatility') else None}"
-            )
+            self.trace.emit("indicators | done | ok")
 
             with stage_timer("tech_analysis", symbol=symbol, timeframe=timeframe.value):
                 technical_view, tech_llm_response = self.technical_analyst.analyze(
                     snapshot, symbol, timeframe
                 )
-            self.logger.debug(
-                f"Tech analysis complete: provider={tech_llm_response.provider_name}, "
-                f"model={tech_llm_response.model_name}, "
-                f"latency_ms={tech_llm_response.latency_ms}, "
-                f"attempts={tech_llm_response.attempts}, "
-                f"error={tech_llm_response.error or 'none'}"
+            self.trace.emit(
+                f"tech_llm | start | provider={tech_llm_response.provider_name} model={tech_llm_response.model_name}"
             )
+            self.trace.emit("tech_llm | done | ok")
             technical_rationale = Rationale(
                 run_id=run_id,
                 rationale_type=RationaleType.TECHNICAL,
@@ -169,6 +163,7 @@ class RuntimeOrchestrator:
                 run_id, TASK_TECH_ANALYSIS, tech_request, tech_llm_response
             )
 
+            self.trace.emit("news | start | providers=GDELT,NewsAPI")
             with stage_timer("fetch_news", symbol=symbol, timeframe=timeframe.value):
                 fetch_news_job = FetchNewsJob(self.news_provider)
                 news_result = fetch_news_job.run(symbol=symbol, timeframe=timeframe)
@@ -181,21 +176,18 @@ class RuntimeOrchestrator:
                 self._mark_run_failed(run_id, "No news digest returned from fetch news job")
                 return run_id
 
-            self.logger.debug(
-                f"News fetched: provider={news_digest.provider_used or 'N/A'}, "
-                f"quality={news_digest.quality}, articles_count={len(news_digest.articles) if news_digest.articles else 0}"
+            articles_count = len(news_digest.articles) if news_digest.articles else 0
+            self.trace.emit(
+                f"news | done | articles={articles_count} quality={news_digest.quality.lower()}"
             )
 
             with stage_timer("news_analysis", symbol=symbol):
                 analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
             if news_llm_response:
-                self.logger.debug(
-                    f"News analysis complete: provider={news_llm_response.provider_name}, "
-                    f"model={news_llm_response.model_name}, "
-                    f"latency_ms={news_llm_response.latency_ms}, "
-                    f"attempts={news_llm_response.attempts}, "
-                    f"error={news_llm_response.error or 'none'}"
+                self.trace.emit(
+                    f"news_llm | start | provider={news_llm_response.provider_name} model={news_llm_response.model_name}"
                 )
+                self.trace.emit("news_llm | done | ok")
             news_content = (
                 f"Quality: {analyzed_news_digest.quality}\n"
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
@@ -248,14 +240,10 @@ Provide your analysis as JSON."""
                     )
                 )
             if synthesis_llm_response:
-                self.logger.debug(
-                    f"Synthesis complete: provider={synthesis_llm_response.provider_name}, "
-                    f"model={synthesis_llm_response.model_name}, "
-                    f"latency_ms={synthesis_llm_response.latency_ms}, "
-                    f"attempts={synthesis_llm_response.attempts}, "
-                    f"error={synthesis_llm_response.error or 'none'}, "
-                    f"action={recommendation.action}, confidence={recommendation.confidence:.2%}"
+                self.trace.emit(
+                    f"synthesis_llm | start | provider={synthesis_llm_response.provider_name} model={synthesis_llm_response.model_name}"
                 )
+                self.trace.emit("synthesis_llm | done | ok")
 
             synthesis_content = (
                 f"Action: {recommendation.action}\n"
@@ -339,12 +327,10 @@ Based on the above information, provide your trading recommendation as JSON."""
                         author_output=author_output,
                     )
                 if verification_report.provider_name:
-                    self.logger.debug(
-                        f"Verification complete: provider={verification_report.provider_name}, "
-                        f"model={verification_report.model_name or 'N/A'}, "
-                        f"passed={verification_report.passed}, "
-                        f"issues_count={len(verification_report.issues) if verification_report.issues else 0}"
+                    self.trace.emit(
+                        f"verify_llm | start | provider={verification_report.provider_name} model={verification_report.model_name or 'N/A'}"
                     )
+                    self.trace.emit("verify_llm | done | ok")
 
                 if self.verification_repository:
                     self.verification_repository.create(run_id, verification_report)
@@ -537,8 +523,25 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                 self._mark_run_failed(run_id, persist_result.error)
                 return run_id
 
-            self.logger.debug(
-                f"Persistence complete: run_id={run_id}, recommendation_id={persist_result.value}"
+            # Emit LLM usage summary
+            tech_summary = f"{tech_llm_response.provider_name}/{tech_llm_response.model_name}"
+            news_summary = (
+                f"{news_llm_response.provider_name}/{news_llm_response.model_name}"
+                if news_llm_response
+                else "none"
+            )
+            synthesis_summary = (
+                f"{synthesis_llm_response.provider_name}/{synthesis_llm_response.model_name}"
+                if synthesis_llm_response
+                else "none"
+            )
+            verify_summary = (
+                f"{verification_report.provider_name}/{verification_report.model_name}"
+                if verification_report and verification_report.provider_name
+                else "none"
+            )
+            self.trace.emit(
+                f"llm_used | summary | tech={tech_summary} news={news_summary} synthesis={synthesis_summary} verify={verify_summary}"
             )
 
             self._mark_run_success(run_id)

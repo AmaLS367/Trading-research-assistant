@@ -21,6 +21,7 @@ from src.core.models.news import NewsDigest
 from src.core.models.outcome import Outcome
 from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
+from src.core.pipeline_trace import PipelineTrace
 from src.core.services.reporter import Reporter
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
@@ -309,13 +310,10 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         return
 
     try:
-        orchestrator = create_orchestrator()
+        trace = PipelineTrace(enabled=verbose)
+        orchestrator = create_orchestrator(trace=trace)
 
         console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
-        if verbose:
-            from src.app.settings import settings
-
-            console.print(f"[dim]Verbose logging enabled. Logs directory: {settings.log_dir}[/dim]")
         console.print()
         run_id = orchestrator.run_analysis(symbol=symbol, timeframe=timeframe)
         console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")

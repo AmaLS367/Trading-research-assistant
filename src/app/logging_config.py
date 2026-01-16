@@ -98,6 +98,7 @@ class InterceptHandler(logging.Handler):
 
         # Use record.name as the logger name by patching the record
         logger_opt = logger.opt(depth=depth, exception=record.exc_info)
+
         # Patch the record to use the original logger name
         def patcher(r: "Record") -> None:
             r["name"] = record.name
@@ -151,8 +152,8 @@ def configure_logging(*, verbose: bool = False) -> None:
     log_dir = Path(settings.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine console level
-    console_level = "DEBUG" if verbose else settings.log_console_level.upper()
+    # Console level - always use settings, trace is separate
+    console_level = settings.log_console_level.upper()
 
     # Console sink with readable text format
     console_format = "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"

@@ -5,6 +5,7 @@ from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.agents.verifier import VerifierAgent
 from src.app.settings import settings
+from src.core.pipeline_trace import PipelineTrace
 from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.llm_provider_name import (
@@ -191,7 +192,7 @@ def create_artifact_store() -> ArtifactStore:
     return ArtifactStore(artifacts_dir)
 
 
-def create_orchestrator() -> OrchestratorProtocol:
+def create_orchestrator(trace: "PipelineTrace | None" = None) -> OrchestratorProtocol:
     storage = create_storage()
     artifact_store = create_artifact_store()
     market_data_provider = create_market_data_provider()
@@ -219,6 +220,7 @@ def create_orchestrator() -> OrchestratorProtocol:
         verifier_agent=verifier_agent,
         verification_repository=verification_repository,
         verifier_enabled=settings.llm_verifier_enabled,
+        trace=trace,
     )
 
 

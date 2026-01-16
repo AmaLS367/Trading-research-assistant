@@ -203,3 +203,117 @@ def test_end_to_end_pipeline_offline():
 
             llm_dir = run_dir / "llm"
             assert llm_dir.exists()
+
+
+def test_end_to_end_pipeline_with_trace():
+    import io
+
+    from src.core.pipeline_trace import PipelineTrace
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        artifacts_dir = Path(tmpdir) / "artifacts"
+
+        db = DBConnection(str(db_path))
+        db.run_migration("src/storage/sqlite/migrations")
+
+        storage = SqliteStorage(db)
+        artifact_store = ArtifactStore(artifacts_dir)
+
+        mock_tech_provider = MockLlmProvider("test_provider", "test_model")
+
+        from src.agents.news_analyst import NewsAnalyst
+        from src.agents.synthesizer import Synthesizer
+        from src.agents.technical_analyst import TechnicalAnalyst
+        from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
+        from src.core.models.llm import LlmResponse
+        from src.core.ports.llm_tasks import (
+            TASK_NEWS_ANALYSIS,
+            TASK_SYNTHESIS,
+            TASK_TECH_ANALYSIS,
+        )
+        from src.llm.providers.llm_router import LlmRouter
+
+        providers: dict[str, LlmProvider] = {"test_provider": mock_tech_provider}
+        routing_config = LlmRoutingConfig(
+            router_mode="sequential",
+            verifier_enabled=False,
+            max_retries=1,
+            timeout_seconds=60.0,
+            temperature=0.2,
+        )
+
+        task_routings: dict[str, LlmTaskRouting] = {
+            TASK_TECH_ANALYSIS: LlmTaskRouting(
+                steps=[LlmRouteStep(provider="test_provider", model="test_model")]
+            ),
+            TASK_NEWS_ANALYSIS: LlmTaskRouting(
+                steps=[LlmRouteStep(provider="test_provider", model="test_model")]
+            ),
+            TASK_SYNTHESIS: LlmTaskRouting(
+                steps=[LlmRouteStep(provider="test_provider", model="test_model")]
+            ),
+        }
+
+        router = LlmRouter(providers, routing_config, task_routings)
+
+        def mock_generate(task, system_prompt, user_prompt):
+            if task == TASK_SYNTHESIS:
+                return LlmResponse(
+                    text='{"action": "CALL", "confidence": 0.75, "brief": "Test recommendation"}',
+                    provider_name="test_provider",
+                    model_name="test_model",
+                    latency_ms=100,
+                    attempts=1,
+                    error=None,
+                )
+            else:
+                return LlmResponse(
+                    text="Test analysis",
+                    provider_name="test_provider",
+                    model_name="test_model",
+                    latency_ms=80,
+                    attempts=1,
+                    error=None,
+                )
+
+        from unittest.mock import patch
+
+        with patch.object(router, "generate", side_effect=mock_generate):
+            technical_analyst = TechnicalAnalyst(router)
+            news_analyst = NewsAnalyst(router)
+            synthesizer = Synthesizer(router)
+
+            trace = PipelineTrace(enabled=True)
+            captured_output = io.StringIO()
+
+            orchestrator = RuntimeOrchestrator(
+                storage=storage,
+                artifact_store=artifact_store,
+                market_data_provider=MockMarketDataProvider(),
+                news_provider=MockNewsProvider(),
+                technical_analyst=technical_analyst,
+                news_analyst=news_analyst,
+                synthesizer=synthesizer,
+                candles_repository=None,
+                verifier_agent=None,
+                verification_repository=None,
+                verifier_enabled=False,
+                trace=trace,
+            )
+
+            with patch("sys.stdout", captured_output):
+                run_id = orchestrator.run_analysis("EURUSD", Timeframe.H1)
+
+            assert run_id > 0
+
+            output = captured_output.getvalue()
+
+            # Check for trace messages
+            assert "TRACE | candles |" in output
+            assert "TRACE | indicators |" in output
+            assert "TRACE | tech_llm | start | provider=" in output
+            assert "TRACE | news |" in output
+            # news_llm may not appear if news quality is LOW and no LLM analysis is done
+            assert "TRACE | synthesis_llm | start | provider=" in output
+            assert "TRACE | llm_used | summary |" in output
