@@ -15,10 +15,11 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import HfApi, snapshot_download  # noqa: E402
+from huggingface_hub.utils.tqdm import enable_progress_bars  # noqa: E402
 
-from src.app.settings import settings
-from src.core.ports.llm_tasks import (
+from src.app.settings import settings  # noqa: E402
+from src.core.ports.llm_tasks import (  # noqa: E402
     TASK_NEWS_ANALYSIS,
     TASK_SYNTHESIS,
     TASK_TECH_ANALYSIS,
@@ -66,12 +67,40 @@ def get_hf_token() -> str | None:
     return token if token else None
 
 
+def get_hf_model_total_size_bytes(model_id: str, token: str | None) -> int | None:
+    try:
+        api = HfApi(token=token)
+        info = api.model_info(repo_id=model_id)
+        if not info.siblings:
+            return None
+
+        total = 0
+        for sibling in info.siblings:
+            size = getattr(sibling, "size", None)
+            if isinstance(size, int):
+                total += size
+
+        return total if total > 0 else None
+    except Exception:
+        return None
+
+
 def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
     """Download a model from Hugging Face using huggingface_hub library."""
     try:
         token = get_hf_token()
         token_status = "yes" if token else "no"
-        print(f"Downloading {model_id} (token provided: {token_status})...")
+
+        enable_progress_bars()
+
+        total_bytes = get_hf_model_total_size_bytes(model_id=model_id, token=token)
+        if total_bytes is not None:
+            total_gb = total_bytes / (1024**3)
+            print(f"Downloading {model_id} (~{total_gb:.2f} GB, token provided: {token_status})...")
+        else:
+            print(f"Downloading {model_id} (size unknown, token provided: {token_status})...")
+
+        print(f"HF cache dir: {hf_cache_dir}")
 
         snapshot_download(
             repo_id=model_id,
@@ -79,6 +108,7 @@ def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
             token=token,
             local_files_only=False,
         )
+
         print(f"✓ Downloaded {model_id}")
         return True
     except Exception as e:
@@ -123,12 +153,13 @@ def ollama_pull(model_name: str, base_url: str | None = None, dry_run: bool = Fa
         if base_url:
             env["OLLAMA_HOST"] = base_url
 
-        subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
+        result = subprocess.run(cmd, env=env)
+        if result.returncode != 0:
+            print(f"ERROR: Failed to pull {model_name} in Ollama (exit code: {result.returncode})")
+            return False
+
         print(f"INFO: ensure model {model_name} ok (pulled)")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: Failed to pull {model_name} in Ollama: {e.stderr}")
-        return False
     except FileNotFoundError:
         print("ERROR: ollama command not found. Install Ollama from https://ollama.ai")
         return False

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -76,8 +77,12 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
             logger.info(f"✓ GPU check complete (profile: {profile}{free_vram_str})")
 
         if download_models_script.exists():
-            if verbose:
-                logger.info("→ Downloading required models...")
+            download_timeout_seconds = _get_timeout_seconds_from_env(
+                env_name="PREFLIGHT_DOWNLOAD_TIMEOUT_SECONDS",
+                default_seconds=0.0,
+            )
+
+            logger.info("→ Downloading required models (this can take a while)...")
 
             download_result = subprocess.run(
                 [
@@ -89,14 +94,12 @@ def run_preflight(settings: Settings, logger: Logger, verbose: bool = False) -> 
                     str(profile),
                 ],
                 cwd=str(project_root),
-                capture_output=True,
-                text=True,
-                timeout=120,
+                timeout=download_timeout_seconds,
             )
 
             if download_result.returncode != 0:
                 logger.error(
-                    f"Preflight: Model download failed: {download_result.stderr[:200] or download_result.stdout[:200]}"
+                    f"Preflight: Model download failed (exit code: {download_result.returncode})"
                 )
             elif verbose:
                 logger.info("✓ Model download complete")
@@ -165,3 +168,19 @@ def _parse_gpu_check_output(output: str) -> dict[str, object] | None:
         pass
 
     return None
+
+
+def _get_timeout_seconds_from_env(env_name: str, default_seconds: float) -> float | None:
+    raw = os.environ.get(env_name)
+    if raw is None:
+        value = default_seconds
+    else:
+        try:
+            value = float(raw)
+        except ValueError:
+            value = default_seconds
+
+    if value <= 0:
+        return None
+
+    return value

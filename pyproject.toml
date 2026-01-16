@@ -20,10 +20,9 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: Other/Proprietary License",
+    "License :: CC-BY-NC-4.0 License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
@@ -55,6 +54,10 @@ Homepage = "https://github.com/AmaLS367/Trading-research-assistant"
 Repository = "https://github.com/AmaLS367/Trading-research-assistant"
 Issues = "https://github.com/AmaLS367/Trading-research-assistant/issues"
 
+[tool.uv]
+managed = true
+package = true
+
 [project.scripts]
 trading-assistant = "src.app.main:main"
 
@@ -79,6 +82,7 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
+    ".github",
 ]
 
 [tool.ruff.lint]

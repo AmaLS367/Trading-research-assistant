@@ -33,6 +33,21 @@ from src.storage.sqlite.repositories.verification_repository import Verification
 from src.utils.logging import get_logger
 
 
+def _get_timeout_for_task(task: str) -> float:
+    task_prefix_map = {
+        TASK_TECH_ANALYSIS: "tech",
+        TASK_NEWS_ANALYSIS: "news",
+        TASK_SYNTHESIS: "synthesis",
+        TASK_VERIFICATION: "verifier",
+    }
+    task_prefix = task_prefix_map.get(task)
+    if task_prefix:
+        task_timeout = getattr(settings, f"{task_prefix}_timeout_seconds", None)
+        if task_timeout is not None and isinstance(task_timeout, (int, float)):
+            return float(task_timeout)
+    return settings.llm_timeout_seconds
+
+
 class RuntimeOrchestrator:
     def __init__(
         self,
@@ -161,7 +176,7 @@ class RuntimeOrchestrator:
                 system_prompt=tech_system_prompt,
                 user_prompt=tech_user_prompt,
                 temperature=0.2,
-                timeout_seconds=60.0,
+                timeout_seconds=_get_timeout_for_task(TASK_TECH_ANALYSIS),
                 max_retries=1,
             )
             self.artifact_store.save_llm_exchange(
@@ -278,7 +293,7 @@ Provide your analysis as JSON."""
                     system_prompt=news_system_prompt,
                     user_prompt=news_user_prompt,
                     temperature=0.2,
-                    timeout_seconds=60.0,
+                    timeout_seconds=_get_timeout_for_task(TASK_NEWS_ANALYSIS),
                     max_retries=1,
                 )
                 self.artifact_store.save_llm_exchange(
@@ -371,7 +386,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                     system_prompt=synthesis_system_prompt,
                     user_prompt=synthesis_user_prompt,
                     temperature=0.2,
-                    timeout_seconds=60.0,
+                    timeout_seconds=_get_timeout_for_task(TASK_SYNTHESIS),
                     max_retries=1,
                 )
                 self.artifact_store.save_llm_exchange(
@@ -418,7 +433,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                             TASK_SYNTHESIS, inputs_summary, author_output
                         ),
                         temperature=0.2,
-                        timeout_seconds=60.0,
+                        timeout_seconds=_get_timeout_for_task(TASK_VERIFICATION),
                         max_retries=1,
                     )
                     from src.core.models.llm import LlmResponse
@@ -572,7 +587,7 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     system_prompt="Return ONLY valid JSON.",
                                     user_prompt=repair_prompt,
                                     temperature=0.2,
-                                    timeout_seconds=60.0,
+                                    timeout_seconds=_get_timeout_for_task(TASK_SYNTHESIS),
                                     max_retries=1,
                                 )
                                 self.artifact_store.save_llm_exchange(

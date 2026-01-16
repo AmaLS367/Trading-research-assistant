@@ -101,7 +101,7 @@ def detect_gpu_nvidia_smi() -> tuple[dict[str, object] | None, str | None]:
 def detect_gpu_torch() -> tuple[dict[str, object] | None, str | None]:
     """Detect GPU using torch.cuda. Returns (gpu_dict, error)."""
     try:
-        import torch
+        import torch  # type: ignore[import-untyped]
 
         if not torch.cuda.is_available():
             return None, "torch.cuda.is_available() returned False"

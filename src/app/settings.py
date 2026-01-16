@@ -158,6 +158,31 @@ class Settings(BaseSettings):
     )
     verifier_temperature: Annotated[float | None, Field(alias="VERIFIER_TEMPERATURE")] = None
 
+    # --- Per-Provider Timeouts ---
+    ollama_local_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_LOCAL_TIMEOUT_SECONDS")
+    ] = None
+    ollama_server_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_SERVER_TIMEOUT_SECONDS")
+    ] = None
+    deepseek_api_timeout_seconds: Annotated[
+        float | None, Field(alias="DEEPSEEK_API_TIMEOUT_SECONDS")
+    ] = None
+
+    # --- Per-Provider Per-Task Timeouts (ollama_local defaults) ---
+    ollama_local_tech_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_LOCAL_TECH_TIMEOUT_SECONDS")
+    ] = None
+    ollama_local_news_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_LOCAL_NEWS_TIMEOUT_SECONDS")
+    ] = 240.0
+    ollama_local_synthesis_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_LOCAL_SYNTHESIS_TIMEOUT_SECONDS")
+    ] = 240.0
+    ollama_local_verifier_timeout_seconds: Annotated[
+        float | None, Field(alias="OLLAMA_LOCAL_VERIFIER_TIMEOUT_SECONDS")
+    ] = 240.0
+
     # --- Storage ---
     storage_sqlite_db_path: Annotated[Path, Field(alias="STORAGE_SQLITE_DB_PATH")] = Path(
         "db/forex_research_assistant.sqlite3"

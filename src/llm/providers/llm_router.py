@@ -54,6 +54,34 @@ class LlmRouter:
         )
         return is_available
 
+    def _get_timeout_for_provider_and_task(
+        self, provider_name: str, task: str, default_timeout: float
+    ) -> float:
+        task_prefix_map = {
+            "tech_analysis": "tech",
+            "news_analysis": "news",
+            "synthesis": "synthesis",
+            "verification": "verifier",
+        }
+        task_prefix = task_prefix_map.get(task)
+
+        provider_normalized = provider_name.replace("-", "_").replace(".", "_")
+
+        if task_prefix:
+            provider_task_timeout_attr = f"{provider_normalized}_{task_prefix}_timeout_seconds"
+            provider_task_timeout = getattr(settings, provider_task_timeout_attr, None)
+            if provider_task_timeout is not None and isinstance(
+                provider_task_timeout, (int, float)
+            ):
+                return float(provider_task_timeout)
+
+        provider_timeout_attr = f"{provider_normalized}_timeout_seconds"
+        provider_timeout = getattr(settings, provider_timeout_attr, None)
+        if provider_timeout is not None and isinstance(provider_timeout, (int, float)):
+            return float(provider_timeout)
+
+        return default_timeout
+
     def _try_last_resort(self, request: LlmRequest) -> LlmResponse:
         if PROVIDER_OLLAMA_LOCAL not in self.providers:
             return LlmResponse(
@@ -161,12 +189,17 @@ class LlmRouter:
                 continue
 
             provider = self.providers[provider_name]
+            provider_timeout = self._get_timeout_for_provider_and_task(
+                provider_name=provider_name,
+                task=request.task,
+                default_timeout=request.timeout_seconds,
+            )
             step_request = LlmRequest(
                 task=request.task,
                 system_prompt=request.system_prompt,
                 user_prompt=request.user_prompt,
                 temperature=request.temperature,
-                timeout_seconds=request.timeout_seconds,
+                timeout_seconds=provider_timeout,
                 max_retries=request.max_retries,
                 model_name=model_name,
                 response_format=request.response_format,
@@ -175,7 +208,7 @@ class LlmRouter:
             attempts += 1
             logger.debug(
                 f"Provider request: task={request.task}, provider={provider_name}, "
-                f"model={model_name}, attempt={attempts}, "
+                f"model={model_name}, attempt={attempts}, timeout_seconds={provider_timeout}, "
                 f"prompt_chars={len(request.system_prompt) + len(request.user_prompt)}"
             )
             request_start = time.time()
@@ -192,14 +225,36 @@ class LlmRouter:
                 return response
 
             last_error = response.error
-            logger.debug(
-                f"Provider response failed: provider={provider_name}, model={model_name}, "
-                f"duration_ms={request_duration_ms:.1f}, error={response.error}, attempts={attempts}"
+            is_timeout = (
+                "timeout" in str(response.error).lower()
+                or "timed out" in str(response.error).lower()
             )
+
+            if is_timeout:
+                logger.error(
+                    f"Provider timeout: task={request.task}, provider={provider_name}, "
+                    f"model={model_name}, timeout_seconds={provider_timeout}, "
+                    f"attempt={attempts}, elapsed_ms={request_duration_ms:.1f}, "
+                    f"error={response.error}"
+                )
+            else:
+                logger.debug(
+                    f"Provider response failed: provider={provider_name}, model={model_name}, "
+                    f"duration_ms={request_duration_ms:.1f}, error={response.error}, attempts={attempts}"
+                )
+
+            next_step_index = task_routing.steps.index(step) + 1
+            if next_step_index < len(task_routing.steps):
+                next_step = task_routing.steps[next_step_index]
+                fallback_reason = "timeout" if is_timeout else f"error: {response.error}"
+                logger.info(
+                    f"Switching to fallback: reason={fallback_reason}, "
+                    f"next_provider={next_step.provider}, next_model={next_step.model}"
+                )
 
         logger.error(
             f"All configured providers failed for task={request.task}, "
-            f"attempts={attempts}, last_error={last_error}, trying last resort"
+            f"attempts={attempts}, last_error={last_error}, trying last resort (ollama_local/llama3:latest)"
         )
         last_resort_response = self._try_last_resort(request)
         if last_resort_response.error is None:
