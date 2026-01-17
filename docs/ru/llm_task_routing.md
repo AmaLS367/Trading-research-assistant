@@ -15,7 +15,7 @@ LLM routing в проекте управляет выбором провайде
 | SYNTHESIS | local | ollama_local/llama3:latest | deepseek_api/deepseek-chat | - | ollama_local/llama3:latest |
 | SYNTHESIS | server | ollama_server/llama3.1:70b | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
 | VERIFIER | local | ollama_local/phi3.5:latest | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
-| VERIFIER | server | ollama_server/granite3-8b:latest | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
+| VERIFIER | server | ollama_server/granite3.3:8b | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
 
 ## Как выбирается ветка
 
@@ -68,7 +68,7 @@ Last resort succeeded: provider=ollama_local, model=llama3:latest, attempts=3
 ### Задачи для local
 
 - NEWS: можно использовать модели 7B-8B (qwen2.5:7b, llama3:latest)
-- VERIFIER: можно использовать небольшие модели (phi3.5:latest, granite3-8b)
+- VERIFIER: можно использовать небольшие модели (phi3.5:latest, granite3.3:8b)
 
 ### Если ollama local регулярно уходит в timeout
 

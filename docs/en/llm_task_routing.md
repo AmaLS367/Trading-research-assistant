@@ -15,7 +15,7 @@ LLM routing in the project manages provider and model selection for four tasks: 
 | SYNTHESIS | local | ollama_local/llama3:latest | deepseek_api/deepseek-chat | - | ollama_local/llama3:latest |
 | SYNTHESIS | server | ollama_server/llama3.1:70b | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
 | VERIFIER | local | ollama_local/phi3.5:latest | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
-| VERIFIER | server | ollama_server/granite3-8b:latest | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
+| VERIFIER | server | ollama_server/granite3.3:8b | deepseek_api/deepseek-chat | ollama_local/llama3:latest | ollama_local/llama3:latest |
 
 ## How Branch is Selected
 
@@ -68,7 +68,7 @@ In the `rationales` table, `provider_name` and `model_name` fields are saved for
 ### Tasks for Local
 
 - NEWS: Can use 7B-8B models (qwen2.5:7b, llama3:latest)
-- VERIFIER: Can use small models (phi3.5:latest, granite3-8b)
+- VERIFIER: Can use small models (phi3.5:latest, granite3.3:8b)
 
 ### If ollama local Regularly Times Out
 

@@ -151,7 +151,9 @@ Copy `.env.example` to `.env` and fill in the required values. The `.env` file s
 - What it does: Router mode (sequential or strict)
 - When to fill: Only if strict mode is needed (not recommended)
 - Default value: `sequential`
-- How to verify: Fallback providers should be used with sequential
+- How to verify: 
+  - sequential: Fallback providers should be used in order
+  - strict: Only primary provider/model is used, no fallback or last resort (one attempt only)
 
 **LLM_VERIFIER_ENABLED**
 - What it does: Enable/disable recommendation verification
@@ -215,6 +217,32 @@ Copy `.env.example` to `.env` and fill in the required values. The `.env` file s
 - Default value: Uses LLM_TIMEOUT_SECONDS
 - How to verify: This timeout should be used for verification in logs
 
+### Per-Task Temperature
+
+**TECH_TEMPERATURE**
+- What it does: Temperature for tech_analysis task
+- When to fill: If tech_analysis requires different temperature
+- Default value: Uses LLM_TEMPERATURE
+- How to verify: This temperature should be used for tech_analysis
+
+**NEWS_TEMPERATURE**
+- What it does: Temperature for news_analysis task
+- When to fill: If news_analysis requires different temperature
+- Default value: Uses LLM_TEMPERATURE
+- How to verify: This temperature should be used for news_analysis
+
+**SYNTHESIS_TEMPERATURE**
+- What it does: Temperature for synthesis task
+- When to fill: If synthesis requires different temperature
+- Default value: Uses LLM_TEMPERATURE
+- How to verify: This temperature should be used for synthesis
+
+**VERIFIER_TEMPERATURE**
+- What it does: Temperature for verification task
+- When to fill: If verification requires different temperature
+- Default value: Uses LLM_TEMPERATURE
+- How to verify: This temperature should be used for verification
+
 ### Per-Provider Timeouts
 
 **OLLAMA_LOCAL_TIMEOUT_SECONDS**
@@ -273,6 +301,7 @@ Copy `.env.example` to `.env` and fill in the required values. The `.env` file s
 - What it does: Remote Ollama server URL (RunPod or your server)
 - When to fill: If using RUNTIME_ENV=server
 - Default value: Not set
+- Important: Replace placeholder with actual server IP/domain (e.g., http://123.45.67.89:11434). If placeholder is not replaced, URL will be ignored by normalization (must be valid http:// or https:// URL)
 - How to verify: URL should be accessible, should not be localhost/127.0.0.1
 
 **DEEPSEEK_API_KEY**
@@ -288,50 +317,43 @@ Copy `.env.example` to `.env` and fill in the required values. The `.env` file s
 - Default value: `https://api.deepseek.com`
 - How to verify: No verification needed
 
-**OPENAI_API_KEY**
-- What it does: OpenAI API key (optional)
-- When to fill: If planning to use OpenAI provider
-- How to get: Register on platform.openai.com, create key in API keys
-- Permissions: API access required, payment required
-- How to verify: Provider should be available in health check
+**OPENAI_API_KEY** (FUTURE STUB - not implemented in current version)
+- What it does: OpenAI API key
+- When to fill: Not applicable - provider not implemented
+- Status: Future stub, do not expect functionality
 
-**OPENAI_API_BASE**
+**OPENAI_API_BASE** (FUTURE STUB - not implemented in current version)
 - What it does: OpenAI API base URL
-- When to fill: Only if using a different endpoint
+- When to fill: Not applicable - provider not implemented
 - Default value: `https://api.openai.com/v1`
-- How to verify: No verification needed
+- Status: Future stub, do not expect functionality
 
-**OPENAI_ORG_ID**
-- What it does: OpenAI organization ID (optional)
-- When to fill: If using organizational account
-- How to get: In OpenAI organization settings
-- How to verify: No verification needed
+**OPENAI_ORG_ID** (FUTURE STUB - not implemented in current version)
+- What it does: OpenAI organization ID
+- When to fill: Not applicable - provider not implemented
+- Status: Future stub, do not expect functionality
 
-**GOOGLE_API_KEY**
-- What it does: Google Gemini API key (optional)
-- When to fill: If planning to use Gemini provider
-- How to get: Register on makersuite.google.com, create API key
-- Permissions: Gemini API access required
-- How to verify: Provider should be available in health check
+**GOOGLE_API_KEY** (FUTURE STUB - not implemented in current version)
+- What it does: Google Gemini API key
+- When to fill: Not applicable - provider not implemented
+- Status: Future stub, do not expect functionality
 
-**GOOGLE_API_BASE**
+**GOOGLE_API_BASE** (FUTURE STUB - not implemented in current version)
 - What it does: Google Gemini API base URL
-- When to fill: Only if using a different endpoint
+- When to fill: Not applicable - provider not implemented
 - Default value: `https://generativelanguage.googleapis.com/v1`
-- How to verify: No verification needed
+- Status: Future stub, do not expect functionality
 
-**PERPLEXITY_API_KEY**
-- What it does: Perplexity API key (optional)
-- When to fill: If planning to use Perplexity provider
-- How to get: Register on perplexity.ai, create API key in Dashboard
-- Permissions: API access required
-- How to verify: Provider should be available in health check
+**PERPLEXITY_API_KEY** (FUTURE STUB - not implemented in current version)
+- What it does: Perplexity API key
+- When to fill: Not applicable - provider not implemented
+- Status: Future stub, do not expect functionality
 
-**PERPLEXITY_API_BASE**
+**PERPLEXITY_API_BASE** (FUTURE STUB - not implemented in current version)
 - What it does: Perplexity API base URL
-- When to fill: Only if using a different endpoint
+- When to fill: Not applicable - provider not implemented
 - Default value: `https://api.perplexity.ai`
-- How to verify: No verification needed
+- Status: Future stub, do not expect functionality
 
 ### Task Routing
 
@@ -367,6 +389,14 @@ Examples: `TECH_LOCAL_PRIMARY_PROVIDER`, `NEWS_SERVER_FALLBACK1_MODEL`.
 - When to fill: If CPU fallback is needed
 - Default value: `true`
 - How to verify: CPU should be used when GPU is absent
+
+### Preflight
+
+**PREFLIGHT_DOWNLOAD_TIMEOUT_SECONDS**
+- What it does: Timeout for model download during preflight (0 = no timeout)
+- When to fill: If model download timeout is needed
+- Default value: `0` (no timeout)
+- How to verify: Model download should timeout at specified seconds
 
 ### Hugging Face Cache
 
@@ -445,6 +475,12 @@ Examples: `TECH_LOCAL_PRIMARY_PROVIDER`, `NEWS_SERVER_FALLBACK1_MODEL`.
 
 ### Logging
 
+**LOG_DIR**
+- What it does: Directory for log files
+- When to fill: If different directory is needed
+- Default value: `logs`
+- How to verify: Log files should be created in specified directory
+
 **LOG_LEVEL**
 - What it does: Logging level (DEBUG, INFO, WARNING, ERROR)
 - When to fill: If different detail level is needed
@@ -454,8 +490,26 @@ Examples: `TECH_LOCAL_PRIMARY_PROVIDER`, `NEWS_SERVER_FALLBACK1_MODEL`.
 **LOG_CONSOLE_LEVEL**
 - What it does: Console logging level
 - When to fill: If different console level is needed
-- Default value: `WARNING`
+- Default value: `INFO`
 - How to verify: Only messages of specified level should appear in console
+
+**LOG_FORMAT**
+- What it does: Log format (json or text)
+- When to fill: If different format is needed
+- Default value: `json`
+- How to verify: Logs should be in specified format
+
+**LOG_ROTATION**
+- What it does: Log rotation time (e.g., 00:00 for daily at midnight)
+- When to fill: If different rotation time is needed
+- Default value: `00:00`
+- How to verify: Logs should rotate at specified time
+
+**LOG_HTTP_LEVEL**
+- What it does: HTTP library logging level
+- When to fill: If different HTTP log level is needed
+- Default value: `WARNING`
+- How to verify: HTTP logs should be at specified level
 
 **LOG_SPLIT_FILES**
 - What it does: Split logs into files (app.log, errors.log, warnings.log)
@@ -478,7 +532,7 @@ Examples: `TECH_LOCAL_PRIMARY_PROVIDER`, `NEWS_SERVER_FALLBACK1_MODEL`.
 **LOG_RETENTION**
 - What it does: Log retention time
 - When to fill: If different period is needed
-- Default value: `90 days`
+- Default value: `30 days`
 - How to verify: Old logs should be deleted
 
 **LOG_COMPRESSION**
