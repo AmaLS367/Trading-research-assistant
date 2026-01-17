@@ -56,13 +56,28 @@ Trading Research Assistant is a production-ready automated financial market anal
 
 #### Using uv (recommended)
 
-```bash
-# Base dependencies (required)
-uv sync
+1. **Create virtual environment with Python 3.11:**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   uv venv --python 3.11
+   .venv\Scripts\Activate.ps1
+   ```
+   
+   **Linux/macOS:**
+   ```bash
+   uv venv --python 3.11
+   source .venv/bin/activate
+   ```
 
-# With dev dependencies (testing, linting)
-uv sync --extra dev
-```
+2. **Install dependencies:**
+   ```bash
+   # Base dependencies (required)
+   uv sync
+   
+   # With dev dependencies (testing, linting)
+   uv sync --extra dev
+   ```
 
 #### Using pip
 
@@ -76,12 +91,26 @@ pip install -e ".[dev]"
 
 ### Setup
 
-1. **Install dependencies:**
+1. **Create and activate virtual environment:**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   uv venv --python 3.11
+   .venv\Scripts\Activate.ps1
+   ```
+   
+   **Linux/macOS:**
+   ```bash
+   uv venv --python 3.11
+   source .venv/bin/activate
+   ```
+
+2. **Install dependencies:**
    ```bash
    uv sync --extra dev
    ```
 
-2. **Configure environment variables:**
+3. **Configure environment variables:**
    Copy `.env.example` to `.env` and fill in your API keys:
    
    **Windows (PowerShell):**
@@ -96,17 +125,17 @@ pip install -e ".[dev]"
    
    Then edit `.env` and replace placeholder values with your actual API keys.
 
-3. **Initialize database:**
+4. **Initialize database:**
    ```bash
    python src/app/main.py init-db
    ```
 
-4. **Run analysis:**
+5. **Run analysis:**
    ```bash
    python src/app/main.py analyze --symbol EURUSD --timeframe 1h
    ```
 
-5. **View latest recommendation:**
+6. **View latest recommendation:**
    ```bash
    python src/app/main.py show-latest
    ```

@@ -79,20 +79,34 @@ For detailed structure, see [Architecture Documentation](./architecture.md).
 
 ## 🚀 Quick Start
 
-1. **Install dependencies:**
+1. **Create and activate virtual environment:**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   uv venv --python 3.11
+   .venv\Scripts\Activate.ps1
+   ```
+   
+   **Linux/macOS:**
+   ```bash
+   uv venv --python 3.11
+   source .venv/bin/activate
+   ```
+
+2. **Install dependencies:**
    ```bash
    uv sync --extra dev
    ```
 
-2. **Configure environment:**
+3. **Configure environment:**
    Copy `.env.example` to `.env` and fill in your API keys (see [Usage Guide](./usage_guide.md) for details)
 
-3. **Initialize database:**
+4. **Initialize database:**
    ```bash
    python src/app/main.py init-db
    ```
 
-4. **Run analysis:**
+5. **Run analysis:**
    ```bash
    python src/app/main.py analyze --symbol EURUSD --timeframe 1h
    ```

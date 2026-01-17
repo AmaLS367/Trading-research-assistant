@@ -20,13 +20,28 @@
 
 #### Using uv (recommended)
 
-```bash
-# Base dependencies (required)
-uv sync
+1. **Create virtual environment with Python 3.11:**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   uv venv --python 3.11
+   .venv\Scripts\Activate.ps1
+   ```
+   
+   **Linux/macOS:**
+   ```bash
+   uv venv --python 3.11
+   source .venv/bin/activate
+   ```
 
-# With dev dependencies (testing, linting)
-uv sync --extra dev
-```
+2. **Install dependencies:**
+   ```bash
+   # Base dependencies (required)
+   uv sync
+   
+   # With dev dependencies (testing, linting)
+   uv sync --extra dev
+   ```
 
 #### Using pip
 
