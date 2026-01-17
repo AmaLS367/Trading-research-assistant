@@ -98,46 +98,11 @@ def detect_gpu_nvidia_smi() -> tuple[dict[str, object] | None, str | None]:
         return None, f"nvidia-smi error: {str(e)}"
 
 
-def detect_gpu_torch() -> tuple[dict[str, object] | None, str | None]:
-    """Detect GPU using torch.cuda. Returns (gpu_dict, error)."""
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return None, "torch.cuda.is_available() returned False"
-
-        device_count = torch.cuda.device_count()
-        if device_count == 0:
-            return None, "torch.cuda.device_count() returned 0"
-
-        device = torch.cuda.get_device_properties(0)
-        name = device.name
-        total_bytes = device.total_memory
-        total_gb = total_bytes / (1024**3)
-
-        return {
-            "vendor": "nvidia",
-            "name": name,
-            "total_vram_gb": total_gb,
-            "used_vram_gb": None,
-            "free_vram_gb": None,
-        }, None
-
-    except ImportError:
-        return None, "torch not installed"
-    except Exception as e:
-        return None, f"torch.cuda error: {str(e)}"
-
-
 def detect_gpu() -> tuple[dict[str, object] | None, str, str | None]:
-    """Detect GPU using primary (nvidia-smi) and fallback (torch) methods."""
+    """Detect GPU using nvidia-smi."""
     gpu, error = detect_gpu_nvidia_smi()
     if gpu is not None:
         return gpu, "nvidia_smi", None
-
-    gpu, error = detect_gpu_torch()
-    if gpu is not None:
-        return gpu, "torch", None
 
     return None, "none", error
 

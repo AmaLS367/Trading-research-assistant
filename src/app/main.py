@@ -310,6 +310,21 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         console.print("[yellow]Valid timeframes: 1m, 5m, 15m, 1h, 1d[/yellow]")
         return
 
+    from src.utils.market_schedule import is_forex_market_open
+    from src.utils.symbol_classifier import classify_symbol_asset_type
+
+    asset_type = classify_symbol_asset_type(symbol)
+    if asset_type == "forex":
+        if not is_forex_market_open():
+            console.print(
+                "[yellow]Forex market is closed (weekend). Analysis skipped to avoid stale data and unnecessary LLM usage.[/yellow]"
+            )
+            return
+    elif asset_type == "unknown":
+        console.print(
+            "[yellow]Warning: Could not classify symbol asset type. Market hours guard skipped.[/yellow]"
+        )
+
     try:
         from loguru import logger
 
