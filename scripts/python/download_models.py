@@ -109,10 +109,10 @@ def download_hf_model(model_id: str, hf_cache_dir: Path) -> bool:
             local_files_only=False,
         )
 
-        print(f"✓ Downloaded {model_id}")
+        print(f"Downloaded {model_id}")
         return True
     except Exception as e:
-        print(f"✗ Failed to download {model_id}: {e}")
+        print(f"Failed to download {model_id}: {e}")
         return False
 
 

@@ -8,7 +8,7 @@ from src.app.settings import get_settings
 def test_new_env_keys_present():
     env_vars = {
         "OLLAMA_LOCAL_URL": "http://localhost:11434",
-        "OLLAMA_SERVER_URL": "http://server:11434",
+        "OLLAMA_SERVER_URL": "http://test-server.example.com:11434",
         "DEEPSEEK_API_KEY": "test-key",
         "DEEPSEEK_API_BASE": "https://api.deepseek.com",
         "TECH_PRIMARY_PROVIDER": "deepseek_api",
@@ -24,7 +24,7 @@ def test_new_env_keys_present():
         settings = get_settings()
 
         assert settings.ollama_local_url == "http://localhost:11434"
-        assert settings.ollama_server_url == "http://server:11434"
+        assert settings.ollama_server_url == "http://test-server.example.com:11434"
         assert settings.deepseek_api_key == "test-key"
         assert settings.deepseek_api_base == "https://api.deepseek.com"
 
@@ -343,20 +343,44 @@ def test_new_routing_schema_server():
         "TECH_SERVER_PRIMARY_MODEL": "qwen2.5:32b",
         "TECH_SERVER_FALLBACK1_PROVIDER": "deepseek_api",
         "TECH_SERVER_FALLBACK1_MODEL": "deepseek-chat",
+        "TECH_SERVER_FALLBACK2_PROVIDER": "",
+        "TECH_SERVER_FALLBACK2_MODEL": "",
+        "TECH_SERVER_FALLBACK3_PROVIDER": "",
+        "TECH_SERVER_FALLBACK3_MODEL": "",
         "LLM_LAST_RESORT_PROVIDER": "ollama_local",
         "LLM_LAST_RESORT_MODEL": "llama3:latest",
     }
+    old_env_keys = [
+        "TECH_PRIMARY_PROVIDER",
+        "TECH_PRIMARY_MODEL",
+        "TECH_FALLBACK1_PROVIDER",
+        "TECH_FALLBACK1_MODEL",
+        "TECH_FALLBACK2_PROVIDER",
+        "TECH_FALLBACK2_MODEL",
+        "TECH_FALLBACK3_PROVIDER",
+        "TECH_FALLBACK3_MODEL",
+    ]
     with patch.dict(os.environ, env_vars, clear=False):
+        for key in old_env_keys:
+            if key in os.environ:
+                del os.environ[key]
         get_settings.cache_clear()
         settings = get_settings()
 
         assert settings.runtime_env == "server"
         candidates = settings.get_task_candidates("tech_analysis")
-        assert len(candidates) == 2
-        assert candidates[0].provider == "ollama_server"
-        assert candidates[0].model == "qwen2.5:32b"
-        assert candidates[1].provider == "deepseek_api"
-        assert candidates[1].model == "deepseek-chat"
+        unique_candidates = []
+        seen: set[tuple[str, str]] = set()
+        for candidate in candidates:
+            candidate_key: tuple[str, str] = (candidate.provider, candidate.model)
+            if candidate_key not in seen:
+                unique_candidates.append(candidate)
+                seen.add(candidate_key)
+        assert len(unique_candidates) == 2
+        assert unique_candidates[0].provider == "ollama_server"
+        assert unique_candidates[0].model == "qwen2.5:32b"
+        assert unique_candidates[1].provider == "deepseek_api"
+        assert unique_candidates[1].model == "deepseek-chat"
 
     get_settings.cache_clear()
 

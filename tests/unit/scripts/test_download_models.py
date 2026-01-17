@@ -107,7 +107,10 @@ def test_download_hf_model_with_mock(tmp_path: Path) -> None:
     cache_dir = tmp_path / "cache"
     model_id = "test/model"
 
-    with patch("huggingface_hub.snapshot_download") as mock_download:
+    with (
+        patch("scripts.python.download_models.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.get_hf_model_total_size_bytes", return_value=None),
+    ):
         mock_download.return_value = None
 
         from scripts.python.download_models import download_hf_model
@@ -131,7 +134,8 @@ def test_download_hf_model_with_token(tmp_path: Path) -> None:
 
     with (
         patch.dict(os.environ, env_vars, clear=False),
-        patch("huggingface_hub.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.get_hf_model_total_size_bytes", return_value=None),
     ):
         mock_download.return_value = None
 
@@ -188,7 +192,10 @@ def test_download_hf_model_handles_download_error(tmp_path: Path) -> None:
     cache_dir = tmp_path / "cache"
     model_id = "test/model"
 
-    with patch("huggingface_hub.snapshot_download") as mock_download:
+    with (
+        patch("scripts.python.download_models.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.get_hf_model_total_size_bytes", return_value=None),
+    ):
         mock_download.side_effect = Exception("Download failed")
 
         from scripts.python.download_models import download_hf_model
@@ -206,7 +213,8 @@ def test_download_hf_model_cache_dir_passed_correctly(tmp_path: Path) -> None:
 
     with (
         patch.dict(os.environ, env_vars, clear=False),
-        patch("huggingface_hub.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.snapshot_download") as mock_download,
+        patch("scripts.python.download_models.get_hf_model_total_size_bytes", return_value=None),
     ):
         mock_download.return_value = None
 
