@@ -1230,6 +1230,7 @@ Provider response failed: task=news_analysis, provider=ollama_local, error=...
    - [Руководство по использованию](./usage_guide.md)
    - [Архитектура](./architecture.md)
    - [Политика безопасности](./safety_policy.md)
+   - [Roadmap](./roadmap.md)
 
 3. **Создайте отчет об ошибке:**
    - Включите сообщения об ошибках
@@ -1239,4 +1240,4 @@ Provider response failed: task=news_analysis, provider=ollama_local, error=...
 
 ---
 
-[📖 Обзор](./overview.md) | [📚 Руководство по использованию](./usage_guide.md) | [🏗️ Архитектура](./architecture.md)
+[📖 Обзор](./overview.md) | [📚 Руководство по использованию](./usage_guide.md) | [🏗️ Архитектура](./architecture.md) | [🗺️ Roadmap](./roadmap.md)

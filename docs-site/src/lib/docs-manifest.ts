@@ -101,6 +101,10 @@ function getGroupForFile(fileName: string): string {
     return 'Troubleshooting';
   }
   
+  if (baseName === 'roadmap') {
+    return 'Reference';
+  }
+  
   return 'Other';
 }
 
@@ -122,6 +126,7 @@ function getFileOrder(fileName: string): number {
     'safety_policy': 13,
     'safety-policy': 14,
     'troubleshooting': 15,
+    'roadmap': 16,
   };
   
   return orderMap[baseName] || 999;

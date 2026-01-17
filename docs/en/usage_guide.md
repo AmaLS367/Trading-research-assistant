@@ -541,9 +541,10 @@ This script verifies:
 - [Safety Policy](./safety_policy.md) - Risk management policies
 - [Troubleshooting Guide](./troubleshooting.md) - Common issues and solutions
 - [Project Overview](./overview.md) - Project overview and features
+- [Roadmap](./roadmap.md) - Planned improvements and enhancements
 
 </details>
 
 ---
 
-[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [🔧 Troubleshooting](./troubleshooting.md) | [🔒 Safety Policy](./safety_policy.md)
+[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [🔧 Troubleshooting](./troubleshooting.md) | [🔒 Safety Policy](./safety_policy.md) | [🗺️ Roadmap](./roadmap.md)

@@ -267,4 +267,4 @@ core/ports -> only stdlib
 
 ---
 
-[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [📚 Usage Guide](./usage_guide.md) | [🔧 Troubleshooting](./troubleshooting.md)
+[📖 Overview](./overview.md) | [🏗️ Architecture](./architecture.md) | [📚 Usage Guide](./usage_guide.md) | [🔧 Troubleshooting](./troubleshooting.md) | [🗺️ Roadmap](./roadmap.md)

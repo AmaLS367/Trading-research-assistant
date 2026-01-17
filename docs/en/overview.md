@@ -148,6 +148,7 @@ The system includes a safety policy that validates recommendations before issuin
 - 🔧 [Troubleshooting](./troubleshooting.md) - Common issues and solutions
 - 🔒 [Safety Policy](./safety_policy.md) - Safety policy and risk management
 - 📋 [Import Rules](./import_rules.md) - Import rules and dependency graph
+- 🗺️ [Roadmap](./roadmap.md) - Planned improvements and enhancements
 
 ---
 

@@ -1230,6 +1230,7 @@ If you're still experiencing issues:
    - [Usage Guide](./usage_guide.md)
    - [Architecture](./architecture.md)
    - [Safety Policy](./safety_policy.md)
+   - [Roadmap](./roadmap.md)
 
 3. **Create issue report:**
    - Include error messages
@@ -1239,4 +1240,4 @@ If you're still experiencing issues:
 
 ---
 
-[📖 Overview](./overview.md) | [📚 Usage Guide](./usage_guide.md) | [🏗️ Architecture](./architecture.md)
+[📖 Overview](./overview.md) | [📚 Usage Guide](./usage_guide.md) | [🏗️ Architecture](./architecture.md) | [🗺️ Roadmap](./roadmap.md)
