@@ -375,7 +375,7 @@ function resolveInternalLink(
     targetPath = targetPath.slice(0, -1);
   }
 
-  return `/${targetLang}/${targetPath}${anchor}`;
+  return `#/${targetLang}/${targetPath}${anchor}`;
 }
 
 function LinkComponent(

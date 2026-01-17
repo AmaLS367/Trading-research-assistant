@@ -69,19 +69,25 @@ export function DocsProvider({ children }: { children: ReactNode }) {
       const allFiles = manifest.filesByLanguage[currentLang] || [];
       const nav = await buildNavigation(allFiles, currentLang);
 
-      for (const group of nav) {
-        for (const item of group.items) {
-          const content = await fetchMarkdown(item.path);
-          if (content) {
-            const title = extractTitle(content);
-            if (title) {
-              item.title = title;
-            }
-          }
-        }
-      }
+      const updatedNav = await Promise.all(
+        nav.map(async (group) => {
+          const updatedItems = await Promise.all(
+            group.items.map(async (item) => {
+              const content = await fetchMarkdown(item.path);
+              if (content) {
+                const title = extractTitle(content);
+                if (title) {
+                  return { ...item, title };
+                }
+              }
+              return item;
+            })
+          );
+          return { ...group, items: updatedItems };
+        })
+      );
 
-      setNavigation(nav);
+      setNavigation(updatedNav);
     }
 
     loadNavigation();

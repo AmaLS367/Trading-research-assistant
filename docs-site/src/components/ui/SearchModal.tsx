@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search as SearchIcon, X, FileText } from 'lucide-react';
+import { Search as SearchIcon, X } from 'lucide-react';
 import { useDocs } from '@/lib/docs-context';
 import { createSearchIndex, search, SearchResult, SearchIndex } from '@/lib/search';
 import { fetchMarkdown, extractTitle } from '@/lib/docs-manifest';
@@ -151,7 +151,6 @@ export default function SearchModal() {
                         'hover:bg-accent transition-colors'
                       )}
                     >
-                      <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-foreground">
                           {result.title}

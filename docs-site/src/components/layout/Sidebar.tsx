@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useParams } from 'react-router-dom';
-import { ChevronDown, FileText } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useDocs } from '@/lib/docs-context';
 import { cn } from '@/lib/utils';
@@ -130,7 +130,6 @@ function SidebarGroup({
                   )
                 }
               >
-                <FileText className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.title}</span>
               </NavLink>
             </li>
