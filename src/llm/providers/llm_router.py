@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 from src.app.settings import LlmRoutingConfig, LlmTaskRouting, settings
 from src.core.models.llm import LlmRequest, LlmResponse
 from src.core.ports.llm_provider import LlmProvider
-from src.core.ports.llm_provider_name import PROVIDER_OLLAMA_LOCAL
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -83,17 +82,25 @@ class LlmRouter:
         return default_timeout
 
     def _try_last_resort(self, request: LlmRequest) -> LlmResponse:
-        if PROVIDER_OLLAMA_LOCAL not in self.providers:
+        last_resort = settings.llm_last_resort
+        provider_name = last_resort.provider
+        model_name = last_resort.model
+
+        logger.info(
+            f"Trying last resort: task={request.task}, provider={provider_name}, model={model_name}"
+        )
+
+        if provider_name not in self.providers:
             return LlmResponse(
                 text="",
-                provider_name="unknown",
-                model_name="unknown",
+                provider_name=provider_name,
+                model_name=model_name,
                 latency_ms=0,
                 attempts=1,
-                error="No local Ollama provider available as last resort",
+                error=f"Last resort provider not available: {provider_name}",
             )
 
-        local_provider = self.providers[PROVIDER_OLLAMA_LOCAL]
+        provider = self.providers[provider_name]
         last_resort_request = LlmRequest(
             task=request.task,
             system_prompt=request.system_prompt,
@@ -101,11 +108,11 @@ class LlmRouter:
             temperature=request.temperature,
             timeout_seconds=request.timeout_seconds,
             max_retries=request.max_retries,
-            model_name="llama3:latest",
+            model_name=model_name,
             response_format=request.response_format,
         )
 
-        return local_provider.generate_with_request(last_resort_request)
+        return provider.generate_with_request(last_resort_request)
 
     def generate(self, task: str, system_prompt: str, user_prompt: str) -> LlmResponse:
         if task not in self.task_routings:
@@ -153,6 +160,9 @@ class LlmRouter:
         if routing_config.router_mode == "sequential":
             return self._generate_sequential(request, task_routing)
 
+        if routing_config.router_mode == "strict":
+            return self._generate_strict(request, task_routing)
+
         return LlmResponse(
             text="",
             provider_name="unknown",
@@ -160,6 +170,108 @@ class LlmRouter:
             latency_ms=0,
             attempts=1,
             error=f"Unsupported router mode: {routing_config.router_mode}",
+        )
+
+    def _generate_strict(self, request: LlmRequest, task_routing: LlmTaskRouting) -> LlmResponse:
+        if not task_routing.steps:
+            return LlmResponse(
+                text="",
+                provider_name="unknown",
+                model_name="unknown",
+                latency_ms=0,
+                attempts=1,
+                error=f"No routing steps configured for task={request.task}",
+            )
+
+        primary_step = task_routing.steps[0]
+        provider_name = primary_step.provider
+        model_name = primary_step.model
+
+        logger.debug(
+            f"Routing decision (strict mode): task={request.task}, "
+            f"provider={provider_name}, model={model_name}, "
+            f"temperature={request.temperature}, timeout_seconds={request.timeout_seconds}, "
+            f"max_retries={request.max_retries}, fallback_disabled=true"
+        )
+
+        if not self._is_provider_available(provider_name):
+            error_message = (
+                f"Primary provider unavailable in strict mode: "
+                f"task={request.task}, provider={provider_name}, model={model_name}"
+            )
+            logger.error(error_message)
+            return LlmResponse(
+                text="",
+                provider_name=provider_name,
+                model_name=model_name,
+                latency_ms=0,
+                attempts=1,
+                error=error_message,
+            )
+
+        if provider_name not in self.providers:
+            error_message = (
+                f"Primary provider not found in strict mode: "
+                f"task={request.task}, provider={provider_name}, model={model_name}"
+            )
+            logger.error(error_message)
+            return LlmResponse(
+                text="",
+                provider_name=provider_name,
+                model_name=model_name,
+                latency_ms=0,
+                attempts=1,
+                error=error_message,
+            )
+
+        provider = self.providers[provider_name]
+        provider_timeout = self._get_timeout_for_provider_and_task(
+            provider_name=provider_name,
+            task=request.task,
+            default_timeout=request.timeout_seconds,
+        )
+        step_request = LlmRequest(
+            task=request.task,
+            system_prompt=request.system_prompt,
+            user_prompt=request.user_prompt,
+            temperature=request.temperature,
+            timeout_seconds=provider_timeout,
+            max_retries=request.max_retries,
+            model_name=model_name,
+            response_format=request.response_format,
+        )
+
+        logger.debug(
+            f"Provider request (strict mode): task={request.task}, provider={provider_name}, "
+            f"model={model_name}, timeout_seconds={provider_timeout}, "
+            f"prompt_chars={len(request.system_prompt) + len(request.user_prompt)}"
+        )
+        request_start = time.time()
+        response = provider.generate_with_request(step_request)
+        request_duration_ms = (time.time() - request_start) * 1000
+
+        if response.error is None:
+            response.attempts = 1
+            logger.debug(
+                f"Provider response success (strict mode): provider={provider_name}, "
+                f"model={model_name}, duration_ms={request_duration_ms:.1f}, "
+                f"response_chars={len(response.text)}, attempts=1"
+            )
+            return response
+
+        error_message = (
+            f"Primary provider failed in strict mode: "
+            f"task={request.task}, provider={provider_name}, model={model_name}, "
+            f"error={response.error}"
+        )
+        logger.error(error_message)
+        return LlmResponse(
+            text="",
+            provider_name=provider_name,
+            model_name=model_name,
+            latency_ms=int(request_duration_ms),
+            attempts=1,
+            error=error_message,
         )
 
     def _generate_sequential(
@@ -252,9 +364,11 @@ class LlmRouter:
                     f"next_provider={next_step.provider}, next_model={next_step.model}"
                 )
 
+        last_resort = settings.llm_last_resort
         logger.error(
             f"All configured providers failed for task={request.task}, "
-            f"attempts={attempts}, last_error={last_error}, trying last resort (ollama_local/llama3:latest)"
+            f"attempts={attempts}, last_error={last_error}, trying last resort "
+            f"(provider={last_resort.provider}, model={last_resort.model})"
         )
         last_resort_response = self._try_last_resort(request)
         if last_resort_response.error is None:
@@ -265,11 +379,16 @@ class LlmRouter:
             )
             return last_resort_response
 
+        error_message = (
+            f"All providers failed for task={request.task}, "
+            f"including last resort (provider={last_resort.provider}, model={last_resort.model}): "
+            f"{last_resort_response.error}"
+        )
         return LlmResponse(
             text="",
-            provider_name="unknown",
-            model_name="unknown",
+            provider_name=last_resort.provider,
+            model_name=last_resort.model,
             latency_ms=0,
             attempts=attempts + 1,
-            error=last_error or "All providers failed, including last resort",
+            error=error_message,
         )
