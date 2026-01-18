@@ -89,8 +89,8 @@ def test_end_to_end_pipeline_offline():
         from src.agents.synthesizer import Synthesizer
         from src.agents.technical_analyst import TechnicalAnalyst
         from src.agents.verifier import VerifierAgent
-        from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.models.llm import LlmResponse
+        from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.ports.llm_tasks import (
             TASK_NEWS_ANALYSIS,
             TASK_SYNTHESIS,
@@ -223,8 +223,8 @@ def test_end_to_end_pipeline_with_trace():
         from src.agents.news_analyst import NewsAnalyst
         from src.agents.synthesizer import Synthesizer
         from src.agents.technical_analyst import TechnicalAnalyst
-        from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.models.llm import LlmResponse
+        from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.ports.llm_tasks import (
             TASK_NEWS_ANALYSIS,
             TASK_SYNTHESIS,

@@ -265,7 +265,7 @@ def create_mock_llm_router(
     synthesis_response: str | None = None,
 ) -> MagicMock:
     """Create a mock LlmRouter with configurable responses."""
-    from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
+    from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
     from src.llm.providers.llm_router import LlmRouter
 
     mock_router = MagicMock(spec=LlmRouter)

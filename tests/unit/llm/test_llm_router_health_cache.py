@@ -1,6 +1,6 @@
 import time
 
-from src.app.settings import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
+from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
 from src.core.models.llm import LlmResponse
 from src.core.ports.llm_provider import HealthCheckResult, LlmProvider
 from src.llm.providers.llm_router import LlmRouter

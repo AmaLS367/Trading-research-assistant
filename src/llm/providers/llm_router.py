@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from src.app.settings import LlmRoutingConfig, LlmTaskRouting, settings
 from src.core.models.llm import LlmRequest, LlmResponse
 from src.core.ports.llm_provider import LlmProvider
 from src.utils.logging import get_logger
@@ -12,16 +14,55 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@dataclass
+class LlmRouteStep:
+    provider: str
+    model: str
+
+
+@dataclass
+class LlmTaskRouting:
+    steps: list[LlmRouteStep]
+
+
+@dataclass
+class LlmRoutingConfig:
+    router_mode: str
+    verifier_enabled: bool
+    max_retries: int
+    timeout_seconds: float
+    temperature: float
+
+
+@dataclass
+class LastResortConfig:
+    provider: str = "ollama_local"
+    model: str = "llama3:latest"
+
+
+@dataclass
+class TaskOverrides:
+    """Per-task timeout and temperature overrides."""
+    timeout_seconds: float | None = None
+    temperature: float | None = None
+
+
 class LlmRouter:
     def __init__(
         self,
-        providers: "Mapping[str, LlmProvider]",
+        providers: Mapping[str, LlmProvider],
         routing_config: LlmRoutingConfig,
-        task_routings: "Mapping[str, LlmTaskRouting]",
+        task_routings: Mapping[str, LlmTaskRouting],
+        last_resort: LastResortConfig | None = None,
+        provider_timeouts: dict[str, float] | None = None,
+        task_overrides: dict[str, TaskOverrides] | None = None,
     ) -> None:
         self.providers = providers
         self.routing_config = routing_config
         self.task_routings = task_routings
+        self.last_resort = last_resort or LastResortConfig()
+        self.provider_timeouts = provider_timeouts or {}
+        self.task_overrides = task_overrides or {}
         self._health_cache: dict[str, tuple[bool, float]] = {}
         self._health_cache_ttl = 30.0
 
@@ -66,25 +107,22 @@ class LlmRouter:
 
         provider_normalized = provider_name.replace("-", "_").replace(".", "_")
 
+        # Check per-provider-per-task timeout
         if task_prefix:
-            provider_task_timeout_attr = f"{provider_normalized}_{task_prefix}_timeout_seconds"
-            provider_task_timeout = getattr(settings, provider_task_timeout_attr, None)
-            if provider_task_timeout is not None and isinstance(
-                provider_task_timeout, (int, float)
-            ):
-                return float(provider_task_timeout)
+            provider_task_timeout_key = f"{provider_normalized}_{task_prefix}_timeout_seconds"
+            if provider_task_timeout_key in self.provider_timeouts:
+                return self.provider_timeouts[provider_task_timeout_key]
 
-        provider_timeout_attr = f"{provider_normalized}_timeout_seconds"
-        provider_timeout = getattr(settings, provider_timeout_attr, None)
-        if provider_timeout is not None and isinstance(provider_timeout, (int, float)):
-            return float(provider_timeout)
+        # Check per-provider timeout
+        provider_timeout_key = f"{provider_normalized}_timeout_seconds"
+        if provider_timeout_key in self.provider_timeouts:
+            return self.provider_timeouts[provider_timeout_key]
 
         return default_timeout
 
     def _try_last_resort(self, request: LlmRequest) -> LlmResponse:
-        last_resort = settings.llm_last_resort
-        provider_name = last_resort.provider
-        model_name = last_resort.model
+        provider_name = self.last_resort.provider
+        model_name = self.last_resort.model
 
         logger.info(
             f"Trying last resort: task={request.task}, provider={provider_name}, model={model_name}"
@@ -131,20 +169,13 @@ class LlmRouter:
         temperature = routing_config.temperature
         timeout_seconds = routing_config.timeout_seconds
 
-        task_prefix_map = {
-            "tech_analysis": "tech",
-            "news_analysis": "news",
-            "synthesis": "synthesis",
-            "verification": "verifier",
-        }
-        task_prefix = task_prefix_map.get(task)
-        if task_prefix:
-            task_temperature = getattr(settings, f"{task_prefix}_temperature", None)
-            task_timeout = getattr(settings, f"{task_prefix}_timeout_seconds", None)
-            if task_temperature is not None:
-                temperature = task_temperature
-            if task_timeout is not None:
-                timeout_seconds = task_timeout
+        # Apply per-task overrides
+        if task in self.task_overrides:
+            overrides = self.task_overrides[task]
+            if overrides.temperature is not None:
+                temperature = overrides.temperature
+            if overrides.timeout_seconds is not None:
+                timeout_seconds = overrides.timeout_seconds
 
         request = LlmRequest(
             task=task,
@@ -364,11 +395,10 @@ class LlmRouter:
                     f"next_provider={next_step.provider}, next_model={next_step.model}"
                 )
 
-        last_resort = settings.llm_last_resort
         logger.error(
             f"All configured providers failed for task={request.task}, "
             f"attempts={attempts}, last_error={last_error}, trying last resort "
-            f"(provider={last_resort.provider}, model={last_resort.model})"
+            f"(provider={self.last_resort.provider}, model={self.last_resort.model})"
         )
         last_resort_response = self._try_last_resort(request)
         if last_resort_response.error is None:
@@ -381,13 +411,13 @@ class LlmRouter:
 
         error_message = (
             f"All providers failed for task={request.task}, "
-            f"including last resort (provider={last_resort.provider}, model={last_resort.model}): "
+            f"including last resort (provider={self.last_resort.provider}, model={self.last_resort.model}): "
             f"{last_resort_response.error}"
         )
         return LlmResponse(
             text="",
-            provider_name=last_resort.provider,
-            model_name=last_resort.model,
+            provider_name=self.last_resort.provider,
+            model_name=self.last_resort.model,
             latency_ms=0,
             attempts=attempts + 1,
             error=error_message,

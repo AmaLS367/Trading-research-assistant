@@ -149,38 +149,107 @@ def create_llm_providers() -> dict[str, LlmProvider]:
 
 
 def create_llm_router() -> LlmRouter:
-    from src.app.settings import LlmRouteStep, LlmTaskRouting
+    from src.llm.providers.llm_router import (
+        LastResortConfig,
+        LlmRouteStep,
+        LlmRoutingConfig,
+        LlmTaskRouting,
+        TaskOverrides,
+    )
 
     providers = create_llm_providers()
-    routing_config = settings.get_llm_routing_config()
 
-    task_routings = {}
+    # Build routing config
+    routing_config = LlmRoutingConfig(
+        router_mode=settings.llm_router_mode,
+        verifier_enabled=settings.llm_verifier_enabled,
+        max_retries=settings.llm_max_retries,
+        timeout_seconds=settings.llm_timeout_seconds,
+        temperature=settings.llm_temperature,
+    )
+
+    # Build task routings
+    task_routings: dict[str, LlmTaskRouting] = {}
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
         candidates = settings.get_task_candidates(task_name)
         steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
         task_routings[task_name] = LlmTaskRouting(steps=steps)
 
-    return LlmRouter(providers, routing_config, task_routings)
+    # Build last resort config
+    last_resort = LastResortConfig(
+        provider=settings.llm_last_resort.provider,
+        model=settings.llm_last_resort.model,
+    )
+
+    # Build provider timeouts
+    provider_timeouts: dict[str, float] = {}
+    for provider_prefix in ["ollama_local", "ollama_server", "deepseek_api"]:
+        # Per-provider timeout
+        timeout_attr = f"{provider_prefix}_timeout_seconds"
+        timeout_val = getattr(settings, timeout_attr, None)
+        if timeout_val is not None and isinstance(timeout_val, (int, float)):
+            provider_timeouts[f"{provider_prefix}_timeout_seconds"] = float(timeout_val)
+
+        # Per-provider-per-task timeouts
+        for task_prefix in ["tech", "news", "synthesis", "verifier"]:
+            task_timeout_attr = f"{provider_prefix}_{task_prefix}_timeout_seconds"
+            task_timeout_val = getattr(settings, task_timeout_attr, None)
+            if task_timeout_val is not None and isinstance(task_timeout_val, (int, float)):
+                provider_timeouts[f"{provider_prefix}_{task_prefix}_timeout_seconds"] = float(task_timeout_val)
+
+    # Build task overrides
+    task_overrides: dict[str, TaskOverrides] = {}
+    task_prefix_map = {
+        TASK_TECH_ANALYSIS: "tech",
+        TASK_NEWS_ANALYSIS: "news",
+        TASK_SYNTHESIS: "synthesis",
+        TASK_VERIFICATION: "verifier",
+    }
+    for task_name, prefix in task_prefix_map.items():
+        timeout_val = getattr(settings, f"{prefix}_timeout_seconds", None)
+        temp_val = getattr(settings, f"{prefix}_temperature", None)
+        if timeout_val is not None or temp_val is not None:
+            task_overrides[task_name] = TaskOverrides(
+                timeout_seconds=float(timeout_val) if timeout_val is not None else None,
+                temperature=float(temp_val) if temp_val is not None else None,
+            )
+
+    return LlmRouter(
+        providers=providers,
+        routing_config=routing_config,
+        task_routings=task_routings,
+        last_resort=last_resort,
+        provider_timeouts=provider_timeouts,
+        task_overrides=task_overrides,
+    )
+
+
+# Singleton LLM router instance
+_llm_router: LlmRouter | None = None
+
+
+def get_llm_router() -> LlmRouter:
+    """Get the singleton LLM router instance."""
+    global _llm_router
+    if _llm_router is None:
+        _llm_router = create_llm_router()
+    return _llm_router
 
 
 def create_technical_analyst() -> TechnicalAnalyst:
-    llm_router = create_llm_router()
-    return TechnicalAnalyst(llm_router=llm_router)
+    return TechnicalAnalyst(llm_router=get_llm_router())
 
 
 def create_synthesizer() -> Synthesizer:
-    llm_router = create_llm_router()
-    return Synthesizer(llm_router=llm_router)
+    return Synthesizer(llm_router=get_llm_router())
 
 
 def create_news_analyst() -> NewsAnalyst:
-    llm_router = create_llm_router()
-    return NewsAnalyst(llm_router=llm_router)
+    return NewsAnalyst(llm_router=get_llm_router())
 
 
 def create_verifier_agent() -> VerifierAgent:
-    llm_router = create_llm_router()
-    return VerifierAgent(llm_router=llm_router)
+    return VerifierAgent(llm_router=get_llm_router())
 
 
 def create_recommendations_repository() -> RecommendationsRepository:
