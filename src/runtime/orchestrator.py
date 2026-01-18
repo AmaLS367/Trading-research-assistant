@@ -99,14 +99,15 @@ class RuntimeOrchestrator:
             if not provider_name:
                 provider_name = self.market_data_provider.__class__.__name__
             self.trace.step_start(f"Fetching market data from {provider_name}...")
-            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=300):
+            candles_count = settings.runtime_market_data_window_candles
+            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=candles_count):
                 fetch_market_data_job = FetchMarketDataJob(
                     self.market_data_provider, candles_repository=self.candles_repository
                 )
                 market_result = fetch_market_data_job.run(
                     symbol=symbol,
                     timeframe=timeframe,
-                    count=300,
+                    count=candles_count,
                 )
             if not market_result.ok:
                 self.logger.error(
