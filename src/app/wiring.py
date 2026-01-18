@@ -33,6 +33,7 @@ from src.llm.providers.llm_router import LlmRouter
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.news_providers.multi_news_provider import MultiNewsProvider
 from src.news_providers.newsapi_provider import NewsAPIProvider
+from src.runtime.config import RuntimeConfig
 from src.runtime.loop.minute_loop import MinuteLoop
 from src.runtime.orchestrator import RuntimeOrchestrator
 from src.storage.artifacts.artifact_store import ArtifactStore
@@ -44,6 +45,29 @@ from src.storage.sqlite.repositories.runs_repository import RunsRepository
 from src.storage.sqlite.repositories.verification_repository import VerificationRepository
 from src.storage.sqlite.storage import SqliteStorage
 from src.utils.time_utils import SystemClock
+
+
+def create_runtime_config() -> RuntimeConfig:
+    """Create RuntimeConfig from application settings."""
+    # Collect per-task timeouts
+    task_timeouts: dict[str, float] = {}
+    for prefix in ["tech", "news", "synthesis", "verifier"]:
+        timeout_attr = f"{prefix}_timeout_seconds"
+        timeout_value = getattr(settings, timeout_attr, None)
+        if timeout_value is not None and isinstance(timeout_value, (int, float)):
+            task_timeouts[f"{prefix}_timeout_seconds"] = float(timeout_value)
+
+    return RuntimeConfig(
+        market_data_window_candles=settings.runtime_market_data_window_candles,
+        llm_enabled=settings.runtime_llm_enabled,
+        llm_timeout_seconds=settings.llm_timeout_seconds,
+        task_timeouts=task_timeouts,
+        verifier_enabled=settings.llm_verifier_enabled,
+        verifier_mode=settings.llm_verifier_mode,
+        verifier_max_repairs=settings.llm_verifier_max_repairs,
+        mvp_timeframe=settings.runtime_mvp_timeframe,
+        mvp_symbols=settings.mvp_symbols(),
+    )
 
 
 def create_market_data_provider() -> MarketDataProvider:
@@ -203,6 +227,7 @@ def create_orchestrator(trace: "PipelineTrace | None" = None) -> OrchestratorPro
     news_analyst = create_news_analyst()
     synthesizer = create_synthesizer()
     candles_repository = create_candles_repository()
+    runtime_config = create_runtime_config()
 
     verifier_agent: VerifierAgent | None = None
     verification_repository: VerificationRepository | None = None
@@ -223,6 +248,7 @@ def create_orchestrator(trace: "PipelineTrace | None" = None) -> OrchestratorPro
         verification_repository=verification_repository,
         verifier_enabled=settings.llm_verifier_enabled,
         trace=trace,
+        config=runtime_config,
     )
 
 
@@ -231,4 +257,5 @@ def create_minute_loop(clock: Clock | None = None) -> MinuteLoop:
         clock = SystemClock()
     orchestrator = create_orchestrator()
     scheduler = Scheduler(clock)
-    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock)
+    runtime_config = create_runtime_config()
+    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock, config=runtime_config)

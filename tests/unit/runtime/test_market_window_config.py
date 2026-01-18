@@ -100,20 +100,22 @@ def test_settings_parses_market_data_window_candles_from_env() -> None:
         settings_module.get_settings.cache_clear()
 
 
-def test_orchestrator_uses_settings_candles_count() -> None:
-    """RuntimeOrchestrator should use settings.runtime_market_data_window_candles."""
-    from unittest.mock import MagicMock, patch
+def test_orchestrator_uses_config_candles_count() -> None:
+    """RuntimeOrchestrator should use config.market_data_window_candles."""
+    from unittest.mock import MagicMock
 
     from src.core.models.run import Run, RunStatus
+    from src.runtime.config import RuntimeConfig
     from src.runtime.orchestrator import RuntimeOrchestrator
 
-    # Create mock settings with custom candles count
-    mock_settings = MagicMock()
-    mock_settings.runtime_market_data_window_candles = 250
-    mock_settings.runtime_llm_enabled = True
-    mock_settings.llm_verifier_enabled = False
-    mock_settings.llm_verifier_mode = "soft"
-    mock_settings.llm_verifier_max_repairs = 1
+    # Create RuntimeConfig with custom candles count
+    config = RuntimeConfig(
+        market_data_window_candles=250,
+        llm_enabled=True,
+        verifier_enabled=False,
+        verifier_mode="soft",
+        verifier_max_repairs=1,
+    )
 
     # Mock provider that tracks requested count
     mock_market_provider = MockMarketDataProvider()
@@ -147,10 +149,10 @@ def test_orchestrator_uses_settings_candles_count() -> None:
         verification_repository=None,
         verifier_enabled=False,
         trace=None,
+        config=config,
     )
 
-    with patch("src.runtime.orchestrator.settings", mock_settings):
-        # Run will fail at news fetch, but we can check the candles count was used
-        orchestrator.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
+    # Run will fail at news fetch, but we can check the candles count was used
+    orchestrator.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
 
     assert mock_market_provider.last_requested_count == 250
