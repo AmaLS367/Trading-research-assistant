@@ -172,7 +172,15 @@ def create_llm_router() -> LlmRouter:
     task_routings: dict[str, LlmTaskRouting] = {}
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
         candidates = settings.get_task_candidates(task_name)
-        steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
+        if not candidates:
+            steps = [
+                LlmRouteStep(
+                    provider=PROVIDER_OLLAMA_LOCAL,
+                    model=settings.ollama_model or "llama3:latest",
+                )
+            ]
+        else:
+            steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
         task_routings[task_name] = LlmTaskRouting(steps=steps)
 
     # Build last resort config
