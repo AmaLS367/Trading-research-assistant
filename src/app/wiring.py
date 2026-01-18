@@ -4,7 +4,7 @@ from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.agents.verifier import VerifierAgent
-from src.app.settings import settings
+from src.app.settings import get_settings, settings
 from src.core.pipeline_trace import PipelineTrace
 from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
@@ -157,26 +157,27 @@ def create_llm_router() -> LlmRouter:
         TaskOverrides,
     )
 
+    current_settings = get_settings()
     providers = create_llm_providers()
 
     # Build routing config
     routing_config = LlmRoutingConfig(
-        router_mode=settings.llm_router_mode,
-        verifier_enabled=settings.llm_verifier_enabled,
-        max_retries=settings.llm_max_retries,
-        timeout_seconds=settings.llm_timeout_seconds,
-        temperature=settings.llm_temperature,
+        router_mode=current_settings.llm_router_mode,
+        verifier_enabled=current_settings.llm_verifier_enabled,
+        max_retries=current_settings.llm_max_retries,
+        timeout_seconds=current_settings.llm_timeout_seconds,
+        temperature=current_settings.llm_temperature,
     )
 
     # Build task routings
     task_routings: dict[str, LlmTaskRouting] = {}
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
-        candidates = settings.get_task_candidates(task_name)
+        candidates = current_settings.get_task_candidates(task_name)
         if not candidates:
             steps = [
                 LlmRouteStep(
                     provider=PROVIDER_OLLAMA_LOCAL,
-                    model=settings.ollama_model or "llama3:latest",
+                    model=current_settings.ollama_model or "llama3:latest",
                 )
             ]
         else:
@@ -185,8 +186,8 @@ def create_llm_router() -> LlmRouter:
 
     # Build last resort config
     last_resort = LastResortConfig(
-        provider=settings.llm_last_resort.provider,
-        model=settings.llm_last_resort.model,
+        provider=current_settings.llm_last_resort.provider,
+        model=current_settings.llm_last_resort.model,
     )
 
     # Build provider timeouts
@@ -194,14 +195,14 @@ def create_llm_router() -> LlmRouter:
     for provider_prefix in ["ollama_local", "ollama_server", "deepseek_api"]:
         # Per-provider timeout
         timeout_attr = f"{provider_prefix}_timeout_seconds"
-        timeout_val = getattr(settings, timeout_attr, None)
+        timeout_val = getattr(current_settings, timeout_attr, None)
         if timeout_val is not None and isinstance(timeout_val, (int, float)):
             provider_timeouts[f"{provider_prefix}_timeout_seconds"] = float(timeout_val)
 
         # Per-provider-per-task timeouts
         for task_prefix in ["tech", "news", "synthesis", "verifier"]:
             task_timeout_attr = f"{provider_prefix}_{task_prefix}_timeout_seconds"
-            task_timeout_val = getattr(settings, task_timeout_attr, None)
+            task_timeout_val = getattr(current_settings, task_timeout_attr, None)
             if task_timeout_val is not None and isinstance(task_timeout_val, (int, float)):
                 provider_timeouts[f"{provider_prefix}_{task_prefix}_timeout_seconds"] = float(task_timeout_val)
 
@@ -214,8 +215,8 @@ def create_llm_router() -> LlmRouter:
         TASK_VERIFICATION: "verifier",
     }
     for task_name, prefix in task_prefix_map.items():
-        timeout_val = getattr(settings, f"{prefix}_timeout_seconds", None)
-        temp_val = getattr(settings, f"{prefix}_temperature", None)
+        timeout_val = getattr(current_settings, f"{prefix}_timeout_seconds", None)
+        temp_val = getattr(current_settings, f"{prefix}_temperature", None)
         if timeout_val is not None or temp_val is not None:
             task_overrides[task_name] = TaskOverrides(
                 timeout_seconds=float(timeout_val) if timeout_val is not None else None,
