@@ -5,9 +5,7 @@ Verifies that exceptions are logged and JobResult.error is populated
 while still returning ok=True with a degraded LOW quality digest.
 """
 
-from unittest.mock import Mock
 
-import pytest
 
 from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
@@ -84,7 +82,7 @@ def test_fetch_news_job_provider_error_logs_warning(caplog) -> None:
     job = FetchNewsJob(provider)
 
     with caplog.at_level("WARNING"):
-        result = job.run(symbol="EURUSD", timeframe=Timeframe.H1)
+        job.run(symbol="EURUSD", timeframe=Timeframe.H1)
 
     # Check that warning was logged
     warning_logs = [r for r in caplog.records if r.levelname == "WARNING"]

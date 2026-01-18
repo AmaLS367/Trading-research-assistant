@@ -9,8 +9,6 @@ import os
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.core.models.candle import Candle
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
@@ -86,7 +84,6 @@ def test_fetch_market_data_job_default_count() -> None:
 def test_settings_parses_market_data_window_candles_from_env() -> None:
     """Settings should parse RUNTIME_MARKET_DATA_WINDOW_CANDLES from environment."""
     # Need to reimport settings to pick up the new env var
-    from importlib import reload
     from src.app import settings as settings_module
 
     # Clear the cached settings
@@ -102,9 +99,7 @@ def test_settings_parses_market_data_window_candles_from_env() -> None:
 
 def test_orchestrator_uses_config_candles_count() -> None:
     """RuntimeOrchestrator should use config.market_data_window_candles."""
-    from unittest.mock import MagicMock
 
-    from src.core.models.run import Run, RunStatus
     from src.runtime.config import RuntimeConfig
     from src.runtime.orchestrator import RuntimeOrchestrator
 

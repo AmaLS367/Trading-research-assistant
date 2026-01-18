@@ -7,9 +7,7 @@ ensuring we can refactor safely without regressions.
 
 import json
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
@@ -32,7 +30,6 @@ from src.core.ports.storage import (
 )
 from src.runtime.orchestrator import RuntimeOrchestrator
 from src.storage.artifacts.artifact_store import ArtifactStore
-
 
 # =============================================================================
 # Mock Implementations
@@ -188,15 +185,15 @@ class MockStorage(Storage):
 
     @property
     def runs(self) -> RunsRepositoryPort:
-        return self._runs  # type: ignore[return-value]
+        return self._runs
 
     @property
     def recommendations(self) -> RecommendationsRepositoryPort:
-        return self._recommendations  # type: ignore[return-value]
+        return self._recommendations
 
     @property
     def rationales(self) -> RationalesRepositoryPort:
-        return self._rationales  # type: ignore[return-value]
+        return self._rationales
 
     @property
     def journal(self):
@@ -265,7 +262,6 @@ def create_mock_llm_router(
     synthesis_response: str | None = None,
 ) -> MagicMock:
     """Create a mock LlmRouter with configurable responses."""
-    from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
     from src.llm.providers.llm_router import LlmRouter
 
     mock_router = MagicMock(spec=LlmRouter)
@@ -518,8 +514,8 @@ class TestOrchestratorDeterminism:
         orchestrator1, storage1 = create_test_orchestrator()
         orchestrator2, storage2 = create_test_orchestrator()
 
-        run_id1 = orchestrator1.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
-        run_id2 = orchestrator2.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
+        orchestrator1.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
+        orchestrator2.run_analysis(symbol="EURUSD", timeframe=Timeframe.H1)
 
         # Both should have same structure
         rec1 = storage1._recommendations.get_latest()

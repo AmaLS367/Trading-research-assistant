@@ -90,14 +90,18 @@ def test_end_to_end_pipeline_offline():
         from src.agents.technical_analyst import TechnicalAnalyst
         from src.agents.verifier import VerifierAgent
         from src.core.models.llm import LlmResponse
-        from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.ports.llm_tasks import (
             TASK_NEWS_ANALYSIS,
             TASK_SYNTHESIS,
             TASK_TECH_ANALYSIS,
             TASK_VERIFICATION,
         )
-        from src.llm.providers.llm_router import LlmRouter
+        from src.llm.providers.llm_router import (
+            LlmRouter,
+            LlmRouteStep,
+            LlmRoutingConfig,
+            LlmTaskRouting,
+        )
 
         providers: dict[str, LlmProvider] = {"test_provider": mock_tech_provider}
         routing_config = LlmRoutingConfig(
@@ -224,13 +228,17 @@ def test_end_to_end_pipeline_with_trace():
         from src.agents.synthesizer import Synthesizer
         from src.agents.technical_analyst import TechnicalAnalyst
         from src.core.models.llm import LlmResponse
-        from src.llm.providers.llm_router import LlmRouteStep, LlmRoutingConfig, LlmTaskRouting
         from src.core.ports.llm_tasks import (
             TASK_NEWS_ANALYSIS,
             TASK_SYNTHESIS,
             TASK_TECH_ANALYSIS,
         )
-        from src.llm.providers.llm_router import LlmRouter
+        from src.llm.providers.llm_router import (
+            LlmRouter,
+            LlmRouteStep,
+            LlmRoutingConfig,
+            LlmTaskRouting,
+        )
 
         providers: dict[str, LlmProvider] = {"test_provider": mock_tech_provider}
         routing_config = LlmRoutingConfig(
