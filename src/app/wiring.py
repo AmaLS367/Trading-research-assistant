@@ -4,7 +4,7 @@ from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.agents.verifier import VerifierAgent
-from src.app.settings import settings
+from src.app.settings import get_settings, settings
 from src.core.pipeline_trace import PipelineTrace
 from src.core.ports.clock import Clock
 from src.core.ports.llm_provider import LlmProvider
@@ -33,6 +33,7 @@ from src.llm.providers.llm_router import LlmRouter
 from src.news_providers.gdelt_provider import GDELTProvider
 from src.news_providers.multi_news_provider import MultiNewsProvider
 from src.news_providers.newsapi_provider import NewsAPIProvider
+from src.runtime.config import RuntimeConfig
 from src.runtime.loop.minute_loop import MinuteLoop
 from src.runtime.orchestrator import RuntimeOrchestrator
 from src.storage.artifacts.artifact_store import ArtifactStore
@@ -44,6 +45,29 @@ from src.storage.sqlite.repositories.runs_repository import RunsRepository
 from src.storage.sqlite.repositories.verification_repository import VerificationRepository
 from src.storage.sqlite.storage import SqliteStorage
 from src.utils.time_utils import SystemClock
+
+
+def create_runtime_config() -> RuntimeConfig:
+    """Create RuntimeConfig from application settings."""
+    # Collect per-task timeouts
+    task_timeouts: dict[str, float] = {}
+    for prefix in ["tech", "news", "synthesis", "verifier"]:
+        timeout_attr = f"{prefix}_timeout_seconds"
+        timeout_value = getattr(settings, timeout_attr, None)
+        if timeout_value is not None and isinstance(timeout_value, (int, float)):
+            task_timeouts[f"{prefix}_timeout_seconds"] = float(timeout_value)
+
+    return RuntimeConfig(
+        market_data_window_candles=settings.runtime_market_data_window_candles,
+        llm_enabled=settings.runtime_llm_enabled,
+        llm_timeout_seconds=settings.llm_timeout_seconds,
+        task_timeouts=task_timeouts,
+        verifier_enabled=settings.llm_verifier_enabled,
+        verifier_mode=settings.llm_verifier_mode,
+        verifier_max_repairs=settings.llm_verifier_max_repairs,
+        mvp_timeframe=settings.runtime_mvp_timeframe,
+        mvp_symbols=settings.mvp_symbols(),
+    )
 
 
 def create_market_data_provider() -> MarketDataProvider:
@@ -125,38 +149,116 @@ def create_llm_providers() -> dict[str, LlmProvider]:
 
 
 def create_llm_router() -> LlmRouter:
-    from src.app.settings import LlmRouteStep, LlmTaskRouting
+    from src.llm.providers.llm_router import (
+        LastResortConfig,
+        LlmRouteStep,
+        LlmRoutingConfig,
+        LlmTaskRouting,
+        TaskOverrides,
+    )
 
+    current_settings = get_settings()
     providers = create_llm_providers()
-    routing_config = settings.get_llm_routing_config()
 
-    task_routings = {}
+    # Build routing config
+    routing_config = LlmRoutingConfig(
+        router_mode=current_settings.llm_router_mode,
+        verifier_enabled=current_settings.llm_verifier_enabled,
+        max_retries=current_settings.llm_max_retries,
+        timeout_seconds=current_settings.llm_timeout_seconds,
+        temperature=current_settings.llm_temperature,
+    )
+
+    # Build task routings
+    task_routings: dict[str, LlmTaskRouting] = {}
     for task_name in [TASK_TECH_ANALYSIS, TASK_NEWS_ANALYSIS, TASK_SYNTHESIS, TASK_VERIFICATION]:
-        candidates = settings.get_task_candidates(task_name)
-        steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
+        candidates = current_settings.get_task_candidates(task_name)
+        if not candidates:
+            steps = [
+                LlmRouteStep(
+                    provider=PROVIDER_OLLAMA_LOCAL,
+                    model=current_settings.ollama_model or "llama3:latest",
+                )
+            ]
+        else:
+            steps = [LlmRouteStep(provider=c.provider, model=c.model) for c in candidates]
         task_routings[task_name] = LlmTaskRouting(steps=steps)
 
-    return LlmRouter(providers, routing_config, task_routings)
+    # Build last resort config
+    last_resort = LastResortConfig(
+        provider=current_settings.llm_last_resort.provider,
+        model=current_settings.llm_last_resort.model,
+    )
+
+    # Build provider timeouts
+    provider_timeouts: dict[str, float] = {}
+    for provider_prefix in ["ollama_local", "ollama_server", "deepseek_api"]:
+        # Per-provider timeout
+        timeout_attr = f"{provider_prefix}_timeout_seconds"
+        timeout_val = getattr(current_settings, timeout_attr, None)
+        if timeout_val is not None and isinstance(timeout_val, (int, float)):
+            provider_timeouts[f"{provider_prefix}_timeout_seconds"] = float(timeout_val)
+
+        # Per-provider-per-task timeouts
+        for task_prefix in ["tech", "news", "synthesis", "verifier"]:
+            task_timeout_attr = f"{provider_prefix}_{task_prefix}_timeout_seconds"
+            task_timeout_val = getattr(current_settings, task_timeout_attr, None)
+            if task_timeout_val is not None and isinstance(task_timeout_val, (int, float)):
+                provider_timeouts[f"{provider_prefix}_{task_prefix}_timeout_seconds"] = float(task_timeout_val)
+
+    # Build task overrides
+    task_overrides: dict[str, TaskOverrides] = {}
+    task_prefix_map = {
+        TASK_TECH_ANALYSIS: "tech",
+        TASK_NEWS_ANALYSIS: "news",
+        TASK_SYNTHESIS: "synthesis",
+        TASK_VERIFICATION: "verifier",
+    }
+    for task_name, prefix in task_prefix_map.items():
+        timeout_val = getattr(current_settings, f"{prefix}_timeout_seconds", None)
+        temp_val = getattr(current_settings, f"{prefix}_temperature", None)
+        if timeout_val is not None or temp_val is not None:
+            task_overrides[task_name] = TaskOverrides(
+                timeout_seconds=float(timeout_val) if timeout_val is not None else None,
+                temperature=float(temp_val) if temp_val is not None else None,
+            )
+
+    return LlmRouter(
+        providers=providers,
+        routing_config=routing_config,
+        task_routings=task_routings,
+        last_resort=last_resort,
+        provider_timeouts=provider_timeouts,
+        task_overrides=task_overrides,
+    )
+
+
+# Singleton LLM router instance
+_llm_router: LlmRouter | None = None
+
+
+def get_llm_router() -> LlmRouter:
+    """Get the singleton LLM router instance."""
+    global _llm_router
+    if _llm_router is None:
+        _llm_router = create_llm_router()
+    return _llm_router
 
 
 def create_technical_analyst() -> TechnicalAnalyst:
-    llm_router = create_llm_router()
-    return TechnicalAnalyst(llm_router=llm_router)
+    return TechnicalAnalyst(llm_router=get_llm_router())
 
 
 def create_synthesizer() -> Synthesizer:
-    llm_router = create_llm_router()
-    return Synthesizer(llm_router=llm_router)
+    return Synthesizer(llm_router=get_llm_router())
 
 
 def create_news_analyst() -> NewsAnalyst:
-    llm_router = create_llm_router()
-    return NewsAnalyst(llm_router=llm_router)
+    return NewsAnalyst(llm_router=get_llm_router())
 
 
 def create_verifier_agent() -> VerifierAgent:
-    llm_router = create_llm_router()
-    return VerifierAgent(llm_router=llm_router)
+    return VerifierAgent(llm_router=get_llm_router())
 
 
 def create_recommendations_repository() -> RecommendationsRepository:
@@ -203,6 +305,7 @@ def create_orchestrator(trace: "PipelineTrace | None" = None) -> OrchestratorPro
     news_analyst = create_news_analyst()
     synthesizer = create_synthesizer()
     candles_repository = create_candles_repository()
+    runtime_config = create_runtime_config()
 
     verifier_agent: VerifierAgent | None = None
     verification_repository: VerificationRepository | None = None
@@ -223,6 +326,7 @@ def create_orchestrator(trace: "PipelineTrace | None" = None) -> OrchestratorPro
         verification_repository=verification_repository,
         verifier_enabled=settings.llm_verifier_enabled,
         trace=trace,
+        config=runtime_config,
     )
 
 
@@ -231,4 +335,5 @@ def create_minute_loop(clock: Clock | None = None) -> MinuteLoop:
         clock = SystemClock()
     orchestrator = create_orchestrator()
     scheduler = Scheduler(clock)
-    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock)
+    runtime_config = create_runtime_config()
+    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock, config=runtime_config)

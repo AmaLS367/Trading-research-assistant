@@ -1,15 +1,18 @@
 from unittest.mock import Mock
 
-from src.app.settings import LlmRoutingConfig, LlmTaskRouting
 from src.core.models.llm import LlmRequest, LlmResponse
 from src.core.ports.llm_provider import LlmProvider
 from src.core.ports.llm_tasks import TASK_SYNTHESIS, TASK_TECH_ANALYSIS
-from src.llm.providers.llm_router import LlmRouter
+from src.llm.providers.llm_router import (
+    LlmRouter,
+    LlmRoutingConfig,
+    LlmTaskRouting,
+    TaskOverrides,
+)
 
 
-def test_per_task_temperature_override(monkeypatch):
-    from src.app.settings import settings
-
+def test_per_task_temperature_override():
+    """Task overrides should be applied when specified."""
     mock_provider = Mock(spec=LlmProvider)
     mock_provider.get_provider_name.return_value = "test_provider"
     mock_provider.health_check.return_value = Mock(ok=True, reason="test")
@@ -37,27 +40,32 @@ def test_per_task_temperature_override(monkeypatch):
         )
     }
 
-    router = LlmRouter(providers, routing_config, task_routings)
+    # Specify task overrides for tech_analysis
+    task_overrides = {
+        TASK_TECH_ANALYSIS: TaskOverrides(temperature=0.5, timeout_seconds=120.0)
+    }
 
-    with monkeypatch.context() as m:
-        m.setattr(settings, "tech_temperature", 0.5)
-        m.setattr(settings, "tech_timeout_seconds", 120.0)
+    router = LlmRouter(
+        providers=providers,
+        routing_config=routing_config,
+        task_routings=task_routings,
+        task_overrides=task_overrides,
+    )
 
-        router.generate(
-            task=TASK_TECH_ANALYSIS,
-            system_prompt="test",
-            user_prompt="test",
-        )
+    router.generate(
+        task=TASK_TECH_ANALYSIS,
+        system_prompt="test",
+        user_prompt="test",
+    )
 
-        call_args = mock_provider.generate_with_request.call_args
-        request: LlmRequest = call_args[0][0]
-        assert request.temperature == 0.5
-        assert request.timeout_seconds == 120.0
+    call_args = mock_provider.generate_with_request.call_args
+    request: LlmRequest = call_args[0][0]
+    assert request.temperature == 0.5
+    assert request.timeout_seconds == 120.0
 
 
-def test_per_task_overrides_fallback_to_defaults(monkeypatch):
-    from src.app.settings import settings
-
+def test_per_task_overrides_fallback_to_defaults():
+    """Without task overrides, routing config defaults should be used."""
     mock_provider = Mock(spec=LlmProvider)
     mock_provider.get_provider_name.return_value = "test_provider"
     mock_provider.health_check.return_value = Mock(ok=True, reason="test")
@@ -83,19 +91,20 @@ def test_per_task_overrides_fallback_to_defaults(monkeypatch):
         TASK_SYNTHESIS: LlmTaskRouting(steps=[Mock(provider="test_provider", model="test_model")])
     }
 
-    router = LlmRouter(providers, routing_config, task_routings)
+    # No task overrides
+    router = LlmRouter(
+        providers=providers,
+        routing_config=routing_config,
+        task_routings=task_routings,
+    )
 
-    with monkeypatch.context() as m:
-        m.setattr(settings, "synthesis_temperature", None)
-        m.setattr(settings, "synthesis_timeout_seconds", None)
+    router.generate(
+        task=TASK_SYNTHESIS,
+        system_prompt="test",
+        user_prompt="test",
+    )
 
-        router.generate(
-            task=TASK_SYNTHESIS,
-            system_prompt="test",
-            user_prompt="test",
-        )
-
-        call_args = mock_provider.generate_with_request.call_args
-        request: LlmRequest = call_args[0][0]
-        assert request.temperature == 0.2
-        assert request.timeout_seconds == 60.0
+    call_args = mock_provider.generate_with_request.call_args
+    request: LlmRequest = call_args[0][0]
+    assert request.temperature == 0.2
+    assert request.timeout_seconds == 60.0

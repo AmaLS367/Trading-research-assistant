@@ -39,7 +39,8 @@ Recommendations must include:
 
 Module defines constraints and validation:
 
-- **Minimum candles**: 200 (configurable via `RUNTIME_MARKET_DATA_WINDOW_CANDLES`)
+- **Minimum candles required**: 200 (hardcoded in `FetchMarketDataJob`)
+- **Candles to request**: Configurable via `RUNTIME_MARKET_DATA_WINDOW_CANDLES` (default 300)
 - **Allowed timeframes**: 1m, 5m, 15m, 1h, 1d
 - **Symbol validation**: format checking (e.g., EURUSD, GBPUSD)
 

@@ -1,8 +1,15 @@
-from src.app.settings import settings
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from src.core.models.timeframe import Timeframe
 from src.core.ports.clock import Clock
 from src.core.ports.orchestrator import OrchestratorProtocol
 from src.core.services.scheduler import Scheduler
+from src.runtime.config import RuntimeConfig
+
+if TYPE_CHECKING:
+    pass
 
 
 class MinuteLoop:
@@ -11,10 +18,12 @@ class MinuteLoop:
         orchestrator: OrchestratorProtocol,
         scheduler: Scheduler,
         clock: Clock,
+        config: RuntimeConfig | None = None,
     ) -> None:
         self.orchestrator = orchestrator
         self.scheduler = scheduler
         self.clock = clock
+        self.config = config or RuntimeConfig()
 
     def start(
         self,
@@ -24,8 +33,8 @@ class MinuteLoop:
         max_iterations: int | None = None,
     ) -> None:
         if timeframe is None:
-            timeframe = Timeframe(settings.runtime_mvp_timeframe)
-        symbols = settings.mvp_symbols() if symbol is None else [symbol]
+            timeframe = Timeframe(self.config.mvp_timeframe)
+        symbols = self.config.mvp_symbols if symbol is None else [symbol]
 
         iteration_count = 0
 

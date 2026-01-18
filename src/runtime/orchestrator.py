@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from src.agents.news_analyst import NewsAnalyst
 from src.agents.synthesizer import Synthesizer
 from src.agents.technical_analyst import TechnicalAnalyst
 from src.agents.verifier import VerifierAgent
-from src.app.settings import settings
 from src.core.logging_helpers import stage_timer
 from src.core.models.llm import LlmRequest
 from src.core.models.rationale import Rationale, RationaleType
@@ -23,6 +25,7 @@ from src.core.ports.llm_tasks import (
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
 from src.core.ports.storage import Storage
+from src.runtime.config import RuntimeConfig
 from src.runtime.jobs.build_features_job import BuildFeaturesJob
 from src.runtime.jobs.fetch_market_data_job import FetchMarketDataJob
 from src.runtime.jobs.fetch_news_job import FetchNewsJob
@@ -32,20 +35,8 @@ from src.storage.sqlite.repositories.candles_repository import CandlesRepository
 from src.storage.sqlite.repositories.verification_repository import VerificationRepository
 from src.utils.logging import get_logger
 
-
-def _get_timeout_for_task(task: str) -> float:
-    task_prefix_map = {
-        TASK_TECH_ANALYSIS: "tech",
-        TASK_NEWS_ANALYSIS: "news",
-        TASK_SYNTHESIS: "synthesis",
-        TASK_VERIFICATION: "verifier",
-    }
-    task_prefix = task_prefix_map.get(task)
-    if task_prefix:
-        task_timeout = getattr(settings, f"{task_prefix}_timeout_seconds", None)
-        if task_timeout is not None and isinstance(task_timeout, (int, float)):
-            return float(task_timeout)
-    return settings.llm_timeout_seconds
+if TYPE_CHECKING:
+    pass
 
 
 class RuntimeOrchestrator:
@@ -63,6 +54,7 @@ class RuntimeOrchestrator:
         verification_repository: VerificationRepository | None = None,
         verifier_enabled: bool | None = None,
         trace: PipelineTrace | None = None,
+        config: RuntimeConfig | None = None,
     ) -> None:
         self.storage = storage
         self.artifact_store = artifact_store
@@ -76,6 +68,7 @@ class RuntimeOrchestrator:
         self.verification_repository = verification_repository
         self.verifier_enabled = verifier_enabled
         self.trace = trace or PipelineTrace(enabled=False)
+        self.config = config or RuntimeConfig()
         self.logger = get_logger(__name__)
 
     def run_analysis(self, symbol: str, timeframe: Timeframe) -> int:
@@ -89,7 +82,7 @@ class RuntimeOrchestrator:
         self.logger.info(f"Starting run {run_id} for {symbol} on {timeframe.value}")
         self.logger.debug(
             f"Run config: symbol={symbol}, timeframe={timeframe.value}, "
-            f"llm_enabled={settings.runtime_llm_enabled}"
+            f"llm_enabled={self.config.llm_enabled}"
         )
 
         try:
@@ -99,14 +92,15 @@ class RuntimeOrchestrator:
             if not provider_name:
                 provider_name = self.market_data_provider.__class__.__name__
             self.trace.step_start(f"Fetching market data from {provider_name}...")
-            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=300):
+            candles_count = self.config.market_data_window_candles
+            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=candles_count):
                 fetch_market_data_job = FetchMarketDataJob(
                     self.market_data_provider, candles_repository=self.candles_repository
                 )
                 market_result = fetch_market_data_job.run(
                     symbol=symbol,
                     timeframe=timeframe,
-                    count=300,
+                    count=candles_count,
                 )
             if not market_result.ok:
                 self.logger.error(
@@ -176,7 +170,7 @@ class RuntimeOrchestrator:
                 system_prompt=tech_system_prompt,
                 user_prompt=tech_user_prompt,
                 temperature=0.2,
-                timeout_seconds=_get_timeout_for_task(TASK_TECH_ANALYSIS),
+                timeout_seconds=self.config.get_timeout_for_task(TASK_TECH_ANALYSIS),
                 max_retries=1,
             )
             self.artifact_store.save_llm_exchange(
@@ -293,7 +287,7 @@ Provide your analysis as JSON."""
                     system_prompt=news_system_prompt,
                     user_prompt=news_user_prompt,
                     temperature=0.2,
-                    timeout_seconds=_get_timeout_for_task(TASK_NEWS_ANALYSIS),
+                    timeout_seconds=self.config.get_timeout_for_task(TASK_NEWS_ANALYSIS),
                     max_retries=1,
                 )
                 self.artifact_store.save_llm_exchange(
@@ -386,7 +380,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                     system_prompt=synthesis_system_prompt,
                     user_prompt=synthesis_user_prompt,
                     temperature=0.2,
-                    timeout_seconds=_get_timeout_for_task(TASK_SYNTHESIS),
+                    timeout_seconds=self.config.get_timeout_for_task(TASK_SYNTHESIS),
                     max_retries=1,
                 )
                 self.artifact_store.save_llm_exchange(
@@ -396,7 +390,7 @@ Based on the above information, provide your trading recommendation as JSON."""
             verification_report: VerificationReport | None = None
             verifier_enabled_value = self.verifier_enabled
             if verifier_enabled_value is None:
-                verifier_enabled_value = settings.llm_verifier_enabled
+                verifier_enabled_value = self.config.verifier_enabled
 
             if verifier_enabled_value and self.verifier_agent:
                 self.trace.step_start("Verifying recommendation (LLM)...")
@@ -433,7 +427,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                             TASK_SYNTHESIS, inputs_summary, author_output
                         ),
                         temperature=0.2,
-                        timeout_seconds=_get_timeout_for_task(TASK_VERIFICATION),
+                        timeout_seconds=self.config.get_timeout_for_task(TASK_VERIFICATION),
                         max_retries=1,
                     )
                     from src.core.models.llm import LlmResponse
@@ -471,19 +465,19 @@ Based on the above information, provide your trading recommendation as JSON."""
                     )
 
                     if (
-                        settings.llm_verifier_mode == "hard"
+                        self.config.verifier_mode == "hard"
                         and verification_report.suggested_fix
-                        and settings.llm_verifier_max_repairs > 0
+                        and self.config.verifier_max_repairs > 0
                     ):
                         repair_count = 0
                         last_recommendation = recommendation
                         last_synthesis_debug = synthesis_debug
                         last_synthesis_llm_response = synthesis_llm_response
 
-                        while repair_count < settings.llm_verifier_max_repairs:
+                        while repair_count < self.config.verifier_max_repairs:
                             repair_count += 1
                             self.logger.info(
-                                f"Run {run_id} attempting repair {repair_count}/{settings.llm_verifier_max_repairs}"
+                                f"Run {run_id} attempting repair {repair_count}/{self.config.verifier_max_repairs}"
                             )
 
                             repair_prompt = f"""Previous synthesis failed verification. Apply the following fix:
@@ -587,7 +581,7 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     system_prompt="Return ONLY valid JSON.",
                                     user_prompt=repair_prompt,
                                     temperature=0.2,
-                                    timeout_seconds=_get_timeout_for_task(TASK_SYNTHESIS),
+                                    timeout_seconds=self.config.get_timeout_for_task(TASK_SYNTHESIS),
                                     max_retries=1,
                                 )
                                 self.artifact_store.save_llm_exchange(
