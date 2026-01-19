@@ -419,6 +419,16 @@ def journal() -> None:
     console.print(f"  Timestamp: {recommendation.timestamp}")
     console.print()
 
+    skip_reason_choices = [
+        "Followed WAIT",
+        "No setup",
+        "Late",
+        "Spread",
+        "Too risky",
+        "Emotion",
+        "Other",
+    ]
+
     if recommendation.action == "WAIT":
         selected_action = Prompt.ask(
             "What did you do?",
@@ -431,9 +441,11 @@ def journal() -> None:
             if selected_action == "SKIP":
                 comment = Prompt.ask(
                     "Why did you skip?",
-                    choices=["Market changed", "Too risky", "Missed"],
-                    default="Market changed",
+                    choices=skip_reason_choices,
+                    default="Followed WAIT",
                 )
+                if comment == "Other":
+                    comment = Prompt.ask("Other reason (free text)")
 
             entry = JournalEntry(
                 recommendation_id=recommendation.id,
@@ -464,9 +476,11 @@ def journal() -> None:
     if not took_trade:
         reason = Prompt.ask(
             "Why did you skip?",
-            choices=["Market changed", "Too risky", "Missed"],
-            default="Market changed",
+            choices=skip_reason_choices,
+            default="No setup",
         )
+        if reason == "Other":
+            reason = Prompt.ask("Other reason (free text)")
 
         entry = JournalEntry(
             recommendation_id=recommendation.id,
