@@ -5,8 +5,6 @@ Verifies that exceptions are logged and JobResult.error is populated
 while still returning ok=True with a degraded LOW quality digest.
 """
 
-
-
 from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.core.ports.news_provider import NewsProvider

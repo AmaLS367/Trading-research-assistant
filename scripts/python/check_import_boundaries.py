@@ -99,8 +99,7 @@ def check_file(file_path: Path, project_root: Path) -> list[str]:
                     continue
 
                 violations.append(
-                    f"{relative_path}:{line_num + 1}: {description}\n"
-                    f"    {line.strip()}"
+                    f"{relative_path}:{line_num + 1}: {description}\n    {line.strip()}"
                 )
 
     return violations

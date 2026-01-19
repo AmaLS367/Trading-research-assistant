@@ -104,7 +104,9 @@ class MockLlmProvider(LlmProvider):
         return "Mock LLM response"
 
     def health_check(self) -> HealthCheckResult:
-        return HealthCheckResult(ok=self._available, reason="" if self._available else "unavailable")
+        return HealthCheckResult(
+            ok=self._available, reason="" if self._available else "unavailable"
+        )
 
 
 class MockRunsRepository:
@@ -268,17 +270,21 @@ def create_mock_llm_router(
 
     # Default responses
     default_tech = "Technical analysis: RSI at 55, trend is neutral. Watch 1.1050 resistance."
-    default_news = json.dumps({
-        "summary": "Market sentiment is neutral with no major events.",
-        "sentiment": "NEU",
-        "impact_score": 0.3,
-        "evidence_titles": [],
-    })
-    default_synthesis = json.dumps({
-        "action": "WAIT",
-        "confidence": 0.5,
-        "brief": "Mixed signals suggest waiting for clearer direction.",
-    })
+    default_news = json.dumps(
+        {
+            "summary": "Market sentiment is neutral with no major events.",
+            "sentiment": "NEU",
+            "impact_score": 0.3,
+            "evidence_titles": [],
+        }
+    )
+    default_synthesis = json.dumps(
+        {
+            "action": "WAIT",
+            "confidence": 0.5,
+            "brief": "Mixed signals suggest waiting for clearer direction.",
+        }
+    )
 
     def generate_side_effect(task: str, system_prompt: str, user_prompt: str) -> LlmResponse:
         responses = {

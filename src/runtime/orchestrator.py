@@ -93,7 +93,9 @@ class RuntimeOrchestrator:
                 provider_name = self.market_data_provider.__class__.__name__
             self.trace.step_start(f"Fetching market data from {provider_name}...")
             candles_count = self.config.market_data_window_candles
-            with stage_timer("fetch_candles", symbol=symbol, timeframe=timeframe.value, count=candles_count):
+            with stage_timer(
+                "fetch_candles", symbol=symbol, timeframe=timeframe.value, count=candles_count
+            ):
                 fetch_market_data_job = FetchMarketDataJob(
                     self.market_data_provider, candles_repository=self.candles_repository
                 )
@@ -216,11 +218,20 @@ class RuntimeOrchestrator:
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
                 f"Sentiment: {analyzed_news_digest.sentiment or 'N/A'}"
             )
+            news_raw_data: str | None = None
+            try:
+                news_raw_data = analyzed_news_digest.model_dump_json(
+                    exclude={"gdelt_debug"},
+                    exclude_none=True,
+                )
+            except (AttributeError, TypeError, ValueError) as e:
+                self.logger.warning(f"Failed to serialize analyzed news digest: {e}")
+
             news_rationale = Rationale(
                 run_id=run_id,
                 rationale_type=RationaleType.NEWS,
                 content=news_content,
-                raw_data=None,
+                raw_data=news_raw_data,
                 provider_name=news_llm_response.provider_name if news_llm_response else None,
                 model_name=news_llm_response.model_name if news_llm_response else None,
                 latency_ms=news_llm_response.latency_ms if news_llm_response else None,
@@ -581,7 +592,9 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     system_prompt="Return ONLY valid JSON.",
                                     user_prompt=repair_prompt,
                                     temperature=0.2,
-                                    timeout_seconds=self.config.get_timeout_for_task(TASK_SYNTHESIS),
+                                    timeout_seconds=self.config.get_timeout_for_task(
+                                        TASK_SYNTHESIS
+                                    ),
                                     max_retries=1,
                                 )
                                 self.artifact_store.save_llm_exchange(

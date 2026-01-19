@@ -204,7 +204,9 @@ def create_llm_router() -> LlmRouter:
             task_timeout_attr = f"{provider_prefix}_{task_prefix}_timeout_seconds"
             task_timeout_val = getattr(current_settings, task_timeout_attr, None)
             if task_timeout_val is not None and isinstance(task_timeout_val, (int, float)):
-                provider_timeouts[f"{provider_prefix}_{task_prefix}_timeout_seconds"] = float(task_timeout_val)
+                provider_timeouts[f"{provider_prefix}_{task_prefix}_timeout_seconds"] = float(
+                    task_timeout_val
+                )
 
     # Build task overrides
     task_overrides: dict[str, TaskOverrides] = {}
@@ -336,4 +338,6 @@ def create_minute_loop(clock: Clock | None = None) -> MinuteLoop:
     orchestrator = create_orchestrator()
     scheduler = Scheduler(clock)
     runtime_config = create_runtime_config()
-    return MinuteLoop(orchestrator=orchestrator, scheduler=scheduler, clock=clock, config=runtime_config)
+    return MinuteLoop(
+        orchestrator=orchestrator, scheduler=scheduler, clock=clock, config=runtime_config
+    )

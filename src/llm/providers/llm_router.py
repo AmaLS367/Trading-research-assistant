@@ -43,6 +43,7 @@ class LastResortConfig:
 @dataclass
 class TaskOverrides:
     """Per-task timeout and temperature overrides."""
+
     timeout_seconds: float | None = None
     temperature: float | None = None
 

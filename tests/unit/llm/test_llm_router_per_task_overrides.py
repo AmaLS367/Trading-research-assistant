@@ -41,9 +41,7 @@ def test_per_task_temperature_override():
     }
 
     # Specify task overrides for tech_analysis
-    task_overrides = {
-        TASK_TECH_ANALYSIS: TaskOverrides(temperature=0.5, timeout_seconds=120.0)
-    }
+    task_overrides = {TASK_TECH_ANALYSIS: TaskOverrides(temperature=0.5, timeout_seconds=120.0)}
 
     router = LlmRouter(
         providers=providers,
