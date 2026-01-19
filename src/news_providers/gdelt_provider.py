@@ -72,12 +72,14 @@ class GDELTProvider(NewsProvider):
             base_name = base_info["name"]
             quote_name = quote_info["name"]
 
+            pair_or_group = f'({pair_ticker} OR "{pair_slash}" OR {base_name} {quote_name})'
             templates["strict"]["pair_strict"] = (
-                f'(({pair_ticker} OR "{pair_slash}" OR ("{base_name}" AND "{quote_name}")) AND {fx_anchors}) {language_filter}'
+                f"{pair_or_group} AND {fx_anchors} {language_filter}"
             )
 
+            pair_name_group = f"{base_name} {quote_name}"
             templates["medium"]["pair_medium"] = (
-                f'(("{base_name}" AND "{quote_name}") AND {fx_anchors}) {language_filter}'
+                f"{pair_name_group} AND {fx_anchors} {language_filter}"
             )
 
         cb_terms: list[str] = []
@@ -90,18 +92,29 @@ class GDELTProvider(NewsProvider):
         if quote_info["cb_full"]:
             cb_terms.append(f'"{quote_info["cb_full"]}"')
 
-        macro_terms = '(CPI OR inflation OR "interest rate" OR rates OR yields OR NFP OR GDP OR PMI OR employment OR unemployment)'
+        macro_terms_short = '(CPI OR inflation OR "interest rate" OR NFP OR GDP OR PMI)'
+        macro_terms_broad = (
+            '(CPI OR inflation OR "interest rate" OR rates OR yields OR NFP OR GDP OR PMI)'
+        )
 
         if cb_terms:
             cb_query = " OR ".join(cb_terms)
+            macro_terms_short_flat = macro_terms_short
+            if macro_terms_short_flat.startswith("(") and macro_terms_short_flat.endswith(")"):
+                macro_terms_short_flat = macro_terms_short_flat[1:-1]
+            cb_group = f"({cb_query} OR {macro_terms_short_flat})"
+            templates["medium"]["macro_medium"] = f"{cb_group} AND {fx_anchors} {language_filter}"
+        else:
             templates["medium"]["macro_medium"] = (
-                f"(({cb_query} OR {macro_terms}) AND {fx_anchors}) {language_filter}"
+                f"{macro_terms_short} AND {fx_anchors} {language_filter}"
             )
 
-        templates["broad"]["macro_broad"] = f"({macro_terms} AND {fx_anchors}) {language_filter}"
+        templates["broad"]["macro_broad"] = (
+            f"{macro_terms_broad} AND {fx_anchors} {language_filter}"
+        )
 
         risk_terms = '("risk on" OR "risk off" OR recession OR "safe haven" OR "market volatility" OR volatility)'
-        templates["broad"]["risk_broad"] = f"({risk_terms} AND {fx_anchors}) {language_filter}"
+        templates["broad"]["risk_broad"] = f"{risk_terms} AND {fx_anchors} {language_filter}"
 
         return templates
 
@@ -114,6 +127,9 @@ class GDELTProvider(NewsProvider):
             "query": query[:200] if len(query) > 200 else query,
             "url": "",
             "http_status": None,
+            "content_type": None,
+            "body_length": None,
+            "body_preview": None,
             "error": None,
             "json_keys": None,
             "items_count": 0,
@@ -140,17 +156,38 @@ class GDELTProvider(NewsProvider):
 
             response = self._make_request(url, params)
             debug_info["http_status"] = response.status_code
+
+            try:
+                debug_info["content_type"] = response.headers.get("content-type")
+            except Exception:
+                debug_info["content_type"] = None
+
             response.raise_for_status()
+
+            try:
+                response_text = response.text
+                debug_info["body_length"] = len(response_text)
+
+                if response_text.strip() == "":
+                    debug_info["body_preview"] = "<empty>"
+                else:
+                    preview_source = response_text.replace("\r", " ").replace("\n", " ")
+                    preview_source = " ".join(preview_source.split())
+                    debug_info["body_preview"] = preview_source[:200]
+            except Exception as text_error:
+                debug_info["body_length"] = None
+                debug_info["body_preview"] = f"<unavailable: {type(text_error).__name__}>"
 
             try:
                 data = response.json()
                 debug_info["json_keys"] = list(data.keys())[:10] if isinstance(data, dict) else None
+
                 articles_data = data.get("articles", [])
                 debug_info["items_count"] = (
                     len(articles_data) if isinstance(articles_data, list) else 0
                 )
 
-                if articles_data and isinstance(articles_data, list) and len(articles_data) > 0:
+                if isinstance(articles_data, list) and len(articles_data) > 0:
                     first_item = articles_data[0]
                     if isinstance(first_item, dict):
                         sample_title = first_item.get("title", "")
@@ -160,6 +197,7 @@ class GDELTProvider(NewsProvider):
                 for article_data in articles_data:
                     if not isinstance(article_data, dict):
                         continue
+
                     title = article_data.get("title", "").strip()
                     if not title:
                         continue
@@ -239,7 +277,6 @@ class GDELTProvider(NewsProvider):
             gdelt_debug["passes"][pass_name] = {"requests": pass_requests}
 
             filtered_articles, _, _ = self._filter_dedup_score(all_candidates, symbol)
-
             relevant_high = [a for a in filtered_articles if a.relevance_score >= threshold]
 
             if pass_name == "broad" and len(relevant_high) < min_relevant:

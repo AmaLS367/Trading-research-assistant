@@ -8,7 +8,6 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from src.app.logging_config import configure_logging
 from src.app.settings import settings
 from src.app.wiring import (
     create_minute_loop,
@@ -28,6 +27,7 @@ from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
 from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
+from src.utils.logging_setup import setup_logging
 
 console = Console()
 db = DBConnection(str(settings.storage_sqlite_db_path))
@@ -250,12 +250,48 @@ def show_latest(show_details: bool = False) -> None:
                                     tag = req.get("tag", "unknown")
                                     status = req.get("http_status", "?")
                                     items = req.get("items_count", 0)
+
                                     error = req.get("error")
+                                    json_parse_error = req.get("json_parse_error")
+
+                                    content_type = req.get("content_type")
+                                    body_length = req.get("body_length")
+                                    body_preview = req.get("body_preview")
+
                                     status_str = str(status) if status else "?"
-                                    error_str = f", error: {error[:50]}" if error else ""
+                                    error_str = f", error: {str(error)[:50]}" if error else ""
                                     digest_parts.append(
                                         f"  {tag}: status={status_str}, items={items}{error_str}"
                                     )
+
+                                    if json_parse_error:
+                                        digest_parts.append(
+                                            f"    json_parse_error: {str(json_parse_error)[:120]}"
+                                        )
+
+                                    if (
+                                        content_type is not None
+                                        or body_length is not None
+                                        or body_preview is not None
+                                    ):
+                                        content_type_text = (
+                                            str(content_type)[:80] if content_type else "None"
+                                        )
+                                        body_length_text = (
+                                            str(body_length) if body_length is not None else "None"
+                                        )
+                                        body_preview_text = (
+                                            str(body_preview)[:200] if body_preview else "None"
+                                        )
+
+                                        digest_parts.append(
+                                            f"    content_type: {content_type_text}"
+                                        )
+                                        digest_parts.append(f"    body_length: {body_length_text}")
+                                        digest_parts.append(
+                                            f"    body_preview: {body_preview_text}"
+                                        )
+
                                     request_count += 1
                                 if request_count >= 3:
                                     break
@@ -646,7 +682,7 @@ def main() -> None:
 
     # Configure logging before any operations
     verbose = getattr(args, "verbose", False)
-    configure_logging(verbose=verbose)
+    setup_logging(verbose=verbose)
 
     if args.command == "init-db":
         init_db()

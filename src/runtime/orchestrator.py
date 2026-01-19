@@ -286,10 +286,47 @@ class RuntimeOrchestrator:
                 news_panel_lines.append("Top Queries:")
                 for query_tag, query_text in list(analyzed_news_digest.queries_used.items())[:5]:
                     news_panel_lines.append(f"  {query_tag}: {query_text[:80]}...")
-            if analyzed_news_digest.gdelt_debug:
-                news_panel_lines.append("GDELT Diagnostics:")
-                for key, value in list(analyzed_news_digest.gdelt_debug.items())[:5]:
-                    news_panel_lines.append(f"  {key}: {value}")
+            if isinstance(analyzed_news_digest.gdelt_debug, dict):
+                passes = analyzed_news_digest.gdelt_debug.get("passes")
+                if isinstance(passes, dict):
+                    news_panel_lines.append("GDELT Diagnostics (top requests):")
+                    request_count = 0
+                    for pass_name in ["strict", "medium", "broad"]:
+                        pass_data = passes.get(pass_name)
+                        if not isinstance(pass_data, dict):
+                            continue
+                        requests = pass_data.get("requests", [])
+                        if not isinstance(requests, list):
+                            continue
+                        for req in requests[:2]:
+                            if request_count >= 3:
+                                break
+                            if not isinstance(req, dict):
+                                continue
+
+                            tag = req.get("tag", "unknown")
+                            status = req.get("http_status")
+                            items = req.get("items_count", 0)
+                            content_type = req.get("content_type")
+                            json_parse_error = req.get("json_parse_error")
+                            error = req.get("error")
+
+                            status_str = str(status) if status else "?"
+                            content_type_text = str(content_type)[:60] if content_type else "None"
+                            line = (
+                                f"  {tag}: http_status={status_str}, content_type={content_type_text}, "
+                                f"items_count={items}"
+                            )
+                            if error:
+                                line += f", error={str(error)[:80]}"
+                            if json_parse_error:
+                                line += f", json_parse_error={str(json_parse_error)[:120]}"
+
+                            news_panel_lines.append(line)
+                            request_count += 1
+
+                        if request_count >= 3:
+                            break
 
             self.trace.panel("News Digest", "\n".join(news_panel_lines))
 

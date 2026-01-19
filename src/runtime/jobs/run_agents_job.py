@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,81 @@ from src.storage.sqlite.repositories.runs_repository import RunsRepository
 
 if TYPE_CHECKING:
     from rich.console import Console
+
+
+logger = logging.getLogger(__name__)
+
+
+def _trim_text(value: object, max_len: int) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    if len(text) <= max_len:
+        return text
+    return text[:max_len]
+
+
+def _sanitize_gdelt_debug(
+    gdelt_debug: object,
+    *,
+    max_requests_per_pass: int = 3,
+    max_body_preview_len: int = 200,
+    max_query_len: int = 200,
+) -> dict[str, object] | None:
+    if not isinstance(gdelt_debug, dict):
+        return None
+
+    passes = gdelt_debug.get("passes")
+    if not isinstance(passes, dict):
+        return None
+
+    sanitized: dict[str, object] = {}
+    sanitized_passes: dict[str, object] = {}
+
+    for pass_name, pass_data in passes.items():
+        if not isinstance(pass_data, dict):
+            continue
+
+        requests = pass_data.get("requests", [])
+        sanitized_pass_data: dict[str, object] = {}
+
+        if isinstance(requests, list):
+            sanitized_requests: list[dict[str, object]] = []
+            for req in requests[:max_requests_per_pass]:
+                if not isinstance(req, dict):
+                    continue
+                req_copy: dict[str, object] = dict(req)
+                if "body_preview" in req_copy:
+                    req_copy["body_preview"] = _trim_text(
+                        req_copy.get("body_preview"), max_body_preview_len
+                    )
+                if "query" in req_copy:
+                    req_copy["query"] = _trim_text(req_copy.get("query"), max_query_len)
+                if "url" in req_copy:
+                    req_copy["url"] = _trim_text(req_copy.get("url"), max_query_len)
+                if "json_parse_error" in req_copy:
+                    req_copy["json_parse_error"] = _trim_text(req_copy.get("json_parse_error"), 200)
+                if "error" in req_copy:
+                    req_copy["error"] = _trim_text(req_copy.get("error"), 200)
+                if "content_type" in req_copy:
+                    req_copy["content_type"] = _trim_text(req_copy.get("content_type"), 80)
+                sanitized_requests.append(req_copy)
+            sanitized_pass_data["requests"] = sanitized_requests
+
+        sanitized_passes[str(pass_name)] = sanitized_pass_data
+
+    sanitized["passes"] = sanitized_passes
+    return sanitized
+
+
+def _sanitize_queries_used(queries_used: object, *, max_items: int = 10) -> dict[str, str] | None:
+    if not isinstance(queries_used, dict):
+        return None
+
+    sanitized: dict[str, str] = {}
+    for key, value in list(queries_used.items())[:max_items]:
+        sanitized[str(key)] = _trim_text(value, 200) or ""
+    return sanitized
 
 
 class RunAgentsJob:
@@ -135,6 +211,22 @@ class RunAgentsJob:
             news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
             self._log("[green]✓[/green] [dim]News analysis complete[/dim]")
 
+            logger.debug(
+                "news_diagnostics",
+                extra={
+                    "symbol": symbol,
+                    "timeframe": timeframe.value,
+                    "provider_used": news_digest.provider_used,
+                    "quality": news_digest.quality,
+                    "quality_reason": news_digest.quality_reason,
+                    "candidates_total": news_digest.candidates_total,
+                    "articles_after_filter": news_digest.articles_after_filter,
+                    "pass_counts": news_digest.pass_counts,
+                    "queries_used": _sanitize_queries_used(news_digest.queries_used),
+                    "gdelt_debug": _sanitize_gdelt_debug(news_digest.gdelt_debug),
+                },
+            )
+
             news_content_parts: list[str] = [f"Quality: {news_digest.quality}"]
             if news_digest.summary:
                 news_content_parts.append(f"Summary: {news_digest.summary}")
@@ -195,10 +287,18 @@ class RunAgentsJob:
                             for req in requests[:2]:
                                 if request_count >= 3:
                                     break
+
                                 tag = req.get("tag", "unknown")
                                 status = req.get("http_status")
                                 items = req.get("items_count", 0)
+
                                 error = req.get("error")
+                                json_parse_error = req.get("json_parse_error")
+
+                                content_type = req.get("content_type")
+                                body_length = req.get("body_length")
+                                body_preview = req.get("body_preview")
+
                                 if status:
                                     if status != 200:
                                         status_str = f"[red]{status}[/red]"
@@ -206,10 +306,36 @@ class RunAgentsJob:
                                         status_str = f"[green]{status}[/green]"
                                 else:
                                     status_str = "?"
-                                error_str = f", [red]error: {error[:50]}[/red]" if error else ""
-                                verbose_parts.append(
-                                    f"  {tag}: status={status_str}, items={items}{error_str}"
+
+                                error_str = (
+                                    f", [red]error: {str(error)[:50]}[/red]" if error else ""
                                 )
+                                content_type_text = (
+                                    str(content_type)[:60] if content_type else "None"
+                                )
+                                compact_line = (
+                                    f"  {tag}: http_status={status_str}, content_type={content_type_text}, "
+                                    f"items_count={items}{error_str}"
+                                )
+
+                                if json_parse_error:
+                                    json_parse_error_text = str(json_parse_error)[:120]
+                                    compact_line += f", json_parse_error={json_parse_error_text}"
+
+                                verbose_parts.append(compact_line)
+
+                                if json_parse_error and (
+                                    body_length is not None or body_preview is not None
+                                ):
+                                    body_length_text = (
+                                        str(body_length) if body_length is not None else "None"
+                                    )
+                                    body_preview_text = (
+                                        str(body_preview)[:200] if body_preview else "None"
+                                    )
+                                    verbose_parts.append(f"    body_length: {body_length_text}")
+                                    verbose_parts.append(f"    body_preview: {body_preview_text}")
+
                                 request_count += 1
                             if request_count >= 3:
                                 break
@@ -290,6 +416,14 @@ class RunAgentsJob:
 
             return recommendation_id
         except Exception as error:
+            logger.exception(
+                "RunAgentsJob failed",
+                extra={
+                    "symbol": symbol,
+                    "timeframe": timeframe.value,
+                    "run_id": run_id,
+                },
+            )
             if run_id is not None:
                 self.runs_repository.update_run(
                     run_id=run_id,
