@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from time import perf_counter
 from typing import TYPE_CHECKING
 
 from src.agents.news_analyst import NewsAnalyst
@@ -86,6 +87,9 @@ class RuntimeOrchestrator:
         )
 
         try:
+            total_latency_start_time = perf_counter()
+            latency_seconds_by_stage: dict[str, float | None] = {}
+
             provider_name = self.market_data_provider.__class__.__name__.replace(
                 "MarketDataProvider", ""
             )
@@ -93,6 +97,7 @@ class RuntimeOrchestrator:
                 provider_name = self.market_data_provider.__class__.__name__
             self.trace.step_start(f"Fetching market data from {provider_name}...")
             candles_count = self.config.market_data_window_candles
+            stage_start_time = perf_counter()
             with stage_timer(
                 "fetch_candles", symbol=symbol, timeframe=timeframe.value, count=candles_count
             ):
@@ -104,6 +109,7 @@ class RuntimeOrchestrator:
                     timeframe=timeframe,
                     count=candles_count,
                 )
+            latency_seconds_by_stage["market_fetch"] = perf_counter() - stage_start_time
             if not market_result.ok:
                 self.logger.error(
                     f"Run {run_id} failed at market data fetch: {market_result.error}"
@@ -144,10 +150,12 @@ class RuntimeOrchestrator:
 
             display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol.upper()
             self.trace.step_start("Running technical analysis (LLM)...")
+            stage_start_time = perf_counter()
             with stage_timer("tech_analysis", symbol=symbol, timeframe=timeframe.value):
                 technical_view, tech_llm_response = self.technical_analyst.analyze(
                     snapshot, symbol, timeframe
                 )
+            latency_seconds_by_stage["tech_analysis_llm"] = perf_counter() - stage_start_time
             provider_model = f"{tech_llm_response.provider_name}/{tech_llm_response.model_name}"
             self.trace.step_done(f"Technical analysis complete ({provider_model})")
             technical_rationale = Rationale(
@@ -185,9 +193,11 @@ class RuntimeOrchestrator:
             )
 
             self.trace.step_start("Fetching news context...")
+            stage_start_time = perf_counter()
             with stage_timer("fetch_news", symbol=symbol, timeframe=timeframe.value):
                 fetch_news_job = FetchNewsJob(self.news_provider)
                 news_result = fetch_news_job.run(symbol=symbol, timeframe=timeframe)
+            latency_seconds_by_stage["news_fetch"] = perf_counter() - stage_start_time
             if not news_result.ok:
                 self._mark_run_failed(run_id, news_result.error)
                 return run_id
@@ -201,8 +211,10 @@ class RuntimeOrchestrator:
 
             if news_digest.quality != "LOW":
                 self.trace.step_start("Analyzing news with LLM...")
+                stage_start_time = perf_counter()
                 with stage_timer("news_analysis", symbol=symbol):
                     analyzed_news_digest, news_llm_response = self.news_analyst.analyze(news_digest)
+                latency_seconds_by_stage["news_analysis_llm"] = perf_counter() - stage_start_time
                 if news_llm_response:
                     provider_model = (
                         f"{news_llm_response.provider_name}/{news_llm_response.model_name}"
@@ -213,6 +225,7 @@ class RuntimeOrchestrator:
             else:
                 analyzed_news_digest = news_digest
                 news_llm_response = None
+                latency_seconds_by_stage["news_analysis_llm"] = None
             news_content = (
                 f"Quality: {analyzed_news_digest.quality}\n"
                 f"Summary: {analyzed_news_digest.summary or 'N/A'}\n"
@@ -306,6 +319,7 @@ Provide your analysis as JSON."""
                 )
 
             self.trace.step_start("Synthesizing recommendation (LLM)...")
+            stage_start_time = perf_counter()
             with stage_timer("synthesis", symbol=symbol, timeframe=timeframe.value):
                 recommendation, synthesis_debug, synthesis_llm_response = (
                     self.synthesizer.synthesize(
@@ -315,6 +329,7 @@ Provide your analysis as JSON."""
                         news_digest=analyzed_news_digest,
                     )
                 )
+            latency_seconds_by_stage["synthesis"] = perf_counter() - stage_start_time
             if synthesis_llm_response:
                 provider_model = (
                     f"{synthesis_llm_response.provider_name}/{synthesis_llm_response.model_name}"
@@ -404,6 +419,7 @@ Based on the above information, provide your trading recommendation as JSON."""
                 verifier_enabled_value = self.config.verifier_enabled
 
             if verifier_enabled_value and self.verifier_agent:
+                verification_stage_start_time = perf_counter()
                 self.trace.step_start("Verifying recommendation (LLM)...")
                 with stage_timer("verification", symbol=symbol):
                     inputs_summary = (
@@ -604,7 +620,14 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     last_synthesis_llm_response,
                                 )
 
+                latency_seconds_by_stage["verification"] = (
+                    perf_counter() - verification_stage_start_time
+                )
+            else:
+                latency_seconds_by_stage["verification"] = None
+
             self.trace.step_start("Saving to database...")
+            stage_start_time = perf_counter()
             with stage_timer("persistence", run_id=run_id):
                 persist_job = PersistRecommendationJob(self.storage, self.artifact_store)
                 persist_result = persist_job.run(
@@ -612,6 +635,7 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                     recommendation=recommendation,
                     rationales=[technical_rationale, news_rationale, synthesis_rationale],
                 )
+            latency_seconds_by_stage["persistence"] = perf_counter() - stage_start_time
             if not persist_result.ok:
                 self._mark_run_failed(run_id, persist_result.error)
                 return run_id
@@ -636,6 +660,29 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                 else "none"
             )
             self.trace.llm_summary(tech_summary, news_summary, synthesis_summary, verify_summary)
+
+            if self.trace.enabled:
+                total_latency_seconds = perf_counter() - total_latency_start_time
+                latency_lines: list[str] = []
+                latency_lines.append(f"Total: {total_latency_seconds * 1000:.0f}ms")
+
+                stage_specs: list[tuple[str, str]] = [
+                    ("Market fetch", "market_fetch"),
+                    ("Tech analysis (LLM)", "tech_analysis_llm"),
+                    ("News fetch", "news_fetch"),
+                    ("News analysis (LLM)", "news_analysis_llm"),
+                    ("Synthesis (LLM)", "synthesis"),
+                    ("Verification (LLM)", "verification"),
+                    ("Persistence", "persistence"),
+                ]
+                for label, stage_key in stage_specs:
+                    stage_seconds = latency_seconds_by_stage.get(stage_key)
+                    if stage_seconds is None:
+                        latency_lines.append(f"{label}: skipped")
+                    else:
+                        latency_lines.append(f"{label}: {stage_seconds * 1000:.0f}ms")
+
+                self.trace.panel("Latency Summary", "\n".join(latency_lines))
 
             self._mark_run_success(run_id)
             self.logger.info(f"Run {run_id} completed successfully")
