@@ -419,7 +419,47 @@ def journal() -> None:
     console.print(f"  Timestamp: {recommendation.timestamp}")
     console.print()
 
-    took_trade = Confirm.ask("Did you take this trade?")
+    if recommendation.action == "WAIT":
+        selected_action = Prompt.ask(
+            "What did you do?",
+            choices=["WAIT", "SKIP", "TAKE"],
+            default="WAIT",
+        )
+
+        if selected_action != "TAKE":
+            comment = "WAIT"
+            if selected_action == "SKIP":
+                comment = Prompt.ask(
+                    "Why did you skip?",
+                    choices=["Market changed", "Too risky", "Missed"],
+                    default="Market changed",
+                )
+
+            entry = JournalEntry(
+                recommendation_id=recommendation.id,
+                symbol=recommendation.symbol,
+                open_time=datetime.now(),
+                expiry_seconds=300,
+                user_action=selected_action,
+            )
+            entry_id = journal_repo.save(entry)
+
+            outcome = Outcome(
+                journal_entry_id=entry_id,
+                close_time=datetime.now(),
+                win_or_loss="VOID",
+                comment=comment,
+            )
+            outcome_repo.save(outcome)
+
+            console.print(f"[green]Recorded action: {selected_action}[/green]")
+            return
+
+        took_trade = True
+        user_action = "TAKE"
+    else:
+        took_trade = Confirm.ask("Did you take this trade?")
+        user_action = recommendation.action
 
     if not took_trade:
         reason = Prompt.ask(
@@ -465,7 +505,7 @@ def journal() -> None:
         symbol=recommendation.symbol,
         open_time=datetime.now(),
         expiry_seconds=300,
-        user_action=recommendation.action,
+        user_action=user_action,
     )
     entry_id = journal_repo.save(entry)
 
