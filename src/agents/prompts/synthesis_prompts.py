@@ -23,6 +23,11 @@ Guidelines:
 - Be objective and risk-aware
 - Write in English
 
+TIMEFRAME RULES (strict):
+- The recommendation MUST be tailored to the provided timeframe in the technical analysis context.
+- Keep the horizon consistent with the timeframe (do not give long-horizon framing for short timeframes).
+- If the timeframe is 1m: focus on immediate execution and the next few minutes; avoid multi-hour/day language.
+
 RULES FOR NEWS HANDLING:
 - If News Quality is LOW: IGNORE the news completely. Rely ONLY on technical analysis. Write a natural brief explaining your technical reasoning.
 - If News Quality is MEDIUM: Consider news with moderate weight. Factor it into your decision but do not let it override strong technical signals.
