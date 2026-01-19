@@ -466,12 +466,18 @@ class GDELTProvider(NewsProvider):
                 quality_reason = (
                     f"Found {high_score_count} highly relevant articles (score >= 0.55)"
                 )
-            elif high_score_count >= 2 or len(top_articles) >= 2:
+            elif high_score_count >= 1:
                 quality = "MEDIUM"
-                quality_reason = f"Found {high_score_count} highly relevant articles, {len(top_articles)} total after filtering"
+                quality_reason = (
+                    f"Found {high_score_count} highly relevant articles (score >= 0.55), "
+                    f"{len(top_articles)} total after filtering"
+                )
             else:
                 quality = "LOW"
-                quality_reason = "Not enough relevant articles after filtering"
+                quality_reason = (
+                    f"Not enough highly relevant articles (score >= 0.55) after filtering: "
+                    f"found {high_score_count}, total={len(top_articles)}"
+                )
 
             summary_parts: list[str] = [f"Quality {quality}."]
             if top_articles:
