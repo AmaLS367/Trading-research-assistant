@@ -145,6 +145,48 @@ def show_latest(show_details: bool = False) -> None:
                     digest_parts: list[str] = [f"Quality: {quality_display}"]
                     if digest.provider_used:
                         digest_parts.append(f"Provider used: {digest.provider_used}")
+                        if digest.provider_used == "NEWSAPI":
+                            reason = digest.primary_reason or digest.quality_reason or ""
+                            digest_parts.append(
+                                f"Provider selection: GDELT -> fallback to NewsAPI because {reason}"
+                                if reason
+                                else "Provider selection: GDELT -> fallback to NewsAPI"
+                            )
+                        elif digest.provider_used == "GDELT":
+                            if (
+                                digest.quality in ("HIGH", "MEDIUM")
+                                and digest.articles_after_filter >= 2
+                            ):
+                                digest_parts.append("Provider selection: GDELT accepted")
+                            else:
+                                reason = digest.primary_reason or digest.quality_reason or ""
+                                digest_parts.append(
+                                    f"Provider selection: GDELT used (fallback unavailable) because {reason}"
+                                    if reason
+                                    else "Provider selection: GDELT used (fallback unavailable)"
+                                )
+                        elif digest.provider_used == "NONE":
+                            primary_reason = digest.primary_reason or ""
+                            secondary_reason = digest.secondary_reason or ""
+                            if primary_reason and secondary_reason:
+                                digest_parts.append(
+                                    f"Provider selection: GDELT -> fallback to NewsAPI; "
+                                    f"both rejected (primary: {primary_reason}; secondary: {secondary_reason})"
+                                )
+                            elif primary_reason:
+                                digest_parts.append(
+                                    "Provider selection: GDELT -> fallback to NewsAPI; "
+                                    f"both rejected (primary: {primary_reason})"
+                                )
+                            elif secondary_reason:
+                                digest_parts.append(
+                                    "Provider selection: GDELT -> fallback to NewsAPI; "
+                                    f"both rejected (secondary: {secondary_reason})"
+                                )
+                            else:
+                                digest_parts.append(
+                                    "Provider selection: GDELT -> fallback to NewsAPI; both rejected"
+                                )
                     if digest.summary:
                         digest_parts.append(f"\nSummary: {digest.summary}")
                     if digest.sentiment:

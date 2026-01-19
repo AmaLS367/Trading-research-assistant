@@ -36,7 +36,10 @@ class MultiNewsProvider(NewsProvider):
                 primary_digest.primary_reason = primary_digest.quality_reason
                 primary_digest.secondary_quality = secondary_digest.quality
                 primary_digest.secondary_reason = secondary_digest.quality_reason
-                combined_reason = f"GDELT LOW ({primary_digest.primary_reason}) + NewsAPI LOW ({secondary_digest.quality_reason})"
+                combined_reason = (
+                    f"GDELT LOW ({primary_digest.quality_reason}) + "
+                    f"NewsAPI LOW ({secondary_digest.quality_reason})"
+                )
                 primary_digest.quality_reason = combined_reason
                 return primary_digest
         else:
