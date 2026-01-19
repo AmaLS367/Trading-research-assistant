@@ -1,4 +1,6 @@
 import json
+import logging
+import re
 
 from src.agents.prompts.verifier_prompts import get_verifier_system_prompt, get_verifier_user_prompt
 from src.core.models.verification import (
@@ -8,6 +10,8 @@ from src.core.models.verification import (
 )
 from src.core.ports.llm_tasks import TASK_VERIFICATION
 from src.llm.providers.llm_router import LlmRouter
+
+logger = logging.getLogger(__name__)
 
 
 class VerifierAgent:
@@ -27,7 +31,8 @@ class VerifierAgent:
         return self._parse_verification_response(llm_response.text, llm_response)
 
     def _parse_verification_response(self, response_text: str, llm_response) -> VerificationReport:
-        cleaned = self._extract_json(response_text)
+        original_length = len(response_text) if response_text else 0
+        cleaned, was_sanitized = self._extract_json(response_text)
 
         try:
             data = json.loads(cleaned)
@@ -46,6 +51,15 @@ class VerifierAgent:
                 policy_version="1.0",
                 provider_name=llm_response.provider_name,
                 model_name=llm_response.model_name,
+            )
+
+        if was_sanitized:
+            logger.debug(
+                "verification_json_sanitized",
+                extra={
+                    "original_length": original_length,
+                    "extracted_length": len(cleaned),
+                },
             )
 
         if not isinstance(data, dict):
@@ -102,28 +116,22 @@ class VerifierAgent:
             model_name=llm_response.model_name,
         )
 
-    def _extract_json(self, text: str) -> str:
-        text = text.strip()
+    def _extract_json(self, text: str) -> tuple[str, bool]:
+        original = text or ""
+        cleaned = original.strip()
 
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
+        if "```" in cleaned:
+            cleaned = re.sub(r"```(?:json)?", "", cleaned, flags=re.IGNORECASE)
+            cleaned = cleaned.strip()
 
-        json_start = text.find("{")
+        json_start = cleaned.find("{")
         if json_start < 0:
-            return text
+            return cleaned, cleaned != original
 
-        json_end = text.rfind("}")
+        json_end = cleaned.rfind("}")
         if json_end < json_start:
-            json_end = len(text) - 1
+            json_end = len(cleaned) - 1
 
-        extracted = text[json_start : json_end + 1]
-
-        if not extracted.endswith("}"):
-            extracted = extracted + "}"
-
-        return extracted
+        extracted = cleaned[json_start : json_end + 1]
+        extracted = extracted.strip()
+        return extracted, extracted != original.strip()

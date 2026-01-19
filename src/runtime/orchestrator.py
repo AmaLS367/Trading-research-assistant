@@ -462,7 +462,18 @@ Based on the above information, provide your trading recommendation as JSON."""
                     inputs_summary = (
                         f"Technical: {technical_view[:200]}...\nNews: {news_content[:200]}..."
                     )
-                    author_output = f"Action: {recommendation.action}\nBrief: {recommendation.brief}\nConfidence: {recommendation.confidence:.2%}"
+                    if synthesis_llm_response and synthesis_llm_response.text:
+                        author_output = synthesis_llm_response.text
+                    else:
+                        author_output = json.dumps(
+                            {
+                                "action": recommendation.action,
+                                "brief": recommendation.brief,
+                                "confidence": recommendation.confidence,
+                                "symbol": recommendation.symbol,
+                                "timeframe": recommendation.timeframe.value,
+                            }
+                        )
 
                     verification_report = self.verifier_agent.verify(
                         task_name=TASK_SYNTHESIS,
@@ -527,6 +538,24 @@ Based on the above information, provide your trading recommendation as JSON."""
                     self.logger.warning(
                         f"Run {run_id} verification failed: {len(verification_report.issues)} issues"
                     )
+                    self.logger.debug(
+                        "verification_diagnostics",
+                        extra={
+                            "run_id": run_id,
+                            "task": "verification",
+                            "passed": verification_report.passed,
+                            "issues": [
+                                {
+                                    "code": issue.code,
+                                    "severity": issue.severity.value,
+                                    "message": issue.message,
+                                    "evidence": (issue.evidence[:500] if issue.evidence else None),
+                                }
+                                for issue in verification_report.issues
+                            ],
+                            "suggested_fix": verification_report.suggested_fix,
+                        },
+                    )
 
                     if (
                         self.config.verifier_mode == "hard"
@@ -588,7 +617,17 @@ Generate a corrected synthesis. Do NOT add new facts not in the input data. Retu
                                     repair_verification = self.verifier_agent.verify(
                                         task_name=TASK_SYNTHESIS,
                                         inputs_summary=inputs_summary,
-                                        author_output=f"Action: {repair_recommendation.action}\nBrief: {repair_recommendation.brief}\nConfidence: {repair_recommendation.confidence:.2%}",
+                                        author_output=repair_llm_response.text
+                                        if repair_llm_response.text
+                                        else json.dumps(
+                                            {
+                                                "action": repair_recommendation.action,
+                                                "brief": repair_recommendation.brief,
+                                                "confidence": repair_recommendation.confidence,
+                                                "symbol": repair_recommendation.symbol,
+                                                "timeframe": repair_recommendation.timeframe.value,
+                                            }
+                                        ),
                                     )
 
                                     if repair_verification.passed:

@@ -20,4 +20,14 @@ Analyze the output and return a VerificationReport in JSON format. Check for:
 3. Inconsistencies between action and brief
 4. Invalid structure or missing required fields
 
-Return ONLY valid JSON matching the VerificationReport schema."""
+OUTPUT REQUIREMENTS (STRICT):
+- Return ONLY a single JSON object matching the VerificationReport schema.
+- Do NOT wrap the JSON in markdown/code fences (no ```json ... ```).
+- Do NOT include any explanation, commentary, or extra text before or after the JSON.
+- Output must start with '{{' and end with '}}'.
+
+Required JSON fields:
+- passed (boolean)
+- issues (array of objects with: code, message, severity, evidence?)
+- suggested_fix (string or null)
+- policy_version (string)"""
