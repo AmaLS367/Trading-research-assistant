@@ -508,11 +508,45 @@ def journal() -> None:
         default="WIN",
     )
 
+    quality_choices = [
+        "Confident",
+        "Calm",
+        "Hesitant",
+        "Stressed",
+        "FOMO",
+        "Tired",
+        "Other",
+    ]
     quality = Prompt.ask(
         "How did you feel about the trade?",
-        choices=["Confident", "Nervous", "Lucky"],
+        choices=quality_choices,
         default="Confident",
     )
+    if quality == "Other":
+        quality = Prompt.ask("Other feeling (free text)")
+
+    confidence: int | None = None
+    while True:
+        confidence_input = Prompt.ask(
+            "Optional confidence 0-100 (press Enter to skip)",
+            default="",
+            show_default=False,
+        ).strip()
+        if not confidence_input:
+            break
+
+        try:
+            parsed_confidence = int(confidence_input)
+        except ValueError:
+            console.print("[yellow]Please enter a number 0-100, or press Enter to skip.[/yellow]")
+            continue
+
+        if parsed_confidence < 0 or parsed_confidence > 100:
+            console.print("[yellow]Confidence must be between 0 and 100.[/yellow]")
+            continue
+
+        confidence = parsed_confidence
+        break
 
     entry = JournalEntry(
         recommendation_id=recommendation.id,
@@ -524,6 +558,8 @@ def journal() -> None:
     entry_id = journal_repo.save(entry)
 
     comment = f"Quality: {quality}"
+    if confidence is not None:
+        comment = f"{comment}; Confidence: {confidence}"
     outcome = Outcome(
         journal_entry_id=entry_id,
         close_time=datetime.now(),
