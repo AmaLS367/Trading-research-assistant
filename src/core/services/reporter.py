@@ -81,13 +81,31 @@ class Reporter:
                 continue
 
             try:
-                digest_data = json.loads(rationale.raw_data)
-                digest = NewsDigest.model_validate(digest_data)
-                quality = digest.quality
+                digest_data: object = json.loads(rationale.raw_data)
+                if isinstance(digest_data, str):
+                    digest_data = json.loads(digest_data)
+
+                quality_value: object | None = None
+                if isinstance(digest_data, dict):
+                    quality_value = digest_data.get("quality")
+
+                    if quality_value is None:
+                        for nested_key in ["news_digest", "digest", "data"]:
+                            nested_value = digest_data.get(nested_key)
+                            if isinstance(nested_value, dict):
+                                quality_value = nested_value.get("quality")
+                                if quality_value is not None:
+                                    break
+
+                if quality_value is None:
+                    digest = NewsDigest.model_validate(digest_data)
+                    quality_value = digest.quality
+
+                quality = str(quality_value).upper()
                 if quality in quality_counts:
                     quality_counts[quality] += 1
                     total += 1
-            except (json.JSONDecodeError, ValueError, KeyError):
+            except (json.JSONDecodeError, ValueError, KeyError, TypeError):
                 continue
 
         if total > 0:
