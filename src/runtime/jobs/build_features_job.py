@@ -5,6 +5,7 @@ from src.core.models.signal import Signal
 from src.core.models.timeframe import Timeframe
 from src.features.contracts.feature_contract import FeatureContract, ValidationStatus
 from src.features.derived.basic_derived import calculate_basic_derived
+from src.features.derived.ma_distance import calculate_ma_distances
 from src.features.indicators.indicator_engine import calculate_features
 from src.features.regime.regime_detector import RegimeDetector
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
@@ -32,6 +33,13 @@ class BuildFeaturesJob:
             indicators = calculate_features(candles)
             derived = calculate_basic_derived(candles)
             for key, value in derived.items():
+                if key in indicators:
+                    continue
+                indicators[key] = value
+
+            close_price = float(candles[-1].close)
+            ma_distances = calculate_ma_distances(close_price, indicators)
+            for key, value in ma_distances.items():
                 if key in indicators:
                     continue
                 indicators[key] = value
