@@ -24,6 +24,9 @@ class FeatureSnapshot(BaseModel):
     candlestick_pattern: str | None = None
     candlestick_pattern_strength: float | None = None
     volume_trend: str | None = None
+    missing_features: list[str] = Field(default_factory=list)
+    degraded_features: list[str] = Field(default_factory=list)
+    candle_count_used: int | None = None
 
     @field_validator("indicators")
     @classmethod

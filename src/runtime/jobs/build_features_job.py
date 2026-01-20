@@ -114,6 +114,9 @@ class BuildFeaturesJob:
                 validation_status=validation_result.status,
                 validation_reasons=validation_result.reasons,
                 validated_candle_count=validation_result.candle_count,
+                missing_features=validation_result.missing_fields,
+                degraded_features=validation_result.degraded_flags,
+                candle_count_used=validation_result.candle_count,
                 trend_direction=trend_direction if isinstance(trend_direction, str) else None,
                 trend_strength=float(trend_strength)
                 if isinstance(trend_strength, (int, float))

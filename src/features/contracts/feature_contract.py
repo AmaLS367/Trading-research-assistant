@@ -18,6 +18,8 @@ class ValidationResult:
     status: ValidationStatus
     reasons: list[str]
     candle_count: int
+    missing_fields: list[str]
+    degraded_flags: list[str]
 
 
 class FeatureContract:
@@ -26,11 +28,31 @@ class FeatureContract:
         candle_count = len(candles)
         invalid_reasons: list[str] = []
         degraded_reasons: list[str] = []
+        missing_fields: list[str] = []
+        degraded_flags: list[str] = []
+
+        slope_window = 10
 
         if candle_count < min_count:
             invalid_reasons.append(
                 f"insufficient_candles: expected>={min_count} got={candle_count}"
             )
+            missing_fields.append(f"min_candles_{min_count}")
+
+        if candle_count < 200:
+            missing_fields.append("sma_200")
+            missing_fields.append("sma200_slope_pct")
+        elif candle_count < 200 + (slope_window - 1):
+            missing_fields.append("sma200_slope_pct")
+
+        if candle_count < 50:
+            missing_fields.append("sma_50")
+            missing_fields.append("sma50_slope_pct")
+        elif candle_count < 50 + (slope_window - 1):
+            missing_fields.append("sma50_slope_pct")
+
+        if candle_count < 21:
+            missing_fields.append("momentum_features")
 
         if candle_count == 0:
             if invalid_reasons:
@@ -38,6 +60,8 @@ class FeatureContract:
                     status=ValidationStatus.INVALID,
                     reasons=invalid_reasons,
                     candle_count=candle_count,
+                    missing_fields=missing_fields,
+                    degraded_flags=degraded_flags,
                 )
 
             invalid_reasons.append("no_candles")
@@ -45,6 +69,8 @@ class FeatureContract:
                 status=ValidationStatus.INVALID,
                 reasons=invalid_reasons,
                 candle_count=candle_count,
+                missing_fields=missing_fields,
+                degraded_flags=degraded_flags,
             )
 
         has_non_positive_prices = False
@@ -103,6 +129,7 @@ class FeatureContract:
             else:
                 if len(set(timestamps)) < len(timestamps):
                     degraded_reasons.append("duplicate_timestamps")
+                    degraded_flags.append("duplicate_timestamps")
 
                 positive_deltas_seconds: list[float] = []
                 for idx in range(1, len(timestamps)):
@@ -120,8 +147,15 @@ class FeatureContract:
                                 break
                         if has_gaps:
                             degraded_reasons.append("timestamp_gaps_detected")
+                            degraded_flags.append("timestamp_gaps_detected")
+        else:
+            missing_fields.append("timestamp")
+            degraded_flags.append("timestamp_missing")
+            degraded_reasons.append("timestamp_missing")
 
         if not all(hasattr(candle, "volume") for candle in candles):
+            missing_fields.append("volume")
+            degraded_flags.append("volume_missing_or_all_zero")
             degraded_reasons.append("volume_missing_or_all_zero")
         else:
             all_zero_volume = True
@@ -135,12 +169,15 @@ class FeatureContract:
                     break
             if all_zero_volume:
                 degraded_reasons.append("volume_missing_or_all_zero")
+                degraded_flags.append("volume_missing_or_all_zero")
 
         if invalid_reasons:
             return ValidationResult(
                 status=ValidationStatus.INVALID,
                 reasons=invalid_reasons,
                 candle_count=candle_count,
+                missing_fields=missing_fields,
+                degraded_flags=degraded_flags,
             )
 
         if degraded_reasons:
@@ -148,10 +185,14 @@ class FeatureContract:
                 status=ValidationStatus.DEGRADED,
                 reasons=degraded_reasons,
                 candle_count=candle_count,
+                missing_fields=missing_fields,
+                degraded_flags=degraded_flags,
             )
 
         return ValidationResult(
             status=ValidationStatus.OK,
             reasons=[],
             candle_count=candle_count,
+            missing_fields=missing_fields,
+            degraded_flags=degraded_flags,
         )
