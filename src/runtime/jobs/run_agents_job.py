@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +32,18 @@ def _trim_text(value: object, max_len: int) -> str | None:
     if len(text) <= max_len:
         return text
     return text[:max_len]
+
+
+def _is_news_debug_enabled() -> bool:
+    value = os.getenv("TRA_NEWS_DEBUG", "").strip().lower()
+    return value in {"1", "true", "yes", "y", "on"}
+
+
+def _truncate_single_line(text: str, max_len: int) -> str:
+    cleaned = " ".join(text.strip().split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[:max_len].rstrip() + " ... [truncated]"
 
 
 def _sanitize_gdelt_debug(
@@ -240,102 +253,132 @@ class RunAgentsJob:
             if self.verbose and self.console:
                 from rich.panel import Panel
 
-                verbose_parts: list[str] = [news_content]
-                if news_digest.provider_used:
-                    verbose_parts.append(f"\nProvider used: {news_digest.provider_used}")
-                verbose_parts.append(f"Candidates total: {news_digest.candidates_total}")
-                verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
-                if news_digest.provider_used == "NEWSAPI" and news_digest.primary_quality:
-                    verbose_parts.append(
-                        f"Fallback triggered: primary {news_digest.primary_quality} -> tried NewsAPI"
-                    )
+                news_debug_enabled = _is_news_debug_enabled()
+                if news_debug_enabled:
+                    verbose_parts: list[str] = [news_content]
+                    if news_digest.provider_used:
+                        verbose_parts.append(f"\nProvider used: {news_digest.provider_used}")
+                    verbose_parts.append(f"Candidates total: {news_digest.candidates_total}")
+                    verbose_parts.append(f"After filtering: {news_digest.articles_after_filter}")
+                    if news_digest.provider_used == "NEWSAPI" and news_digest.primary_quality:
+                        verbose_parts.append(
+                            f"Fallback triggered: primary {news_digest.primary_quality} -> tried NewsAPI"
+                        )
 
-                if news_digest.pass_counts:
-                    verbose_parts.append("\nPass statistics:")
-                    for pass_name in ["strict", "medium", "broad"]:
-                        if pass_name in news_digest.pass_counts:
-                            counts = news_digest.pass_counts[pass_name]
-                            verbose_parts.append(
-                                f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}"
-                            )
+                    if news_digest.pass_counts:
+                        verbose_parts.append("\nPass statistics:")
+                        for pass_name in ["strict", "medium", "broad"]:
+                            if pass_name in news_digest.pass_counts:
+                                counts = news_digest.pass_counts[pass_name]
+                                verbose_parts.append(
+                                    f"  {pass_name}: candidates={counts.get('candidates', 0)}, after_filter={counts.get('after_filter', 0)}"
+                                )
 
-                if news_digest.queries_used:
-                    query_items = list(news_digest.queries_used.items())[:2]
-                    verbose_parts.append("\nTop queries:")
-                    for tag, query in query_items:
-                        query_short = query[:60] + "..." if len(query) > 60 else query
-                        verbose_parts.append(f"  {tag}: {query_short}")
+                    if news_digest.queries_used:
+                        query_items = list(news_digest.queries_used.items())[:2]
+                        verbose_parts.append("\nTop queries:")
+                        for tag, query in query_items:
+                            query_short = query[:60] + "..." if len(query) > 60 else query
+                            verbose_parts.append(f"  {tag}: {query_short}")
 
-                if news_digest.quality == "LOW" and news_digest.dropped_examples:
-                    verbose_parts.append("\nDropped examples:")
-                    for example in news_digest.dropped_examples[:3]:
-                        verbose_parts.append(f"  • {example}")
+                    if news_digest.quality == "LOW" and news_digest.dropped_examples:
+                        verbose_parts.append("\nDropped examples:")
+                        for example in news_digest.dropped_examples[:3]:
+                            verbose_parts.append(f"  • {example}")
 
-                if news_digest.gdelt_debug and news_digest.gdelt_debug.get("passes"):
-                    verbose_parts.append("\nGDELT diagnostics (top requests):")
-                    request_count = 0
-                    for pass_name in ["strict", "medium", "broad"]:
-                        if pass_name in news_digest.gdelt_debug["passes"]:
-                            requests = news_digest.gdelt_debug["passes"][pass_name].get(
-                                "requests", []
-                            )
-                            for req in requests[:2]:
+                    if news_digest.gdelt_debug and news_digest.gdelt_debug.get("passes"):
+                        verbose_parts.append("\nGDELT diagnostics (top requests):")
+                        request_count = 0
+                        for pass_name in ["strict", "medium", "broad"]:
+                            if pass_name in news_digest.gdelt_debug["passes"]:
+                                requests = news_digest.gdelt_debug["passes"][pass_name].get(
+                                    "requests", []
+                                )
+                                for req in requests[:2]:
+                                    if request_count >= 3:
+                                        break
+
+                                    tag = req.get("tag", "unknown")
+                                    status = req.get("http_status")
+                                    items = req.get("items_count", 0)
+
+                                    error = req.get("error")
+                                    json_parse_error = req.get("json_parse_error")
+
+                                    content_type = req.get("content_type")
+                                    body_length = req.get("body_length")
+                                    body_preview = req.get("body_preview")
+
+                                    if status:
+                                        if status != 200:
+                                            status_str = f"[red]{status}[/red]"
+                                        else:
+                                            status_str = f"[green]{status}[/green]"
+                                    else:
+                                        status_str = "?"
+
+                                    error_str = (
+                                        f", [red]error: {str(error)[:50]}[/red]" if error else ""
+                                    )
+                                    content_type_text = (
+                                        str(content_type)[:60] if content_type else "None"
+                                    )
+                                    compact_line = (
+                                        f"  {tag}: http_status={status_str}, content_type={content_type_text}, "
+                                        f"items_count={items}{error_str}"
+                                    )
+
+                                    if json_parse_error:
+                                        json_parse_error_text = str(json_parse_error)[:120]
+                                        compact_line += (
+                                            f", json_parse_error={json_parse_error_text}"
+                                        )
+
+                                    verbose_parts.append(compact_line)
+
+                                    if json_parse_error and (
+                                        body_length is not None or body_preview is not None
+                                    ):
+                                        body_length_text = (
+                                            str(body_length) if body_length is not None else "None"
+                                        )
+                                        body_preview_text = (
+                                            str(body_preview)[:200] if body_preview else "None"
+                                        )
+                                        verbose_parts.append(f"    body_length: {body_length_text}")
+                                        verbose_parts.append(
+                                            f"    body_preview: {body_preview_text}"
+                                        )
+
+                                    request_count += 1
                                 if request_count >= 3:
                                     break
 
-                                tag = req.get("tag", "unknown")
-                                status = req.get("http_status")
-                                items = req.get("items_count", 0)
+                    verbose_content = "\n".join(verbose_parts)
+                else:
+                    provider_used = news_digest.provider_used or "NONE"
+                    summary_text = news_digest.summary or "N/A"
 
-                                error = req.get("error")
-                                json_parse_error = req.get("json_parse_error")
+                    compact_parts: list[str] = []
+                    compact_parts.append(f"Provider used: {provider_used}")
+                    compact_parts.append(f"Quality: {news_digest.quality}")
+                    compact_parts.append(f"Summary: {summary_text}")
 
-                                content_type = req.get("content_type")
-                                body_length = req.get("body_length")
-                                body_preview = req.get("body_preview")
+                    if news_digest.quality_reason:
+                        compact_parts.append(
+                            f"Reason: {_truncate_single_line(news_digest.quality_reason, 180)}"
+                        )
 
-                                if status:
-                                    if status != 200:
-                                        status_str = f"[red]{status}[/red]"
-                                    else:
-                                        status_str = f"[green]{status}[/green]"
-                                else:
-                                    status_str = "?"
+                    compact_parts.append("")
+                    compact_parts.append("Top headlines:")
+                    if news_digest.articles:
+                        for article in news_digest.articles[:3]:
+                            compact_parts.append(f"- {article.title}")
+                    else:
+                        compact_parts.append("  • None")
 
-                                error_str = (
-                                    f", [red]error: {str(error)[:50]}[/red]" if error else ""
-                                )
-                                content_type_text = (
-                                    str(content_type)[:60] if content_type else "None"
-                                )
-                                compact_line = (
-                                    f"  {tag}: http_status={status_str}, content_type={content_type_text}, "
-                                    f"items_count={items}{error_str}"
-                                )
+                    verbose_content = "\n".join(compact_parts)
 
-                                if json_parse_error:
-                                    json_parse_error_text = str(json_parse_error)[:120]
-                                    compact_line += f", json_parse_error={json_parse_error_text}"
-
-                                verbose_parts.append(compact_line)
-
-                                if json_parse_error and (
-                                    body_length is not None or body_preview is not None
-                                ):
-                                    body_length_text = (
-                                        str(body_length) if body_length is not None else "None"
-                                    )
-                                    body_preview_text = (
-                                        str(body_preview)[:200] if body_preview else "None"
-                                    )
-                                    verbose_parts.append(f"    body_length: {body_length_text}")
-                                    verbose_parts.append(f"    body_preview: {body_preview_text}")
-
-                                request_count += 1
-                            if request_count >= 3:
-                                break
-
-                verbose_content = "\n".join(verbose_parts)
                 truncated_content, was_truncated = self._truncate_content(verbose_content)
                 panel_content = truncated_content
                 if was_truncated:
