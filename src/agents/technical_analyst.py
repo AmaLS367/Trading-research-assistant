@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.agents.prompts.technical_prompts import get_technical_system_prompt
+from src.core.models.technical_analysis import TechnicalAnalysisResult
 from src.core.models.timeframe import Timeframe
 from src.core.ports.llm_tasks import TASK_TECH_ANALYSIS
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
 from src.llm.providers.llm_router import LlmRouter
+from src.utils.json_helpers import extract_json_from_text, try_parse_json
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -85,11 +87,33 @@ class TechnicalAnalyst:
             user_prompt=user_prompt,
         )
 
-        technical_view = llm_response.text
-        if llm_response.error:
-            technical_view = f"[LLM Error: {llm_response.error}] {technical_view}"
+        raw_text = llm_response.text
+        extracted_json_text = extract_json_from_text(raw_text)
 
-        guarded_view = self._apply_output_guard(technical_view, symbol, display_symbol)
+        technical_result: TechnicalAnalysisResult | None = None
+        if extracted_json_text is not None:
+            parsed = try_parse_json(extracted_json_text)
+            if parsed is not None:
+                try:
+                    technical_result = TechnicalAnalysisResult.model_validate(parsed)
+                except ValueError:
+                    technical_result = None
+
+        if technical_result is None:
+            no_trade_flags = ["PARSING_FAILED"]
+            if llm_response.error:
+                no_trade_flags.append("LLM_ERROR")
+
+            technical_result = TechnicalAnalysisResult(
+                bias="NEUTRAL",
+                confidence=0.0,
+                evidence=[],
+                contradictions=[],
+                setup_type=None,
+                no_trade_flags=no_trade_flags,
+            )
+
+        guarded_view = technical_result.model_dump_json()
 
         # Extract key info from response for logging
         action_bias = None
