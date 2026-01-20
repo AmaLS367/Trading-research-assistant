@@ -57,6 +57,7 @@ def test_missing_keys_returns_all_zero() -> None:
         "bb_position": 0.0,
         "bb_bandwidth_pct": 0.0,
         "bb_squeeze_flag": 0.0,
+        "atr_pct": 0.0,
     }
 
 
@@ -68,3 +69,37 @@ def test_handles_bb_upper_equals_bb_lower_and_bb_middle_zero_safely() -> None:
     zero_middle = {"bb_upper": 110.0, "bb_middle": 0.0, "bb_lower": 100.0}
     zero_middle_result = calculate_bb_metrics(105.0, zero_middle)
     assert zero_middle_result["bb_bandwidth_pct"] == 0.0
+
+
+def test_computes_atr_pct_correctly() -> None:
+    indicators = {
+        "bb_upper": 120.0,
+        "bb_middle": 110.0,
+        "bb_lower": 100.0,
+        "atr": 2.2,
+    }
+
+    result = calculate_bb_metrics(110.0, indicators)
+
+    assert result["atr_pct"] == pytest.approx((2.2 / 110.0) * 100.0)
+
+
+def test_missing_atr_returns_zero() -> None:
+    indicators = {"bb_upper": 120.0, "bb_middle": 110.0, "bb_lower": 100.0}
+
+    result = calculate_bb_metrics(110.0, indicators)
+
+    assert result["atr_pct"] == 0.0
+
+
+def test_close_price_zero_returns_zero_atr_pct_without_crashing() -> None:
+    indicators = {
+        "bb_upper": 120.0,
+        "bb_middle": 110.0,
+        "bb_lower": 100.0,
+        "atr": 2.2,
+    }
+
+    result = calculate_bb_metrics(0.0, indicators)
+
+    assert result["atr_pct"] == 0.0

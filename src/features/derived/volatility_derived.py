@@ -8,6 +8,7 @@ def calculate_bb_metrics(close_price: float, indicators: dict[str, float]) -> di
         "bb_position": 0.0,
         "bb_bandwidth_pct": 0.0,
         "bb_squeeze_flag": 0.0,
+        "atr_pct": 0.0,
     }
 
     if (
@@ -35,6 +36,16 @@ def calculate_bb_metrics(close_price: float, indicators: dict[str, float]) -> di
 
     if bb_middle != 0.0:
         output["bb_bandwidth_pct"] = float(((bb_upper - bb_lower) / bb_middle) * 100.0)
+
+    atr_value = indicators.get("atr")
+    if close_float != 0.0 and atr_value is not None:
+        try:
+            atr_float = float(atr_value)
+        except Exception:
+            atr_float = 0.0
+
+        if atr_float > 0.0:
+            output["atr_pct"] = float((atr_float / close_float) * 100.0)
 
     if output["bb_bandwidth_pct"] < BB_SQUEEZE_BANDWIDTH_PCT_THRESHOLD:
         output["bb_squeeze_flag"] = 1.0
