@@ -21,7 +21,7 @@ from src.core.models.outcome import Outcome
 from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
 from src.core.pipeline_trace import PipelineTrace
-from src.core.services.reporter import Reporter
+from src.core.services.reporter import Reporter, generate_reason_codes_table
 from src.runtime.preflight import run_preflight
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
@@ -635,6 +635,32 @@ def report() -> None:
         news_table = reporter.generate_news_stats(news_rationales)
         console.print(news_table)
         console.print()
+
+    try:
+        with db.get_cursor() as cursor:
+            cursor.execute("PRAGMA table_info(recommendations)")
+            columns = {str(row["name"]) for row in cursor.fetchall()}
+
+        if "reason_codes" not in columns:
+            console.print(
+                "[dim]Reason code diagnostics unavailable: missing recommendations.reason_codes. "
+                "Run init-db to apply migrations.[/dim]"
+            )
+            console.print()
+            return
+
+        with db.get_cursor() as cursor:
+            cursor.execute("SELECT reason_codes FROM recommendations ORDER BY id ASC")
+            reason_code_rows = cursor.fetchall()
+            reason_codes_values = [dict(row).get("reason_codes") for row in reason_code_rows]
+
+        reason_codes_table = generate_reason_codes_table(reason_codes_values, top_n=10)
+        console.print(reason_codes_table)
+        console.print()
+    except Exception:
+        console.print("[dim]Reason code diagnostics unavailable (failed to query database).[/dim]")
+        console.print()
+        return
 
 
 def main() -> None:
