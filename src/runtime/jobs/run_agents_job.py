@@ -183,18 +183,13 @@ class RunAgentsJob:
             )
             self._log("[green]✓[/green] [dim]Technical analysis complete[/dim]")
             if self.verbose and self.console:
-                from rich.panel import Panel
+                from src.ui.cli.renderers.technical_renderer import render_technical_view
 
                 display_symbol = f"{symbol[:3]}/{symbol[3:]}" if len(symbol) == 6 else symbol
                 panel_title = f"Technical Rationale ({display_symbol} {timeframe.value})"
 
-                truncated_content, was_truncated = self._truncate_content(technical_view)
-                panel_content = truncated_content
-                if was_truncated:
-                    panel_content += (
-                        "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
-                    )
-                self.console.print(Panel(panel_content, title=panel_title, border_style="cyan"))
+                technical_panel = render_technical_view(technical_view, title=panel_title)
+                self.console.print(technical_panel)
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,
@@ -380,20 +375,14 @@ class RunAgentsJob:
             raw_data_json = json.dumps(raw_data_dict)
 
             if self.verbose and self.console:
-                from rich.panel import Panel
+                from src.ui.cli.renderers.synthesis_renderer import render_synthesis
 
-                verbose_content = f"Action: {recommendation.action}\n"
-                verbose_content += f"Confidence: {recommendation.confidence:.2%}\n\n"
-                verbose_content += synthesis_content
-                truncated_content, was_truncated = self._truncate_content(verbose_content)
-                panel_content = truncated_content
-                if was_truncated:
-                    panel_content += (
-                        "\n\n[dim]Use show-latest --details to view the full saved text.[/dim]"
-                    )
-                self.console.print(
-                    Panel(panel_content, title="Synthesis Logic", border_style="green")
+                synthesis_panel = render_synthesis(
+                    recommendation,
+                    raw_data_json,
+                    title="Synthesis Logic",
                 )
+                self.console.print(synthesis_panel)
             self.rationales_repository.save(
                 Rationale(
                     run_id=run_id,
