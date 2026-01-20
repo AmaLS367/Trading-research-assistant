@@ -5,12 +5,18 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.agents.prompts.synthesis_prompts import get_synthesis_system_prompt
+from src.app.settings import Settings
 from src.core.models.news import NewsDigest
 from src.core.models.recommendation import Recommendation
+from src.core.models.technical_analysis import TechnicalAnalysisResult
 from src.core.models.timeframe import Timeframe
 from src.core.policies.safety_policy import SafetyPolicy
 from src.core.ports.llm_tasks import TASK_SYNTHESIS
+from src.decision.policy import decide_action
+from src.decision.reason_codes import PARSING_FAILED, build_reason_codes
+from src.decision.scoring import calculate_scores
 from src.llm.providers.llm_router import LlmRouter
+from src.utils.json_helpers import extract_json_from_text, try_parse_json
 
 if TYPE_CHECKING:
     from src.core.models.llm import LlmResponse
@@ -27,8 +33,38 @@ class Synthesizer:
         timeframe: Timeframe,
         technical_view: str,
         news_digest: NewsDigest,
+        indicators: dict[str, object] | None = None,
     ) -> tuple[Recommendation, dict[str, Any], LlmResponse | None]:
         system_prompt = get_synthesis_system_prompt()
+
+        technical, technical_parse_ok, technical_parse_error = self._parse_technical_view(
+            technical_view
+        )
+
+        scoring_indicators: dict[str, object] = indicators or {}
+        technical_scoring_dict: dict[str, object] = {
+            "trend_direction": technical.bias,
+            "trend_strength": float(technical.confidence) * 100.0,
+        }
+        scores = calculate_scores(scoring_indicators, technical_analysis=technical_scoring_dict)
+        reason_codes = build_reason_codes(scoring_indicators, scores=scores)
+        if (not technical_parse_ok or "PARSING_FAILED" in technical.no_trade_flags) and (
+            PARSING_FAILED not in reason_codes
+        ):
+            reason_codes.append(PARSING_FAILED)
+
+        settings = Settings()
+        decided_action, decided_confidence = decide_action(
+            scores=scores,
+            reason_codes=reason_codes,
+            settings=settings,
+            technical=technical,
+        )
+        if news_digest.quality == "LOW":
+            decided_confidence = min(
+                decided_confidence,
+                float(settings.decision_max_confidence_when_news_low),
+            )
 
         news_section_parts: list[str] = []
         if news_digest.quality == "LOW":
@@ -48,13 +84,31 @@ class Synthesizer:
 
         news_section = "\n".join(news_section_parts) if news_section_parts else "No news available"
 
-        user_prompt = f"""Technical Analysis:
-{technical_view}
+        decision_summary = (
+            f"Decided Action (fixed): {decided_action}\n"
+            f"Decided Confidence (fixed): {decided_confidence:.4f}\n"
+            f"Scores: bull={scores.bull_score:.1f}, bear={scores.bear_score:.1f}, "
+            f"no_trade={scores.no_trade_score:.1f}\n"
+            f"Reason Codes: {', '.join(reason_codes) if reason_codes else 'NONE'}"
+        )
+
+        user_prompt = f"""Deterministic Decision (already decided, do NOT change):
+{decision_summary}
+
+Technical Analysis (JSON):
+{technical.model_dump_json()}
 
 News Context:
 {news_section}
 
-Based on the above information, provide your trading recommendation as JSON."""
+Return STRICT JSON ONLY with schema:
+{{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
+
+Constraints:
+- action MUST be "{decided_action}"
+- confidence MUST be {decided_confidence:.4f} (copy exactly)
+- brief must explain WHY this decided action makes sense using scores/reason codes/technical/news
+"""
 
         llm_response_obj = self.llm_router.generate(
             task=TASK_SYNTHESIS,
@@ -73,6 +127,18 @@ Based on the above information, provide your trading recommendation as JSON."""
             "brief_warning": None,
             "retry_used": False,
             "retry_raw_output": None,
+            "technical_parse_ok": technical_parse_ok,
+            "technical_parse_error": technical_parse_error,
+            "decision": {
+                "action": decided_action,
+                "confidence": decided_confidence,
+                "scores": {
+                    "bull_score": scores.bull_score,
+                    "bear_score": scores.bear_score,
+                    "no_trade_score": scores.no_trade_score,
+                },
+                "reason_codes": reason_codes,
+            },
             "llm_metadata": {
                 "provider_name": llm_response_obj.provider_name,
                 "model_name": llm_response_obj.model_name,
@@ -99,10 +165,12 @@ Based on the above information, provide your trading recommendation as JSON."""
                 symbol=symbol,
                 timestamp=datetime.now(),
                 timeframe=timeframe,
-                action=action_str,
+                action=decided_action,
                 brief=brief_str,
-                confidence=confidence_float,
+                confidence=decided_confidence,
             )
+            debug_payload["llm_suggested_action"] = action_str
+            debug_payload["llm_suggested_confidence"] = confidence_float
 
             validated, validation_error = self.safety_policy.validate(recommendation)
             if not validated:
@@ -164,10 +232,12 @@ Invalid output:
                         symbol=symbol,
                         timestamp=datetime.now(),
                         timeframe=timeframe,
-                        action=action_str,
+                        action=decided_action,
                         brief=brief_str,
-                        confidence=confidence_float,
+                        confidence=decided_confidence,
                     )
+                    debug_payload["llm_suggested_action"] = action_str
+                    debug_payload["llm_suggested_confidence"] = confidence_float
 
                     validated, validation_error = self.safety_policy.validate(recommendation)
                     if not validated:
@@ -197,9 +267,9 @@ Previous failed attempt:
                 symbol=symbol,
                 timestamp=datetime.now(),
                 timeframe=timeframe,
-                action="WAIT",
-                brief="LLM JSON parse error. News and technical context not synthesized. See rationale for raw output.",
-                confidence=0.0,
+                action=decided_action,
+                brief="LLM JSON parse error. Explanation not synthesized. See rationale for raw output.",
+                confidence=decided_confidence,
             )
 
             return fallback_recommendation, debug_payload, last_response
@@ -354,3 +424,33 @@ Previous failed attempt:
             pass
 
         return None
+
+    def _parse_technical_view(
+        self, technical_view: str
+    ) -> tuple[TechnicalAnalysisResult, bool, str | None]:
+        extracted = extract_json_from_text(technical_view) or technical_view
+        parsed = try_parse_json(extracted)
+
+        if parsed is not None:
+            try:
+                technical = TechnicalAnalysisResult.model_validate(parsed)
+                return technical, True, None
+            except ValueError as e:
+                return self._fallback_technical_result(parse_error=str(e)), False, str(e)
+
+        return (
+            self._fallback_technical_result(parse_error="technical_view is not valid JSON"),
+            False,
+            ("technical_view is not valid JSON"),
+        )
+
+    def _fallback_technical_result(self, parse_error: str) -> TechnicalAnalysisResult:
+        _ = parse_error
+        return TechnicalAnalysisResult(
+            bias="NEUTRAL",
+            confidence=0.0,
+            evidence=[],
+            contradictions=[],
+            setup_type=None,
+            no_trade_flags=["PARSING_FAILED"],
+        )
