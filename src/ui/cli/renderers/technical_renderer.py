@@ -5,11 +5,85 @@ from rich.panel import Panel
 from src.core.models.technical_analysis import TechnicalAnalysisResult
 from src.utils.json_helpers import extract_json_from_text, try_parse_json
 
+ALLOWED_BIAS_VALUES = {"BULLISH", "BEARISH", "NEUTRAL"}
+MAX_LIST_ITEMS = 12
+MAX_LIST_ITEM_LEN = 80
+
 
 def _truncate_text(value: str, max_length: int) -> str:
     if len(value) <= max_length:
         return value
-    return value[:max_length].rstrip() + " ... [truncated]"
+    return value[:max_length].rstrip() + " ... (truncated)"
+
+
+def _truncate_single_line(text: str, max_len: int) -> str:
+    cleaned = " ".join(text.strip().split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[:max_len].rstrip() + " ... (truncated)"
+
+
+def _safe_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+
+    out: list[str] = []
+    for item in value:
+        if item is None:
+            continue
+        out.append(str(item))
+    return out
+
+
+def _build_normalized_technical_candidate(parsed: dict[str, object]) -> dict[str, object] | None:
+    bias_raw = parsed.get("bias")
+    if not isinstance(bias_raw, str):
+        return None
+
+    bias = bias_raw.strip().upper()
+    if bias not in ALLOWED_BIAS_VALUES:
+        return None
+
+    confidence_raw = parsed.get("confidence")
+    confidence: float
+    if isinstance(confidence_raw, (int, float)):
+        confidence = float(confidence_raw)
+    elif isinstance(confidence_raw, str):
+        try:
+            confidence = float(confidence_raw.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+
+    evidence = _safe_string_list(parsed.get("evidence"))
+    contradictions = _safe_string_list(parsed.get("contradictions"))
+    no_trade_flags = _safe_string_list(parsed.get("no_trade_flags"))
+
+    setup_type_value = parsed.get("setup_type")
+    setup_type: str | None = None
+    if isinstance(setup_type_value, str) and setup_type_value.strip():
+        setup_type = setup_type_value.strip()
+
+    return {
+        "bias": bias,
+        "confidence": confidence,
+        "evidence": evidence,
+        "contradictions": contradictions,
+        "setup_type": setup_type,
+        "no_trade_flags": no_trade_flags,
+    }
+
+
+def _format_bullets(items: list[str], *, max_items: int, max_item_len: int) -> list[str]:
+    lines: list[str] = []
+    for item in items[:max_items]:
+        safe = _truncate_single_line(item, max_item_len)
+        lines.append(f"• {safe}")
+    if len(items) > max_items:
+        remaining = len(items) - max_items
+        lines.append(f"[dim]... and {remaining} more[/dim]")
+    return lines
 
 
 def render_technical_view(technical_view: str, *, title: str = "Technical Analysis") -> Panel:
@@ -26,7 +100,12 @@ def render_technical_view(technical_view: str, *, title: str = "Technical Analys
 
     if parsed is not None:
         try:
-            technical = TechnicalAnalysisResult.model_validate(parsed)
+            normalized = _build_normalized_technical_candidate(parsed)
+            if normalized is None:
+                technical = TechnicalAnalysisResult.model_validate(parsed)
+            else:
+                technical = TechnicalAnalysisResult.model_validate(normalized)
+
             bias = technical.bias
             if bias == "BULLISH":
                 bias_display = "[bold green]BULLISH[/bold green]"
@@ -51,38 +130,45 @@ def render_technical_view(technical_view: str, *, title: str = "Technical Analys
             lines.append(f"Confidence: {confidence_display}")
 
             if technical.setup_type:
-                lines.append(f"Setup: {technical.setup_type}")
+                safe_setup = _truncate_single_line(str(technical.setup_type), 60)
+                lines.append(f"Setup: {safe_setup}")
 
             lines.append("")
             lines.append("[bold]Evidence[/bold]")
             if technical.evidence:
-                for item in technical.evidence[:12]:
-                    lines.append(f"  • {item}")
-                if len(technical.evidence) > 12:
-                    remaining = len(technical.evidence) - 12
-                    lines.append(f"  [dim]... and {remaining} more[/dim]")
+                lines.extend(
+                    _format_bullets(
+                        list(technical.evidence),
+                        max_items=MAX_LIST_ITEMS,
+                        max_item_len=MAX_LIST_ITEM_LEN,
+                    )
+                )
             else:
                 lines.append("  [dim]None[/dim]")
 
             lines.append("")
             lines.append("[bold]Contradictions[/bold]")
             if technical.contradictions:
-                for item in technical.contradictions[:12]:
-                    lines.append(f"  • {item}")
-                if len(technical.contradictions) > 12:
-                    remaining = len(technical.contradictions) - 12
-                    lines.append(f"  [dim]... and {remaining} more[/dim]")
+                lines.extend(
+                    _format_bullets(
+                        list(technical.contradictions),
+                        max_items=MAX_LIST_ITEMS,
+                        max_item_len=MAX_LIST_ITEM_LEN,
+                    )
+                )
             else:
                 lines.append("  [dim]None[/dim]")
 
             lines.append("")
             lines.append("[bold]Flags[/bold]")
             if technical.no_trade_flags:
-                for flag in technical.no_trade_flags[:12]:
-                    lines.append(f"  • {flag}")
-                if len(technical.no_trade_flags) > 12:
-                    remaining = len(technical.no_trade_flags) - 12
-                    lines.append(f"  [dim]... and {remaining} more[/dim]")
+                lines.extend(
+                    _format_bullets(
+                        list(technical.no_trade_flags),
+                        max_items=MAX_LIST_ITEMS,
+                        max_item_len=MAX_LIST_ITEM_LEN,
+                    )
+                )
             else:
                 lines.append("  [dim]None[/dim]")
 

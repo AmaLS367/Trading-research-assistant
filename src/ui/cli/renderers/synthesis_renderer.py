@@ -6,6 +6,35 @@ from rich.panel import Panel
 from src.core.models.recommendation import Recommendation
 from src.utils.json_helpers import extract_json_from_text, try_parse_json
 
+ALLOWED_ACTION_VALUES = {"CALL", "PUT", "WAIT"}
+MAX_LIST_ITEMS = 8
+MAX_LIST_ITEM_LEN = 100
+
+
+def _normalize_action(value: object) -> str:
+    action = str(value).strip().upper()
+    if action in ALLOWED_ACTION_VALUES:
+        return action
+    return "WAIT"
+
+
+def _truncate_single_line(text: str, max_len: int) -> str:
+    cleaned = " ".join(text.strip().split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[:max_len].rstrip() + " ... (truncated)"
+
+
+def _format_bullets(items: list[str], *, max_items: int, max_item_len: int) -> list[str]:
+    lines: list[str] = []
+    for item in items[:max_items]:
+        safe = _truncate_single_line(item, max_item_len)
+        lines.append(f"• {safe}")
+    if len(items) > max_items:
+        remaining = len(items) - max_items
+        lines.append(f"[dim]... and {remaining} more[/dim]")
+    return lines
+
 
 def _safe_list_of_strings(value: object) -> list[str]:
     if not isinstance(value, list):
@@ -61,7 +90,7 @@ def render_synthesis(
     *,
     title: str = "Synthesis",
 ) -> Panel:
-    action = str(recommendation.action).upper()
+    action = _normalize_action(recommendation.action)
     if action == "CALL":
         border_style = "green"
         action_display = "[bold green]CALL[/bold green]"
@@ -72,7 +101,11 @@ def render_synthesis(
         border_style = "yellow"
         action_display = "[bold yellow]WAIT[/bold yellow]"
 
-    confidence_value = float(recommendation.confidence)
+    try:
+        confidence_value = float(recommendation.confidence)
+    except (TypeError, ValueError):
+        confidence_value = 0.0
+
     if confidence_value >= 0.7:
         confidence_display = f"[green]{confidence_value:.2%}[/green]"
     elif confidence_value >= 0.5:
@@ -95,31 +128,43 @@ def render_synthesis(
     lines.append(f"Confidence: {confidence_display}")
 
     if reason_codes:
-        lines.append(f"Reason codes: {', '.join(reason_codes)}")
+        safe_codes: list[str] = []
+        for code in reason_codes:
+            if not code:
+                continue
+            safe_codes.append(_truncate_single_line(code, 48))
+        lines.append(f"Reason codes: {', '.join(safe_codes) if safe_codes else '[dim]NONE[/dim]'}")
     else:
         lines.append("Reason codes: [dim]NONE[/dim]")
 
     lines.append("")
     lines.append("[bold]Brief[/bold]")
-    lines.append(recommendation.brief.strip() if recommendation.brief else "")
+    if recommendation.brief:
+        lines.append(_truncate_single_line(recommendation.brief, 280))
+    else:
+        lines.append("")
 
     if reasons:
         lines.append("")
         lines.append("[bold]Reasons[/bold]")
-        for item in reasons[:8]:
-            lines.append(f"  • {item}")
-        if len(reasons) > 8:
-            remaining = len(reasons) - 8
-            lines.append(f"  [dim]... and {remaining} more[/dim]")
+        lines.extend(
+            _format_bullets(
+                reasons,
+                max_items=MAX_LIST_ITEMS,
+                max_item_len=MAX_LIST_ITEM_LEN,
+            )
+        )
 
     lines.append("")
     lines.append("[bold]Risks[/bold]")
     if risks:
-        for item in risks[:8]:
-            lines.append(f"  • {item}")
-        if len(risks) > 8:
-            remaining = len(risks) - 8
-            lines.append(f"  [dim]... and {remaining} more[/dim]")
+        lines.extend(
+            _format_bullets(
+                risks,
+                max_items=MAX_LIST_ITEMS,
+                max_item_len=MAX_LIST_ITEM_LEN,
+            )
+        )
     else:
         lines.append("  [dim]None captured[/dim]")
 
@@ -127,6 +172,8 @@ def render_synthesis(
         parse_error = debug_payload.get("parse_error")
         if isinstance(parse_error, str) and parse_error.strip():
             lines.append("")
-            lines.append(f"[dim]Parse note: {parse_error.strip()}[/dim]")
+            lines.append(
+                f"[dim]Parse Note: {_truncate_single_line(parse_error.strip(), 220)}[/dim]"
+            )
 
     return Panel("\n".join(lines), title=title, border_style=border_style)

@@ -45,13 +45,20 @@ def init_db() -> None:
     console.print("[green]Database initialized and migrations applied.[/green]")
 
 
+def _normalize_action(value: object) -> str:
+    action = str(value).strip().upper()
+    if action in {"CALL", "PUT", "WAIT"}:
+        return action
+    return "WAIT"
+
+
 def show_latest(show_details: bool = False, run_id: int | None = None) -> None:
     if run_id is None:
         recommendation = rec_repo.get_latest()
-        table_title = "Latest Recommendation"
+        table_title = "Recommendation"
     else:
         recommendation = rec_repo.get_by_run_id(run_id)
-        table_title = f"Recommendation (Run ID: {run_id})"
+        table_title = "Recommendation"
 
     if not recommendation:
         if run_id is None:
@@ -60,21 +67,27 @@ def show_latest(show_details: bool = False, run_id: int | None = None) -> None:
             console.print(f"[yellow]No recommendation found for Run ID: {run_id}[/yellow]")
         return
 
-    if recommendation.action == "CALL":
+    action = _normalize_action(recommendation.action)
+    if action == "CALL":
         action_color = "green"
-    elif recommendation.action == "PUT":
+    elif action == "PUT":
         action_color = "red"
     else:
         action_color = "yellow"
-    action_display = f"[{action_color}]{recommendation.action}[/{action_color}]"
+    action_display = f"[{action_color}]{action}[/{action_color}]"
 
-    if recommendation.confidence >= 0.7:
+    try:
+        confidence_value = float(recommendation.confidence)
+    except (TypeError, ValueError):
+        confidence_value = 0.0
+
+    if confidence_value >= 0.7:
         confidence_color = "green"
-    elif recommendation.confidence >= 0.5:
+    elif confidence_value >= 0.5:
         confidence_color = "yellow"
     else:
         confidence_color = "red"
-    confidence_display = f"[{confidence_color}]{recommendation.confidence:.2%}[/{confidence_color}]"
+    confidence_display = f"[{confidence_color}]{confidence_value:.2%}[/{confidence_color}]"
 
     table = Table(title=table_title, show_header=True, header_style="bold magenta")
     table.add_column("Recommendation ID", style="cyan", width=16)
@@ -299,7 +312,7 @@ def show_latest(show_details: bool = False, run_id: int | None = None) -> None:
                     console.print(
                         Panel(
                             digest_content,
-                            title=f"News Digest (Quality: {digest.quality})",
+                            title="News Digest",
                             border_style="blue",
                         )
                     )
