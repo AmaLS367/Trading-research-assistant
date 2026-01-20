@@ -17,6 +17,13 @@ class FeatureSnapshot(BaseModel):
     validated_candle_count: int | None = None
     trend_direction: str | None = None
     trend_strength: float | None = None
+    ema9_sma50_crossover_type: str | None = None
+    ema9_sma50_crossover_age_bars: int | None = None
+    sma50_sma200_crossover_type: str | None = None
+    sma50_sma200_crossover_age_bars: int | None = None
+    candlestick_pattern: str | None = None
+    candlestick_pattern_strength: float | None = None
+    volume_trend: str | None = None
 
     @field_validator("indicators")
     @classmethod

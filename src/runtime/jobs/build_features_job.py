@@ -10,9 +10,12 @@ from src.features.derived.ma_slope import calculate_ma_slopes
 from src.features.derived.momentum_derived import calculate_momentum_features
 from src.features.derived.volatility_derived import calculate_bb_metrics
 from src.features.indicators.indicator_engine import calculate_features
+from src.features.patterns.candlestick_patterns import detect_candlestick_patterns
 from src.features.regime.regime_detector import RegimeDetector
+from src.features.signals.crossovers import detect_crossovers
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
 from src.features.trend.trend_detector import TrendDetector
+from src.features.volume.volume_features import calculate_volume_features
 from src.features.volatility.volatility_estimator import VolatilityEstimator
 from src.runtime.jobs.job_result import JobResult
 
@@ -53,6 +56,40 @@ class BuildFeaturesJob:
                     continue
                 indicators[key] = value
 
+            crossovers = detect_crossovers(candles, lookback_bars=50)
+            ema9_sma50_crossover_type = crossovers.get("ema9_sma50_crossover_type")
+            ema9_sma50_crossover_age_bars = crossovers.get("ema9_sma50_crossover_age_bars")
+            sma50_sma200_crossover_type = crossovers.get("sma50_sma200_crossover_type")
+            sma50_sma200_crossover_age_bars = crossovers.get("sma50_sma200_crossover_age_bars")
+
+            if "ema9_sma50_crossover_age_bars" not in indicators and isinstance(
+                ema9_sma50_crossover_age_bars, int
+            ):
+                indicators["ema9_sma50_crossover_age_bars"] = float(
+                    ema9_sma50_crossover_age_bars
+                )
+
+            if "sma50_sma200_crossover_age_bars" not in indicators and isinstance(
+                sma50_sma200_crossover_age_bars, int
+            ):
+                indicators["sma50_sma200_crossover_age_bars"] = float(
+                    sma50_sma200_crossover_age_bars
+                )
+
+            candlestick = detect_candlestick_patterns(candles)
+            candlestick_pattern = candlestick.get("candlestick_pattern")
+            candlestick_pattern_strength = candlestick.get("candlestick_pattern_strength")
+
+            volume_features = calculate_volume_features(candles, window=20)
+            volume_trend = volume_features.get("volume_trend")
+
+            for key in ["volume_mean", "volume_zscore", "volume_confirmation_flag"]:
+                value = volume_features.get(key)
+                if key in indicators:
+                    continue
+                if isinstance(value, (int, float)):
+                    indicators[key] = float(value)
+
             trend = TrendDetector.detect(candles, indicators)
             trend_direction = trend.get("trend_direction")
             trend_strength = trend.get("trend_strength")
@@ -81,6 +118,25 @@ class BuildFeaturesJob:
                 trend_strength=float(trend_strength)
                 if isinstance(trend_strength, (int, float))
                 else None,
+                ema9_sma50_crossover_type=ema9_sma50_crossover_type
+                if isinstance(ema9_sma50_crossover_type, str)
+                else None,
+                ema9_sma50_crossover_age_bars=ema9_sma50_crossover_age_bars
+                if isinstance(ema9_sma50_crossover_age_bars, int)
+                else None,
+                sma50_sma200_crossover_type=sma50_sma200_crossover_type
+                if isinstance(sma50_sma200_crossover_type, str)
+                else None,
+                sma50_sma200_crossover_age_bars=sma50_sma200_crossover_age_bars
+                if isinstance(sma50_sma200_crossover_age_bars, int)
+                else None,
+                candlestick_pattern=candlestick_pattern
+                if isinstance(candlestick_pattern, str)
+                else None,
+                candlestick_pattern_strength=float(candlestick_pattern_strength)
+                if isinstance(candlestick_pattern_strength, (int, float))
+                else None,
+                volume_trend=volume_trend if isinstance(volume_trend, str) else None,
             )
 
             regime = RegimeDetector.detect(candles)
