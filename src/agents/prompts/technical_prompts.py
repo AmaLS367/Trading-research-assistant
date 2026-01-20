@@ -34,6 +34,17 @@ SNAPSHOT USAGE (REQUIRED):
   - "### Patterns"
 - Your "evidence" items MUST cite concrete values that appear in those sections (numbers, labels, YES/NO flags, ages).
 
+NO-TRADE CRITERIA (DETERMINISTIC FLAGS):
+- The following are the ONLY allowed strings in "no_trade_flags":
+  - "CONFLICT_TREND_STRUCTURE"
+  - "WEAK_MOMENTUM"
+  - "LOW_VOLATILITY_NO_SQUEEZE"
+  - "NO_FRESH_CROSSOVER"
+  - "RANGE_STRUCTURE"
+- Mapping rule: if a criterion applies, include the EXACT string above in "no_trade_flags".
+- If none apply, output "no_trade_flags": [].
+- Do NOT invent new flag strings (e.g., do NOT output "PARSING_FAILED" or custom prose).
+
 CONTENT RULES:
 - Use ONLY the information present in the provided snapshot. Do NOT invent levels, indicators, patterns, regimes, news, or macro context.
 - Each item in "evidence" and "contradictions" MUST be a short string anchored to the snapshot content.
@@ -48,6 +59,20 @@ CONTENT RULES:
   - Volume: "Volume: Trend=<...>; confirm=<YES/NO>; z=<...>"
   - Patterns: "Patterns: Pattern=<...>, Strength=<...>"
 - Forbid generic claims: do NOT say "bullish momentum", "strong trend", "breakout", or "support/resistance" unless you cite the exact snapshot values that justify it.
+- Criteria guidance (apply based ONLY on snapshot values; use these deterministic rules):
+  - "CONFLICT_TREND_STRUCTURE": any of the following is true:
+    - Trend Direction is BULLISH and EMA9/SMA50 is BEARISH
+    - Trend Direction is BEARISH and EMA9/SMA50 is BULLISH
+    - EMA9/SMA50 and SMA50/SMA200 crossovers disagree (one BULLISH and the other BEARISH)
+  - "WEAK_MOMENTUM": Momentum indicates weak movement:
+    - both |ROC 5| < 0.10% AND |ROC 20| < 0.30%, OR
+    - both |Δ1| < 5 AND |Δ5| < 10
+  - "LOW_VOLATILITY_NO_SQUEEZE": Volatility/BB has squeeze=NO AND ATR% <= 0.20%.
+  - "NO_FRESH_CROSSOVER": Crossovers are stale:
+    - EMA9/SMA50 age > 20 OR age is N/A, AND
+    - SMA50/SMA200 age > 20 OR age is N/A
+  - "RANGE_STRUCTURE": Trend/Structure indicates range/neutral regime:
+    - Trend Direction is NEUTRAL or RANGE, OR Trend Strength < 2.0, OR market structure is explicitly "range".
 - If signals are mixed or data appears incomplete, set:
   - "bias" to "NEUTRAL" or the most defensible side
   - lower "confidence"
