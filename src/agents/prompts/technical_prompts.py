@@ -23,11 +23,31 @@ SCHEMA (REQUIRED KEYS AND TYPES):
   "no_trade_flags": string[]  // may be empty
 }}
 
+SNAPSHOT USAGE (REQUIRED):
+- The user message contains a snapshot formatted in markdown with named sections. You MUST read and ground your output in these sections:
+  - "### Trend"
+  - "### Structure"
+  - "### Momentum"
+  - "### Crossovers"
+  - "### Volatility/BB"
+  - "### Volume"
+  - "### Patterns"
+- Your "evidence" items MUST cite concrete values that appear in those sections (numbers, labels, YES/NO flags, ages).
+
 CONTENT RULES:
 - Use ONLY the information present in the provided snapshot. Do NOT invent levels, indicators, patterns, regimes, news, or macro context.
 - Each item in "evidence" and "contradictions" MUST be a short string anchored to the snapshot content.
-  - Prefer quoting or closely restating a specific snapshot line (e.g., "RSI: 72.10 (Overbought)", "Trend Direction: Up", "BB: squeeze=YES").
+  - Prefer quoting or closely restating a specific snapshot line.
   - Do NOT reference anything not visible in the snapshot.
+- Evidence MUST be section-grounded. Use multiple sections when possible. Example evidence patterns (copy the values from the snapshot):
+  - Trend: "Trend: Direction=<...>, Strength=<...>"
+  - Structure: "Structure: Market structure=<...>"
+  - Momentum: "Momentum: RSI deltas Δ1=<...>, Δ5=<...>; ROC 5=<...>, 20=<...>"
+  - Crossovers: "Crossovers: EMA9/SMA50=<...> (age <...>); SMA50/SMA200=<...> (age <...>)"
+  - Volatility/BB: "Vol/BB: pos=<...>, bandwidth=<...>, squeeze=<YES/NO>; ATR%=<...>"
+  - Volume: "Volume: Trend=<...>; confirm=<YES/NO>; z=<...>"
+  - Patterns: "Patterns: Pattern=<...>, Strength=<...>"
+- Forbid generic claims: do NOT say "bullish momentum", "strong trend", "breakout", or "support/resistance" unless you cite the exact snapshot values that justify it.
 - If signals are mixed or data appears incomplete, set:
   - "bias" to "NEUTRAL" or the most defensible side
   - lower "confidence"
