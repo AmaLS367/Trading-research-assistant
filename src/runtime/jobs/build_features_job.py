@@ -12,6 +12,7 @@ from src.features.derived.volatility_derived import calculate_bb_metrics
 from src.features.indicators.indicator_engine import calculate_features
 from src.features.regime.regime_detector import RegimeDetector
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
+from src.features.trend.trend_detector import TrendDetector
 from src.features.volatility.volatility_estimator import VolatilityEstimator
 from src.runtime.jobs.job_result import JobResult
 
@@ -52,6 +53,10 @@ class BuildFeaturesJob:
                     continue
                 indicators[key] = value
 
+            trend = TrendDetector.detect(candles, indicators)
+            trend_direction = trend.get("trend_direction")
+            trend_strength = trend.get("trend_strength")
+
             close_price = float(candles[-1].close)
             ma_distances = calculate_ma_distances(close_price, indicators)
             for key, value in ma_distances.items():
@@ -72,6 +77,10 @@ class BuildFeaturesJob:
                 validation_status=validation_result.status,
                 validation_reasons=validation_result.reasons,
                 validated_candle_count=validation_result.candle_count,
+                trend_direction=trend_direction if isinstance(trend_direction, str) else None,
+                trend_strength=float(trend_strength)
+                if isinstance(trend_strength, (int, float))
+                else None,
             )
 
             regime = RegimeDetector.detect(candles)

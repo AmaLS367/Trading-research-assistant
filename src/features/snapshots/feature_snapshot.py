@@ -15,6 +15,8 @@ class FeatureSnapshot(BaseModel):
     validation_status: ValidationStatus = ValidationStatus.OK
     validation_reasons: list[str] = Field(default_factory=list)
     validated_candle_count: int | None = None
+    trend_direction: str | None = None
+    trend_strength: float | None = None
 
     @field_validator("indicators")
     @classmethod
