@@ -2,15 +2,19 @@ import math
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.models.candle import Candle
+from src.features.contracts.feature_contract import ValidationStatus
 
 
 class FeatureSnapshot(BaseModel):
     timestamp: datetime
     candles: list[Candle]
     indicators: dict[str, float]
+    validation_status: ValidationStatus = ValidationStatus.OK
+    validation_reasons: list[str] = Field(default_factory=list)
+    validated_candle_count: int | None = None
 
     @field_validator("indicators")
     @classmethod
