@@ -6,6 +6,7 @@ from src.core.models.timeframe import Timeframe
 from src.features.contracts.feature_contract import FeatureContract, ValidationStatus
 from src.features.derived.basic_derived import calculate_basic_derived
 from src.features.derived.ma_distance import calculate_ma_distances
+from src.features.derived.momentum_derived import calculate_momentum_features
 from src.features.derived.volatility_derived import calculate_bb_metrics
 from src.features.indicators.indicator_engine import calculate_features
 from src.features.regime.regime_detector import RegimeDetector
@@ -34,6 +35,12 @@ class BuildFeaturesJob:
             indicators = calculate_features(candles)
             derived = calculate_basic_derived(candles)
             for key, value in derived.items():
+                if key in indicators:
+                    continue
+                indicators[key] = value
+
+            momentum = calculate_momentum_features(candles)
+            for key, value in momentum.items():
                 if key in indicators:
                     continue
                 indicators[key] = value
