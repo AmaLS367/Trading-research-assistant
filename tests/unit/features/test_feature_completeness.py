@@ -9,7 +9,9 @@ from src.runtime.jobs.build_features_job import BuildFeaturesJob
 
 
 class CandleWithoutVolume:
-    def __init__(self, timestamp: datetime, open_price: float, high: float, low: float, close: float) -> None:
+    def __init__(
+        self, timestamp: datetime, open_price: float, high: float, low: float, close: float
+    ) -> None:
         self.timestamp = timestamp
         self.open = open_price
         self.high = high

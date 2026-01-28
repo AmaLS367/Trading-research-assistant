@@ -92,4 +92,3 @@ def test_technical_analyst_parsing_missing_required_fields_falls_back() -> None:
     assert parsed.bias == "NEUTRAL"
     assert parsed.confidence == 0.0
     assert "PARSING_FAILED" in parsed.no_trade_flags
-

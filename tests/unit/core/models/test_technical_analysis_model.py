@@ -1,3 +1,5 @@
+from typing import Literal, cast
+
 import pytest
 from pydantic import ValidationError
 
@@ -63,8 +65,9 @@ def test_technical_analysis_result_confidence_bounds() -> None:
 
 def test_technical_analysis_result_allowed_bias_values() -> None:
     for bias in ["BULLISH", "BEARISH", "NEUTRAL"]:
+        bias_val = cast(Literal["BULLISH", "BEARISH", "NEUTRAL"], bias)
         result = TechnicalAnalysisResult(
-            bias=bias,
+            bias=bias_val,
             confidence=0.5,
             evidence=[],
             contradictions=[],
@@ -75,7 +78,7 @@ def test_technical_analysis_result_allowed_bias_values() -> None:
 
     with pytest.raises(ValidationError):
         TechnicalAnalysisResult(
-            bias="bullish",
+            bias="bullish",  # type: ignore[arg-type]
             confidence=0.5,
             evidence=[],
             contradictions=[],

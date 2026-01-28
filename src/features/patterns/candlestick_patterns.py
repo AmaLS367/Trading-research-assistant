@@ -59,10 +59,7 @@ def detect_candlestick_patterns(candles: list[Candle]) -> dict[str, object]:
 
     last = _candle_metrics(candles[-1])
 
-    if last["range"] > 0.0:
-        body_ratio = last["body"] / last["range"]
-    else:
-        body_ratio = 0.0
+    body_ratio = last["body"] / last["range"] if last["range"] > 0.0 else 0.0
 
     is_doji = (last["range"] > 0.0) and (body_ratio <= 0.1)
     is_big_body = (last["range"] > 0.0) and (body_ratio >= 0.7)
@@ -90,16 +87,8 @@ def detect_candlestick_patterns(candles: list[Candle]) -> dict[str, object]:
     prev_body = prev["body"]
     last_body = last["body"]
 
-    bull_engulf = (
-        last_bullish
-        and (last["open"] < prev["close"])
-        and (last["close"] > prev["open"])
-    )
-    bear_engulf = (
-        last_bearish
-        and (last["open"] > prev["close"])
-        and (last["close"] < prev["open"])
-    )
+    bull_engulf = last_bullish and (last["open"] < prev["close"]) and (last["close"] > prev["open"])
+    bear_engulf = last_bearish and (last["open"] > prev["close"]) and (last["close"] < prev["open"])
 
     bull_pin = (last_bullish or last_neutral) and (
         last["lower_wick"] >= 2.0 * last_body and last["upper_wick"] <= last_body

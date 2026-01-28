@@ -15,8 +15,8 @@ from src.features.regime.regime_detector import RegimeDetector
 from src.features.signals.crossovers import detect_crossovers
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
 from src.features.trend.trend_detector import TrendDetector
-from src.features.volume.volume_features import calculate_volume_features
 from src.features.volatility.volatility_estimator import VolatilityEstimator
+from src.features.volume.volume_features import calculate_volume_features
 from src.runtime.jobs.job_result import JobResult
 
 
@@ -65,9 +65,7 @@ class BuildFeaturesJob:
             if "ema9_sma50_crossover_age_bars" not in indicators and isinstance(
                 ema9_sma50_crossover_age_bars, int
             ):
-                indicators["ema9_sma50_crossover_age_bars"] = float(
-                    ema9_sma50_crossover_age_bars
-                )
+                indicators["ema9_sma50_crossover_age_bars"] = float(ema9_sma50_crossover_age_bars)
 
             if "sma50_sma200_crossover_age_bars" not in indicators and isinstance(
                 sma50_sma200_crossover_age_bars, int
@@ -84,11 +82,11 @@ class BuildFeaturesJob:
             volume_trend = volume_features.get("volume_trend")
 
             for key in ["volume_mean", "volume_zscore", "volume_confirmation_flag"]:
-                value = volume_features.get(key)
+                raw = volume_features.get(key)
                 if key in indicators:
                     continue
-                if isinstance(value, (int, float)):
-                    indicators[key] = float(value)
+                if isinstance(raw, (int, float)):
+                    indicators[key] = float(raw)
 
             trend = TrendDetector.detect(candles, indicators)
             trend_direction = trend.get("trend_direction")
@@ -99,7 +97,7 @@ class BuildFeaturesJob:
             for key, value in ma_distances.items():
                 if key in indicators:
                     continue
-                indicators[key] = value
+                indicators[key] = float(value)
 
             bb_metrics = calculate_bb_metrics(close_price, indicators)
             for key, value in bb_metrics.items():

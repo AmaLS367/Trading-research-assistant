@@ -56,6 +56,7 @@ def _detect_last_crossover(
         crossover_type = bearish_type
         crossover_index = last_bearish_index
 
+    assert crossover_index is not None
     age_bars = last_valid_index_int - int(crossover_index)
     return crossover_type, int(age_bars)
 

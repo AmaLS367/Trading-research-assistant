@@ -64,7 +64,8 @@ def test_confirmation_flag_set_when_zscore_high() -> None:
     result = calculate_volume_features(candles, window=20)
 
     assert result["volume_confirmation_flag"] == 1.0
-    assert result["volume_zscore"] >= 1.0
+    zscore = result["volume_zscore"]
+    assert isinstance(zscore, (int, float)) and float(zscore) >= 1.0
 
 
 def test_output_types_and_keys() -> None:

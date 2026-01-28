@@ -64,12 +64,18 @@ def test_build_features_job_integration_outputs_expected_keys() -> None:
     assert snapshot.trend_direction in {"BULLISH", "BEARISH", "NEUTRAL", None}
     assert snapshot.trend_strength is None or isinstance(snapshot.trend_strength, float)
 
-    assert isinstance(snapshot.ema9_sma50_crossover_type, str) or snapshot.ema9_sma50_crossover_type is None
+    assert (
+        isinstance(snapshot.ema9_sma50_crossover_type, str)
+        or snapshot.ema9_sma50_crossover_type is None
+    )
     assert (
         isinstance(snapshot.ema9_sma50_crossover_age_bars, int)
         or snapshot.ema9_sma50_crossover_age_bars is None
     )
-    assert isinstance(snapshot.sma50_sma200_crossover_type, str) or snapshot.sma50_sma200_crossover_type is None
+    assert (
+        isinstance(snapshot.sma50_sma200_crossover_type, str)
+        or snapshot.sma50_sma200_crossover_type is None
+    )
     assert (
         isinstance(snapshot.sma50_sma200_crossover_age_bars, int)
         or snapshot.sma50_sma200_crossover_age_bars is None

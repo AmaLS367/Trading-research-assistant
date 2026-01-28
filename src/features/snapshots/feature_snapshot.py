@@ -153,10 +153,7 @@ class FeatureSnapshot(BaseModel):
         lines.append("")
         lines.append("### Volume")
         vol_confirm = get_indicator("volume_confirmation_flag")
-        if vol_confirm is None:
-            confirm_text = "N/A"
-        else:
-            confirm_text = "YES" if vol_confirm == 1.0 else "NO"
+        confirm_text = "N/A" if vol_confirm is None else "YES" if vol_confirm == 1.0 else "NO"
         lines.append(f"- **Trend:** {self.volume_trend or 'N/A'}")
         lines.append(
             "- **Context:** "
@@ -168,6 +165,8 @@ class FeatureSnapshot(BaseModel):
         lines.append("")
         lines.append("### Patterns")
         lines.append(f"- **Pattern:** {self.candlestick_pattern or 'N/A'}")
-        lines.append(f"- **Strength:** {format_float(self.candlestick_pattern_strength, decimals=1)}")
+        lines.append(
+            f"- **Strength:** {format_float(self.candlestick_pattern_strength, decimals=1)}"
+        )
 
         return "\n".join(lines)

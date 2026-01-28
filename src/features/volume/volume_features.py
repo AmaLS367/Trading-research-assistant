@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pandas as pd
 
 from src.core.models.candle import Candle
@@ -44,26 +43,17 @@ def calculate_volume_features(candles: list[Candle], window: int = 20) -> dict[s
 
     rolling_mean = series.rolling(window=window, min_periods=window).mean()
     mean_last = rolling_mean.iloc[-1]
-    if pd.isna(mean_last):
-        mean_value = float(non_nan.mean())
-    else:
-        mean_value = float(mean_last)
+    mean_value = float(non_nan.mean()) if pd.isna(mean_last) else float(mean_last)
 
     if not math.isfinite(mean_value):
         mean_value = 0.0
 
     last_volume = series.iloc[-1]
-    if pd.isna(last_volume):
-        last_volume_value = 0.0
-    else:
-        last_volume_value = float(last_volume)
+    last_volume_value = 0.0 if pd.isna(last_volume) else float(last_volume)
 
     rolling_std = series.rolling(window=window, min_periods=window).std(ddof=0)
     std_last = rolling_std.iloc[-1]
-    if pd.isna(std_last):
-        std_value = float(non_nan.std(ddof=0))
-    else:
-        std_value = float(std_last)
+    std_value = float(non_nan.std(ddof=0)) if pd.isna(std_last) else float(std_last)
 
     if not math.isfinite(std_value) or std_value == 0.0:
         zscore = 0.0
@@ -79,10 +69,7 @@ def calculate_volume_features(candles: list[Candle], window: int = 20) -> dict[s
 
         if math.isfinite(prev5) and math.isfinite(last5):
             if prev5 == 0.0:
-                if last5 == 0.0:
-                    trend = "FLAT"
-                else:
-                    trend = "RISING"
+                trend = "FLAT" if last5 == 0.0 else "RISING"
             else:
                 change_ratio = (last5 - prev5) / abs(prev5)
                 if change_ratio >= 0.05:
