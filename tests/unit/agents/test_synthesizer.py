@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from typing import Any
 from unittest.mock import Mock
 
 from src.agents.synthesizer import Synthesizer
@@ -9,7 +10,7 @@ from src.core.models.timeframe import Timeframe
 from src.llm.providers.llm_router import LlmRouter
 
 
-def _decided_confidence(debug: dict) -> float:
+def _decided_confidence(debug: dict[str, Any]) -> float:
     return float(debug["decision"]["confidence"])
 
 
