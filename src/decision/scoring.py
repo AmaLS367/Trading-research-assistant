@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from src.app.settings import Settings
+
 
 @dataclass(frozen=True)
 class DecisionScores:
@@ -14,10 +16,18 @@ class DecisionScores:
 def calculate_scores(
     indicators: dict[str, object],
     technical_analysis: dict[str, object] | None = None,
+    settings: Settings | None = None,
 ) -> DecisionScores:
     bull_score = 0.0
     bear_score = 0.0
     no_trade_score = 0.0
+
+    crossover_max_age = (
+        float(settings.decision_crossover_max_age_bars) if settings else 10.0
+    )
+    atr_low_threshold = (
+        float(settings.decision_atr_pct_low_threshold) if settings else 0.08
+    )
 
     trend_direction = _get_str(indicators, technical_analysis, "trend_direction")
     trend_strength = _get_float(indicators, technical_analysis, "trend_strength")
@@ -60,13 +70,13 @@ def calculate_scores(
     elif (
         ema9_sma50_crossover_type == "BULLISH"
         and ema9_sma50_crossover_age_bars is not None
-        and ema9_sma50_crossover_age_bars <= 10.0
+        and ema9_sma50_crossover_age_bars <= crossover_max_age
     ):
         bull_score += 10.0
     elif (
         ema9_sma50_crossover_type == "BEARISH"
         and ema9_sma50_crossover_age_bars is not None
-        and ema9_sma50_crossover_age_bars <= 10.0
+        and ema9_sma50_crossover_age_bars <= crossover_max_age
     ):
         bear_score += 10.0
 
@@ -92,7 +102,7 @@ def calculate_scores(
     if (
         atr_pct is not None
         and bb_squeeze_flag is not None
-        and atr_pct < 0.08
+        and atr_pct < atr_low_threshold
         and bb_squeeze_flag == 0.0
     ):
         no_trade_score += 20.0

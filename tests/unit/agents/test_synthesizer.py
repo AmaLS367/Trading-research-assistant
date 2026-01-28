@@ -9,6 +9,10 @@ from src.core.models.timeframe import Timeframe
 from src.llm.providers.llm_router import LlmRouter
 
 
+def _decided_confidence(debug: dict) -> float:
+    return float(debug["decision"]["confidence"])
+
+
 def test_synthesizer_creates_recommendation() -> None:
     mock_router = Mock(spec=LlmRouter)
     mock_response_text = json.dumps(
@@ -43,12 +47,18 @@ def test_synthesizer_creates_recommendation() -> None:
         timeframe=Timeframe.H1,
         technical_view="RSI is 75, indicating overbought conditions.",
         news_digest=news_digest,
+        indicators={
+            "trend_direction": "BULLISH",
+            "trend_strength": 50.0,
+            "ema9_sma50_crossover_type": "BULLISH",
+            "ema9_sma50_crossover_age_bars": 5.0,
+        },
     )
 
     assert recommendation.symbol == "EURUSD"
     assert recommendation.timeframe == Timeframe.H1
     assert recommendation.action == "CALL"
-    assert recommendation.confidence == 0.75
+    assert recommendation.confidence == _decided_confidence(debug)
     assert recommendation.brief == "Strong bullish momentum with RSI above 70."
     assert isinstance(recommendation.timestamp, datetime)
     assert debug["parse_ok"] is True
@@ -86,10 +96,16 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
         timeframe=Timeframe.H1,
         technical_view="Price below SMA 200.",
         news_digest=news_digest,
+        indicators={
+            "trend_direction": "BEARISH",
+            "trend_strength": 50.0,
+            "ema9_sma50_crossover_type": "BEARISH",
+            "ema9_sma50_crossover_age_bars": 5.0,
+        },
     )
 
     assert recommendation.action == "PUT"
-    assert recommendation.confidence == 0.6
+    assert recommendation.confidence == _decided_confidence(debug)
     assert debug["parse_ok"] is True
 
 
@@ -366,10 +382,16 @@ def test_synthesizer_warns_on_curly_braces_in_brief() -> None:
         timeframe=Timeframe.H1,
         technical_view="Test",
         news_digest=news_digest,
+        indicators={
+            "trend_direction": "BEARISH",
+            "trend_strength": 50.0,
+            "ema9_sma50_crossover_type": "BEARISH",
+            "ema9_sma50_crossover_age_bars": 5.0,
+        },
     )
 
     assert recommendation.action == "PUT"
-    assert recommendation.confidence == 0.7
+    assert recommendation.confidence == _decided_confidence(debug)
     assert "{" in recommendation.brief or "}" in recommendation.brief
     assert debug["parse_ok"] is True
     assert debug["brief_warning"] == "Brief contains curly braces (possible nested JSON)"

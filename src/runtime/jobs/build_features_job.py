@@ -14,6 +14,8 @@ from src.features.patterns.candlestick_patterns import detect_candlestick_patter
 from src.features.regime.regime_detector import RegimeDetector
 from src.features.signals.crossovers import detect_crossovers
 from src.features.snapshots.feature_snapshot import FeatureSnapshot
+from src.features.structure.market_structure import classify_structure
+from src.features.structure.swing_points import detect_swings
 from src.features.trend.trend_detector import TrendDetector
 from src.features.volatility.volatility_estimator import VolatilityEstimator
 from src.features.volume.volume_features import calculate_volume_features
@@ -59,7 +61,10 @@ class BuildFeaturesJob:
             crossovers = detect_crossovers(candles, lookback_bars=50)
             ema9_sma50_crossover_type = crossovers.get("ema9_sma50_crossover_type")
             ema9_sma50_crossover_age_bars = crossovers.get("ema9_sma50_crossover_age_bars")
-            sma50_sma200_crossover_type = crossovers.get("sma50_sma200_crossover_type")
+            sma50_sma200_raw = crossovers.get("sma50_sma200_crossover_type")
+            sma50_sma200_crossover_type = (
+                "BULLISH" if sma50_sma200_raw == "GOLDEN" else "BEARISH" if sma50_sma200_raw == "DEATH" else sma50_sma200_raw
+            )
             sma50_sma200_crossover_age_bars = crossovers.get("sma50_sma200_crossover_age_bars")
 
             if "ema9_sma50_crossover_age_bars" not in indicators and isinstance(
@@ -105,6 +110,10 @@ class BuildFeaturesJob:
                     continue
                 indicators[key] = value
 
+            swings = detect_swings(candles, depth=5)
+            structure_result = classify_structure(swings)
+            structure = structure_result.get("structure")
+
             snapshot = FeatureSnapshot(
                 timestamp=datetime.now(),
                 candles=candles,
@@ -138,6 +147,7 @@ class BuildFeaturesJob:
                 if isinstance(candlestick_pattern_strength, (int, float))
                 else None,
                 volume_trend=volume_trend if isinstance(volume_trend, str) else None,
+                structure=structure if isinstance(structure, str) else None,
             )
 
             regime = RegimeDetector.detect(candles)

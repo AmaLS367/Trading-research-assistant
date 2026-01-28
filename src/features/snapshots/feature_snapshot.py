@@ -27,6 +27,23 @@ class FeatureSnapshot(BaseModel):
     missing_features: list[str] = Field(default_factory=list)
     degraded_features: list[str] = Field(default_factory=list)
     candle_count_used: int | None = None
+    structure: str | None = None
+
+    def get_indicators_for_synthesis(self) -> dict[str, Any]:
+        """Merge numeric indicators with string/meta fields for scoring and reason_codes."""
+        out: dict[str, Any] = dict(self.indicators)
+        if self.trend_direction is not None:
+            out["trend_direction"] = self.trend_direction
+        if self.ema9_sma50_crossover_type is not None:
+            out["ema9_sma50_crossover_type"] = self.ema9_sma50_crossover_type
+        if self.sma50_sma200_crossover_type is not None:
+            out["sma50_sma200_crossover_type"] = self.sma50_sma200_crossover_type
+        out["validation_status"] = self.validation_status.value
+        if self.candle_count_used is not None:
+            out["candle_count_used"] = float(self.candle_count_used)
+        if self.structure is not None:
+            out["structure"] = self.structure
+        return out
 
     @field_validator("indicators")
     @classmethod
@@ -101,7 +118,9 @@ class FeatureSnapshot(BaseModel):
 
         lines.append("")
         lines.append("### Structure")
-        lines.append("- **Market structure:** N/A")
+        structure_val = self.structure or self.indicators.get("structure")
+        structure_str = structure_val if isinstance(structure_val, str) else "N/A"
+        lines.append(f"- **Market structure:** {structure_str}")
 
         lines.append("")
         lines.append("### Momentum")

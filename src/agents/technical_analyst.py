@@ -88,7 +88,8 @@ class TechnicalAnalyst:
         )
 
         raw_text = llm_response.text
-        extracted_json_text = extract_json_from_text(raw_text)
+        guarded_text = self._apply_output_guard(raw_text, symbol, display_symbol)
+        extracted_json_text = extract_json_from_text(guarded_text)
 
         technical_result: TechnicalAnalysisResult | None = None
         if extracted_json_text is not None:
@@ -113,7 +114,9 @@ class TechnicalAnalyst:
                 no_trade_flags=no_trade_flags,
             )
 
-        guarded_view = technical_result.model_dump_json()
+        result_json = technical_result.model_dump_json()
+        # If guard was applied (text was modified), return guarded text instead of JSON
+        guarded_view = guarded_text if guarded_text != raw_text else result_json
 
         # Extract key info from response for logging
         action_bias = None

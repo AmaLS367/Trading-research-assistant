@@ -401,6 +401,7 @@ class RunAgentsJob:
                 timeframe=timeframe,
                 technical_view=technical_view,
                 news_digest=news_digest,
+                indicators=snapshot.get_indicators_for_synthesis(),
             )
             recommendation.run_id = run_id
             self._log("[green]✓[/green] [dim]Recommendation synthesized[/dim]")

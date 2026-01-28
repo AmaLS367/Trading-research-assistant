@@ -41,19 +41,27 @@ class Synthesizer:
             technical_view
         )
 
+        settings = Settings()
         scoring_indicators: dict[str, object] = indicators or {}
         technical_scoring_dict: dict[str, object] = {
             "trend_direction": technical.bias,
             "trend_strength": float(technical.confidence) * 100.0,
         }
-        scores = calculate_scores(scoring_indicators, technical_analysis=technical_scoring_dict)
-        reason_codes = build_reason_codes(scoring_indicators, scores=scores)
+        scores = calculate_scores(
+            scoring_indicators,
+            technical_analysis=technical_scoring_dict,
+            settings=settings,
+        )
+        reason_codes = build_reason_codes(
+            scoring_indicators, scores=scores, settings=settings
+        )
         if (not technical_parse_ok or "PARSING_FAILED" in technical.no_trade_flags) and (
             PARSING_FAILED not in reason_codes
         ):
             reason_codes.append(PARSING_FAILED)
-
-        settings = Settings()
+        for flag in technical.no_trade_flags or []:
+            if flag and flag not in reason_codes:
+                reason_codes.append(flag)
         decided_action, decided_confidence = decide_action(
             scores=scores,
             reason_codes=reason_codes,
@@ -168,6 +176,7 @@ Constraints:
                 action=decided_action,
                 brief=brief_str,
                 confidence=decided_confidence,
+                reason_codes=reason_codes,
             )
             debug_payload["llm_suggested_action"] = action_str
             debug_payload["llm_suggested_confidence"] = confidence_float
@@ -235,6 +244,7 @@ Invalid output:
                         action=decided_action,
                         brief=brief_str,
                         confidence=decided_confidence,
+                        reason_codes=reason_codes,
                     )
                     debug_payload["llm_suggested_action"] = action_str
                     debug_payload["llm_suggested_confidence"] = confidence_float
@@ -270,6 +280,7 @@ Previous failed attempt:
                 action=decided_action,
                 brief="LLM JSON parse error. Explanation not synthesized. See rationale for raw output.",
                 confidence=decided_confidence,
+                reason_codes=reason_codes,
             )
 
             return fallback_recommendation, debug_payload, last_response
