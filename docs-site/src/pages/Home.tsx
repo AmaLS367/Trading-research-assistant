@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 const content = {
   en: {
     hero: {
-      badge: 'Documentation',
+      badge: '📚 Documentation',
       subtitle: 'LLM-powered market research assistant with clean architecture and extensible providers.',
       getStarted: 'Get Started',
       github: 'GitHub',
@@ -35,7 +35,7 @@ const content = {
       },
     },
     startHere: {
-      title: 'Start here',
+      title: '🚀 Start here',
       cards: [
         {
           slug: 'overview',
@@ -58,7 +58,7 @@ const content = {
       ],
     },
     highlights: {
-      title: 'Highlights',
+      title: '✨ Highlights',
       items: [
         {
           text: 'Technical analysis + news synthesis',
@@ -85,7 +85,7 @@ const content = {
   },
   ru: {
     hero: {
-      badge: 'Документация',
+      badge: '📚 Документация',
       subtitle: 'LLM ассистент для ресерча рынка с чистой архитектурой и расширяемыми провайдерами.',
       getStarted: 'Начать',
       github: 'GitHub',
@@ -100,7 +100,7 @@ const content = {
       },
     },
     startHere: {
-      title: 'Начните здесь',
+      title: '🚀 Начните здесь',
       cards: [
         {
           slug: 'overview',
@@ -123,7 +123,7 @@ const content = {
       ],
     },
     highlights: {
-      title: 'Highlights',
+      title: '✨ Highlights',
       items: [
         {
           text: 'Теханализ + новости в одном пайплайне',

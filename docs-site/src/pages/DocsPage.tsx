@@ -69,8 +69,10 @@ export default function DocsPage() {
         </div>
       ) : notFound ? (
         <div className="py-24 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Page not found</h1>
-          <p className="mt-2 text-muted-foreground">The requested documentation page could not be found.</p>
+          <h1 className="text-2xl font-bold text-foreground">😕 Page not found</h1>
+          <p className="mt-2 text-muted-foreground">
+            The requested documentation page could not be found. Please check the URL or select a topic from the sidebar.
+          </p>
         </div>
       ) : content ? (
         <article className="animate-fade-in p-6 md:p-8 lg:p-10">

@@ -88,6 +88,14 @@ interface SidebarGroupProps {
   onItemClick?: () => void;
 }
 
+const EMOJI_BY_GROUP_TITLE: Record<string, string> = {
+  'Getting Started': '🚀',
+  'Reference': '📖',
+  'Policies': '🔒',
+  'Troubleshooting': '🛠️',
+  Other: '📁',
+};
+
 function SidebarGroup({
   group,
   lang,
@@ -95,6 +103,9 @@ function SidebarGroup({
   onToggle,
   onItemClick,
 }: SidebarGroupProps) {
+  const emoji = EMOJI_BY_GROUP_TITLE[group.title] || '📄';
+  const displayTitle = `${emoji} ${group.title}`;
+
   return (
     <div className="mb-4">
       <button
@@ -104,7 +115,7 @@ function SidebarGroup({
           'text-foreground hover:bg-accent transition-colors'
         )}
       >
-        <span>{group.title}</span>
+        <span>{displayTitle}</span>
         <ChevronDown
           className={cn(
             'h-4 w-4 text-muted-foreground transition-transform',
