@@ -1,4 +1,10 @@
+from src.app.settings import Settings
+
+
 def get_technical_system_prompt(display_symbol: str, timeframe: str) -> str:
+    settings = Settings()
+    atr_pct_threshold = settings.decision_atr_pct_low_threshold
+    crossover_max_age = settings.decision_crossover_max_age_bars
     return f"""You are a Forex technical analyst.
 
 SCOPE:
@@ -67,10 +73,10 @@ CONTENT RULES:
   - "WEAK_MOMENTUM": Momentum indicates weak movement:
     - both |ROC 5| < 0.10% AND |ROC 20| < 0.30%, OR
     - both |Δ1| < 5 AND |Δ5| < 10
-  - "LOW_VOLATILITY_NO_SQUEEZE": Volatility/BB has squeeze=NO AND ATR% <= 0.20%.
+  - "LOW_VOLATILITY_NO_SQUEEZE": Volatility/BB has squeeze=NO AND ATR% <= {atr_pct_threshold}.
   - "NO_FRESH_CROSSOVER": Crossovers are stale:
-    - EMA9/SMA50 age > 20 OR age is N/A, AND
-    - SMA50/SMA200 age > 20 OR age is N/A
+    - EMA9/SMA50 age > {crossover_max_age} OR age is N/A, AND
+    - SMA50/SMA200 age > {crossover_max_age} OR age is N/A
   - "RANGE_STRUCTURE": Trend/Structure indicates range/neutral regime:
     - Trend Direction is NEUTRAL or RANGE, OR Trend Strength < 2.0, OR market structure is explicitly "range".
 - If signals are mixed or data appears incomplete, set:

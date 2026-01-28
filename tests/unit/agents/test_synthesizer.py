@@ -14,14 +14,26 @@ def _decided_confidence(debug: dict[str, Any]) -> float:
     return float(debug["decision"]["confidence"])
 
 
+def _valid_synthesis_json(
+    action: str = "CALL",
+    confidence: float = 0.75,
+    brief: str = "",
+    reasons: list[str] | None = None,
+    risks: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "action": action,
+        "confidence": confidence,
+        "brief": brief,
+        "reasons": reasons if reasons is not None else ["Reason one.", "Reason two."],
+        "risks": risks if risks is not None else ["Risk one.", "Risk two."],
+    }
+
+
 def test_synthesizer_creates_recommendation() -> None:
     mock_router = Mock(spec=LlmRouter)
     mock_response_text = json.dumps(
-        {
-            "action": "CALL",
-            "confidence": 0.75,
-            "brief": "Strong bullish momentum with RSI above 70.",
-        }
+        _valid_synthesis_json(brief="Strong bullish momentum with RSI above 70.")
     )
     mock_router.generate.return_value = LlmResponse(
         text=mock_response_text,
@@ -69,7 +81,11 @@ def test_synthesizer_handles_json_with_code_blocks() -> None:
     mock_router = Mock(spec=LlmRouter)
     mock_response_text = (
         "```json\n"
-        + json.dumps({"action": "PUT", "confidence": 0.6, "brief": "Bearish trend detected."})
+        + json.dumps(
+            _valid_synthesis_json(
+                action="PUT", confidence=0.6, brief="Bearish trend detected."
+            )
+        )
         + "\n```"
     )
     mock_router.generate.return_value = LlmResponse(
@@ -227,7 +243,11 @@ def test_synthesizer_handles_invalid_json_with_fallback() -> None:
             error=None,
         ),
         LlmResponse(
-            text=json.dumps({"action": "WAIT", "confidence": 0.0, "brief": "Fallback"}),
+            text=json.dumps(
+                _valid_synthesis_json(
+                    action="WAIT", confidence=0.0, brief="Fallback"
+                )
+            ),
             provider_name="test_provider",
             model_name="test_model",
             latency_ms=100,
@@ -319,7 +339,10 @@ def test_synthesizer_handles_invalid_json_retry_also_fails() -> None:
 def test_synthesizer_normalizes_brief_newlines() -> None:
     mock_router = Mock(spec=LlmRouter)
     mock_response_text = json.dumps(
-        {"action": "CALL", "confidence": 0.8, "brief": "First line.\nSecond line.\nThird line."}
+        _valid_synthesis_json(
+            confidence=0.8,
+            brief="First line.\nSecond line.\nThird line.",
+        )
     )
     mock_router.generate.return_value = LlmResponse(
         text=mock_response_text,
@@ -356,7 +379,11 @@ def test_synthesizer_normalizes_brief_newlines() -> None:
 def test_synthesizer_warns_on_curly_braces_in_brief() -> None:
     mock_router = Mock(spec=LlmRouter)
     mock_response_text = json.dumps(
-        {"action": "PUT", "confidence": 0.7, "brief": "Analysis shows {some data} in the market."}
+        _valid_synthesis_json(
+            action="PUT",
+            confidence=0.7,
+            brief="Analysis shows {some data} in the market.",
+        )
     )
     mock_router.generate.return_value = LlmResponse(
         text=mock_response_text,

@@ -63,7 +63,11 @@ class BuildFeaturesJob:
             ema9_sma50_crossover_age_bars = crossovers.get("ema9_sma50_crossover_age_bars")
             sma50_sma200_raw = crossovers.get("sma50_sma200_crossover_type")
             sma50_sma200_crossover_type = (
-                "BULLISH" if sma50_sma200_raw == "GOLDEN" else "BEARISH" if sma50_sma200_raw == "DEATH" else sma50_sma200_raw
+                "BULLISH"
+                if sma50_sma200_raw == "GOLDEN"
+                else "BEARISH"
+                if sma50_sma200_raw == "DEATH"
+                else sma50_sma200_raw
             )
             sma50_sma200_crossover_age_bars = crossovers.get("sma50_sma200_crossover_age_bars")
 

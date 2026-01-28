@@ -52,9 +52,7 @@ class Synthesizer:
             technical_analysis=technical_scoring_dict,
             settings=settings,
         )
-        reason_codes = build_reason_codes(
-            scoring_indicators, scores=scores, settings=settings
-        )
+        reason_codes = build_reason_codes(scoring_indicators, scores=scores, settings=settings)
         if (not technical_parse_ok or "PARSING_FAILED" in technical.no_trade_flags) and (
             PARSING_FAILED not in reason_codes
         ):
@@ -110,12 +108,14 @@ News Context:
 {news_section}
 
 Return STRICT JSON ONLY with schema:
-{{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
+{{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"...","reasons":["..."],"risks":["..."]}}
 
 Constraints:
 - action MUST be "{decided_action}"
 - confidence MUST be {decided_confidence:.4f} (copy exactly)
 - brief must explain WHY this decided action makes sense using scores/reason codes/technical/news
+- reasons must be a JSON array of strings (2–5 bullet-style sentences)
+- risks must be a JSON array of strings (2–5 items)
 """
 
         llm_response_obj = self.llm_router.generate(
@@ -164,10 +164,15 @@ Constraints:
             debug_payload["extracted_json"] = self._truncate_string(extracted_json, 2000)
             debug_payload["parse_ok"] = True
             debug_payload["brief_warning"] = brief_warning
+            debug_payload["reasons"] = recommendation_data.get("reasons", [])
+            debug_payload["risks"] = recommendation_data.get("risks", [])
 
             action_str: str = str(recommendation_data["action"])
             brief_str: str = str(recommendation_data["brief"])
-            confidence_float: float = float(recommendation_data["confidence"])
+            conf_val = recommendation_data["confidence"]
+            confidence_float: float = (
+                float(conf_val) if isinstance(conf_val, (int, float)) else 0.0
+            )
 
             recommendation = Recommendation(
                 symbol=symbol,
@@ -197,7 +202,7 @@ Constraints:
 
             repair_prompt = f"""Convert this into STRICT valid JSON for schema. Return JSON only.
 
-Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
+Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"...","reasons":["..."],"risks":["..."]}}
 
 Invalid output:
 {self._truncate_string(llm_response_obj.text, 1500)}"""
@@ -232,10 +237,15 @@ Invalid output:
                     )
                     debug_payload["parse_ok"] = True
                     debug_payload["brief_warning"] = brief_warning
+                    debug_payload["reasons"] = recommendation_data.get("reasons", [])
+                    debug_payload["risks"] = recommendation_data.get("risks", [])
 
                     action_str = str(recommendation_data["action"])
                     brief_str = str(recommendation_data["brief"])
-                    confidence_float = float(recommendation_data["confidence"])
+                    conf_val = recommendation_data["confidence"]
+                    confidence_float = (
+                        float(conf_val) if isinstance(conf_val, (int, float)) else 0.0
+                    )
 
                     recommendation = Recommendation(
                         symbol=symbol,
@@ -266,7 +276,7 @@ Invalid output:
                     if attempt == 0:
                         repair_prompt = f"""Convert this into STRICT valid JSON. Return JSON only. JSON must start with '{{' and end with '}}'.
 
-Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"..."}}
+Schema: {{"action":"CALL|PUT|WAIT","confidence":0.0,"brief":"...","reasons":["..."],"risks":["..."]}}
 
 Previous failed attempt:
 {self._truncate_string(retry_response_obj.text, 1500)}"""
@@ -337,7 +347,9 @@ Previous failed attempt:
 
         return extracted
 
-    def _parse_llm_response(self, response: str) -> tuple[dict[str, str | float], str | None]:
+    def _parse_llm_response(
+        self, response: str
+    ) -> tuple[dict[str, str | float | list[str]], str | None]:
         response_cleaned = self._extract_json(response)
 
         try:
@@ -381,6 +393,10 @@ Previous failed attempt:
             raise ValueError("LLM response missing 'confidence' field")
         if "brief" not in data:
             raise ValueError("LLM response missing 'brief' field")
+        if "reasons" not in data:
+            raise ValueError("LLM response missing 'reasons' field")
+        if "risks" not in data:
+            raise ValueError("LLM response missing 'risks' field")
 
         action = str(data["action"]).upper()
         if action not in ["CALL", "PUT", "WAIT"]:
@@ -393,10 +409,24 @@ Previous failed attempt:
         brief_raw = str(data["brief"])
         brief_normalized, brief_warning = self._normalize_brief(brief_raw)
 
+        reasons_raw = data.get("reasons")
+        if not isinstance(reasons_raw, list):
+            reasons_list: list[str] = []
+        else:
+            reasons_list = [str(item).strip() for item in reasons_raw if item is not None]
+
+        risks_raw = data.get("risks")
+        if not isinstance(risks_raw, list):
+            risks_list: list[str] = []
+        else:
+            risks_list = [str(item).strip() for item in risks_raw if item is not None]
+
         return {
             "action": action,
             "confidence": confidence,
             "brief": brief_normalized,
+            "reasons": reasons_list,
+            "risks": risks_list,
         }, brief_warning
 
     def _try_fix_json(self, json_str: str) -> str | None:

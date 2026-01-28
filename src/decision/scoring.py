@@ -22,12 +22,8 @@ def calculate_scores(
     bear_score = 0.0
     no_trade_score = 0.0
 
-    crossover_max_age = (
-        float(settings.decision_crossover_max_age_bars) if settings else 10.0
-    )
-    atr_low_threshold = (
-        float(settings.decision_atr_pct_low_threshold) if settings else 0.08
-    )
+    crossover_max_age = float(settings.decision_crossover_max_age_bars) if settings else 10.0
+    atr_low_threshold = float(settings.decision_atr_pct_low_threshold) if settings else 0.08
 
     trend_direction = _get_str(indicators, technical_analysis, "trend_direction")
     trend_strength = _get_float(indicators, technical_analysis, "trend_strength")

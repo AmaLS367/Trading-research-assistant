@@ -82,16 +82,12 @@ def _get_float(indicators: dict[str, object], key: str) -> float | None:
     return as_float
 
 
-def _is_low_volatility_no_squeeze(
-    indicators: dict[str, object], settings: Settings | None
-) -> bool:
+def _is_low_volatility_no_squeeze(indicators: dict[str, object], settings: Settings | None) -> bool:
     atr_pct = _get_float(indicators, "atr_pct")
     bb_squeeze_flag = _get_float(indicators, "bb_squeeze_flag")
     if atr_pct is None or bb_squeeze_flag is None:
         return False
-    threshold = (
-        float(settings.decision_atr_pct_low_threshold) if settings else 0.08
-    )
+    threshold = float(settings.decision_atr_pct_low_threshold) if settings else 0.08
     return atr_pct < threshold and bb_squeeze_flag == 0.0
 
 
@@ -110,15 +106,11 @@ def _has_fresh_crossover(
         return False
     if age_bars is None:
         return False
-    max_age = (
-        float(settings.decision_crossover_max_age_bars) if settings else 10.0
-    )
+    max_age = float(settings.decision_crossover_max_age_bars) if settings else 10.0
     return age_bars <= max_age
 
 
-def _is_no_fresh_crossover(
-    indicators: dict[str, object], settings: Settings | None
-) -> bool:
+def _is_no_fresh_crossover(indicators: dict[str, object], settings: Settings | None) -> bool:
     ema_fresh = _has_fresh_crossover(
         indicators,
         type_key="ema9_sma50_crossover_type",
@@ -164,19 +156,35 @@ def _detect_conflict_trend_structure(indicators: dict[str, object]) -> bool:
     )
     structure = _get_str(indicators, "structure")
 
-    if trend and ema_type and ema_type != "NONE" and (
-        (trend == "BULLISH" and ema_type == "BEARISH")
-        or (trend == "BEARISH" and ema_type == "BULLISH")
+    if (
+        trend
+        and ema_type
+        and ema_type != "NONE"
+        and (
+            (trend == "BULLISH" and ema_type == "BEARISH")
+            or (trend == "BEARISH" and ema_type == "BULLISH")
+        )
     ):
         return True
-    if trend and sma_type and sma_type != "NONE" and (
-        (trend == "BULLISH" and sma_type == "BEARISH")
-        or (trend == "BEARISH" and sma_type == "BULLISH")
+    if (
+        trend
+        and sma_type
+        and sma_type != "NONE"
+        and (
+            (trend == "BULLISH" and sma_type == "BEARISH")
+            or (trend == "BEARISH" and sma_type == "BULLISH")
+        )
     ):
         return True
-    if ema_type and sma_type and ema_type != "NONE" and sma_type != "NONE" and (
-        (ema_type == "BULLISH" and sma_type == "BEARISH")
-        or (ema_type == "BEARISH" and sma_type == "BULLISH")
+    if (
+        ema_type
+        and sma_type
+        and ema_type != "NONE"
+        and sma_type != "NONE"
+        and (
+            (ema_type == "BULLISH" and sma_type == "BEARISH")
+            or (ema_type == "BEARISH" and sma_type == "BULLISH")
+        )
     ):
         return True
     return bool(

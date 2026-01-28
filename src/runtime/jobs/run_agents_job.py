@@ -12,8 +12,7 @@ from src.core.models.run import Run, RunStatus
 from src.core.models.timeframe import Timeframe
 from src.core.ports.market_data_provider import MarketDataProvider
 from src.core.ports.news_provider import NewsProvider
-from src.features.indicators.indicator_engine import calculate_features
-from src.features.snapshots.feature_snapshot import FeatureSnapshot
+from src.runtime.jobs.build_features_job import BuildFeaturesJob
 from src.storage.sqlite.repositories.rationales_repository import RationalesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
 from src.storage.sqlite.repositories.runs_repository import RunsRepository
@@ -120,6 +119,7 @@ class RunAgentsJob:
         recommendations_repository: RecommendationsRepository,
         runs_repository: RunsRepository,
         rationales_repository: RationalesRepository,
+        build_features_job: BuildFeaturesJob,
         console: "Console | None" = None,
         verbose: bool = False,
     ) -> None:
@@ -131,6 +131,7 @@ class RunAgentsJob:
         self.recommendations_repository = recommendations_repository
         self.runs_repository = runs_repository
         self.rationales_repository = rationales_repository
+        self.build_features_job = build_features_job
         self.console = console
         self.verbose = verbose
 
@@ -181,14 +182,18 @@ class RunAgentsJob:
             self._log(f"[green]✓[/green] [dim]Loaded {len(candles)} candles[/dim]")
 
             self._log("[dim]→ Calculating technical indicators...[/dim]")
-            indicators = calculate_features(candles)
-            self._log(f"[green]✓[/green] [dim]Calculated {len(indicators)} indicators[/dim]")
-
-            snapshot = FeatureSnapshot(
-                timestamp=datetime.now(),
+            build_result = self.build_features_job.run(
+                symbol=symbol,
+                timeframe=timeframe,
                 candles=candles,
-                indicators=indicators,
             )
+            if not build_result.ok:
+                raise ValueError(build_result.error or "Build features job failed")
+            if build_result.value is None:
+                raise ValueError("Build features job returned no snapshot")
+            snapshot, _signal = build_result.value
+            indicators_count = len(snapshot.indicators) if snapshot.indicators else 0
+            self._log(f"[green]✓[/green] [dim]Calculated {indicators_count} indicators[/dim]")
 
             self._log("[dim]→ Running technical analysis (LLM)...[/dim]")
             technical_view, technical_llm_response = self.technical_analyst.analyze(

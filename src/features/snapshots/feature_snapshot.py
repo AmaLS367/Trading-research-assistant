@@ -34,6 +34,8 @@ class FeatureSnapshot(BaseModel):
         out: dict[str, Any] = dict(self.indicators)
         if self.trend_direction is not None:
             out["trend_direction"] = self.trend_direction
+        if self.trend_strength is not None:
+            out["trend_strength"] = float(self.trend_strength)
         if self.ema9_sma50_crossover_type is not None:
             out["ema9_sma50_crossover_type"] = self.ema9_sma50_crossover_type
         if self.sma50_sma200_crossover_type is not None:
