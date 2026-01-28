@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+from collections.abc import Sequence
 
 from rich.table import Table
 
@@ -117,3 +118,73 @@ class Reporter:
             table.add_row("No data", "0", "0.0%")
 
         return table
+
+
+def _parse_reason_codes(value: object) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        codes: list[str] = []
+        for item in value:
+            normalized = str(item).strip().upper()
+            if normalized:
+                codes.append(normalized)
+        return codes
+
+    if not isinstance(value, str):
+        return []
+
+    raw = value.strip()
+    if not raw:
+        return []
+
+    try:
+        parsed: object = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+
+    if isinstance(parsed, str):
+        try:
+            parsed = json.loads(parsed)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    codes = []
+    for item in parsed:
+        normalized = str(item).strip().upper()
+        if normalized:
+            codes.append(normalized)
+    return codes
+
+
+def count_reason_codes(reason_codes_values: Sequence[object]) -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
+    for value in reason_codes_values:
+        for code in _parse_reason_codes(value):
+            counts[code] += 1
+    return dict(counts)
+
+
+def generate_reason_codes_table(reason_codes_values: Sequence[object], top_n: int = 10) -> Table:
+    counts = count_reason_codes(reason_codes_values)
+    total = sum(counts.values())
+
+    table = Table(title="Top Reason Codes", show_header=True, header_style="bold magenta")
+    table.add_column("Reason Code", style="cyan", width=32)
+    table.add_column("Count", style="yellow", justify="right", width=10)
+    table.add_column("Share", style="bold green", justify="right", width=10)
+
+    if total <= 0:
+        table.add_row("No data", "0", "0.0%")
+        return table
+
+    sorted_items = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    for code, count in sorted_items[: max(1, int(top_n))]:
+        share = (count / total) * 100.0
+        table.add_row(code, str(count), f"{share:.1f}%")
+
+    return table

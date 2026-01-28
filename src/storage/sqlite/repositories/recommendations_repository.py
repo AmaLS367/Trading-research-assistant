@@ -1,3 +1,5 @@
+import json
+
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
 from src.storage.sqlite.connection import DBConnection
@@ -7,11 +9,52 @@ class RecommendationsRepository:
     def __init__(self, db: DBConnection) -> None:
         self.db = db
 
+    def get_by_run_id(self, run_id: int) -> Recommendation | None:
+        query = "SELECT * FROM recommendations WHERE run_id = ? ORDER BY id DESC LIMIT 1"
+        with self.db.get_cursor() as cursor:
+            cursor.execute(query, (run_id,))
+            row = cursor.fetchone()
+            if row:
+                row_dict = dict(row)
+                from datetime import datetime
+
+                row_dict["timestamp"] = datetime.fromisoformat(row_dict["timestamp"])
+                row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
+                if "action" not in row_dict:
+                    row_dict["action"] = "WAIT"
+
+                reason_codes_value = row_dict.get("reason_codes")
+                if "reason_codes" not in row_dict or reason_codes_value in {None, ""}:
+                    row_dict["reason_codes"] = []
+                elif isinstance(reason_codes_value, str):
+                    try:
+                        parsed = json.loads(reason_codes_value)
+                        row_dict["reason_codes"] = parsed if isinstance(parsed, list) else []
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        row_dict["reason_codes"] = []
+                elif isinstance(reason_codes_value, list):
+                    row_dict["reason_codes"] = reason_codes_value
+                else:
+                    row_dict["reason_codes"] = []
+
+                return Recommendation(**row_dict)
+            return None
+
     def save(self, recommendation: Recommendation) -> int:
         query = """
-            INSERT INTO recommendations (run_id, symbol, timestamp, timeframe, action, brief, confidence)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO recommendations (
+                run_id,
+                symbol,
+                timestamp,
+                timeframe,
+                action,
+                brief,
+                confidence,
+                reason_codes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
+        reason_codes_json = json.dumps(list(recommendation.reason_codes))
         with self.db.get_cursor() as cursor:
             cursor.execute(
                 query,
@@ -23,6 +66,7 @@ class RecommendationsRepository:
                     recommendation.action,
                     recommendation.brief,
                     recommendation.confidence,
+                    reason_codes_json,
                 ),
             )
             row_id = cursor.lastrowid
@@ -43,5 +87,20 @@ class RecommendationsRepository:
                 row_dict["timeframe"] = Timeframe(row_dict["timeframe"])
                 if "action" not in row_dict:
                     row_dict["action"] = "WAIT"
+
+                reason_codes_value = row_dict.get("reason_codes")
+                if "reason_codes" not in row_dict or reason_codes_value in {None, ""}:
+                    row_dict["reason_codes"] = []
+                elif isinstance(reason_codes_value, str):
+                    try:
+                        parsed = json.loads(reason_codes_value)
+                        row_dict["reason_codes"] = parsed if isinstance(parsed, list) else []
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        row_dict["reason_codes"] = []
+                elif isinstance(reason_codes_value, list):
+                    row_dict["reason_codes"] = reason_codes_value
+                else:
+                    row_dict["reason_codes"] = []
+
                 return Recommendation(**row_dict)
             return None
