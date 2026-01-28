@@ -5,6 +5,36 @@ import { useDocs } from '@/lib/docs-context';
 import { cn } from '@/lib/utils';
 import { NavGroup } from '@/lib/docs-manifest';
 
+const GROUP_EMOJI: Record<string, string> = {
+  'Getting Started': '🚀',
+  'Reference': '📚',
+  'Policies': '🔒',
+  'Troubleshooting': '⚙️',
+  'Other': '📄',
+};
+
+const ITEM_EMOJI: Record<string, string> = {
+  overview: '📊',
+  usage_guide: '📑',
+  architecture: '🏗️',
+  env_configuration: '🔧',
+  llm_task_routing: '🤖',
+  logging: '📝',
+  import_rules: '📋',
+  roadmap: '🗺️',
+  safety_policy: '🔒',
+  troubleshooting: '🔧',
+};
+
+function getGroupEmoji(groupTitle: string): string {
+  return GROUP_EMOJI[groupTitle] ?? '📄';
+}
+
+function getItemEmoji(slug: string): string {
+  const key = slug.split('/')[0];
+  return ITEM_EMOJI[key] ?? '📄';
+}
+
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -104,7 +134,10 @@ function SidebarGroup({
           'text-foreground hover:bg-accent transition-colors'
         )}
       >
-        <span>{group.title}</span>
+        <span className="flex items-center gap-2">
+          <span className="shrink-0">{getGroupEmoji(group.title)}</span>
+          <span>{group.title}</span>
+        </span>
         <ChevronDown
           className={cn(
             'h-4 w-4 text-muted-foreground transition-transform',
@@ -114,7 +147,7 @@ function SidebarGroup({
       </button>
 
       {isExpanded && (
-        <ul className="mt-1 space-y-1 animate-fade-in">
+        <ul className="mt-1 space-y-1 animate-fade-in pl-3 border-l border-border ml-1">
           {group.items.map((item) => (
             <li key={item.slug}>
               <NavLink
@@ -130,6 +163,7 @@ function SidebarGroup({
                   )
                 }
               >
+                <span className="shrink-0">{getItemEmoji(item.slug)}</span>
                 <span className="truncate">{item.title}</span>
               </NavLink>
             </li>
