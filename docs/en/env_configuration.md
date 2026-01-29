@@ -1,4 +1,4 @@
-# Environment Variables Configuration
+# 🔧 Environment Variables Configuration
 
 ## Working with .env.example and .env
 

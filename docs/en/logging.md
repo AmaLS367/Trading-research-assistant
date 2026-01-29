@@ -1,4 +1,4 @@
-# Logging
+# 📝 Logging
 
 The project uses [loguru](https://github.com/Delgan/loguru) for logging. The logging system is configured to provide readable console output and structured file logging with automatic rotation and secret masking.
 
