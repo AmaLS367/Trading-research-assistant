@@ -21,12 +21,14 @@ from src.core.models.outcome import Outcome
 from src.core.models.rationale import RationaleType
 from src.core.models.timeframe import Timeframe
 from src.core.pipeline_trace import PipelineTrace
-from src.core.services.reporter import Reporter
+from src.core.services.reporter import Reporter, generate_reason_codes_table
 from src.runtime.preflight import run_preflight
 from src.storage.sqlite.connection import DBConnection
 from src.storage.sqlite.repositories.journal_repository import JournalRepository
 from src.storage.sqlite.repositories.outcomes_repository import OutcomesRepository
 from src.storage.sqlite.repositories.recommendations_repository import RecommendationsRepository
+from src.ui.cli.renderers.synthesis_renderer import render_synthesis
+from src.ui.cli.renderers.technical_renderer import render_technical_view
 from src.utils.logging_setup import setup_logging
 
 console = Console()
@@ -43,30 +45,53 @@ def init_db() -> None:
     console.print("[green]Database initialized and migrations applied.[/green]")
 
 
-def show_latest(show_details: bool = False) -> None:
-    recommendation = rec_repo.get_latest()
+def _normalize_action(value: object) -> str:
+    action = str(value).strip().upper()
+    if action in {"CALL", "PUT", "WAIT"}:
+        return action
+    return "WAIT"
+
+
+def show_latest(show_details: bool = False, run_id: int | None = None) -> None:
+    if run_id is None:
+        recommendation = rec_repo.get_latest()
+        table_title = "Recommendation"
+    else:
+        recommendation = rec_repo.get_by_run_id(run_id)
+        table_title = "Recommendation"
+
     if not recommendation:
-        console.print("[yellow]No recommendations found.[/yellow]")
+        if run_id is None:
+            console.print("[yellow]No recommendations found.[/yellow]")
+        else:
+            console.print(f"[yellow]No recommendation found for Run ID: {run_id}[/yellow]")
         return
 
-    if recommendation.action == "CALL":
+    action = _normalize_action(recommendation.action)
+    if action == "CALL":
         action_color = "green"
-    elif recommendation.action == "PUT":
+    elif action == "PUT":
         action_color = "red"
     else:
         action_color = "yellow"
-    action_display = f"[{action_color}]{recommendation.action}[/{action_color}]"
+    action_display = f"[{action_color}]{action}[/{action_color}]"
 
-    if recommendation.confidence >= 0.7:
+    try:
+        confidence_value = float(recommendation.confidence)
+    except (TypeError, ValueError):
+        confidence_value = 0.0
+
+    if confidence_value >= 0.7:
         confidence_color = "green"
-    elif recommendation.confidence >= 0.5:
+    elif confidence_value >= 0.5:
         confidence_color = "yellow"
     else:
         confidence_color = "red"
-    confidence_display = f"[{confidence_color}]{recommendation.confidence:.2%}[/{confidence_color}]"
+    confidence_display = f"[{confidence_color}]{confidence_value:.2%}[/{confidence_color}]"
 
-    table = Table(title="Latest Recommendation", show_header=True, header_style="bold magenta")
-    table.add_column("ID", style="cyan", width=8)
+    table = Table(title=table_title, show_header=True, header_style="bold magenta")
+    table.add_column("Recommendation ID", style="cyan", width=16)
+    table.add_column("Run ID", style="cyan", width=10)
     table.add_column("Symbol", style="magenta", width=10)
     table.add_column("Timeframe", style="green", width=10)
     table.add_column("Action", style="bold", width=8)
@@ -75,6 +100,7 @@ def show_latest(show_details: bool = False) -> None:
 
     table.add_row(
         str(recommendation.id),
+        str(recommendation.run_id) if recommendation.run_id is not None else "N/A",
         recommendation.symbol,
         recommendation.timeframe.value,
         action_display,
@@ -106,24 +132,10 @@ def show_latest(show_details: bool = False) -> None:
 
         if technical_rationales:
             tech_rationale = technical_rationales[0]
-            content = tech_rationale.content
-
-            metadata_parts: list[str] = []
-            if tech_rationale.provider_name:
-                metadata_parts.append(f"Provider: {tech_rationale.provider_name}")
-            if tech_rationale.model_name:
-                metadata_parts.append(f"Model: {tech_rationale.model_name}")
-            if tech_rationale.latency_ms is not None:
-                metadata_parts.append(f"Latency: {tech_rationale.latency_ms}ms")
-            if tech_rationale.attempts is not None:
-                metadata_parts.append(f"Attempts: {tech_rationale.attempts}")
-            if tech_rationale.error:
-                metadata_parts.append(f"[red]Error: {tech_rationale.error}[/red]")
-
-            if metadata_parts:
-                content = "\n".join(metadata_parts) + "\n\n" + content
-
-            console.print(Panel(content, title="Technical Analysis", border_style="cyan"))
+            technical_panel = render_technical_view(
+                tech_rationale.content, title="Technical Analysis"
+            )
+            console.print(technical_panel)
             console.print()
 
         if news_rationales:
@@ -300,7 +312,7 @@ def show_latest(show_details: bool = False) -> None:
                     console.print(
                         Panel(
                             digest_content,
-                            title=f"News Digest (Quality: {digest.quality})",
+                            title="News Digest",
                             border_style="blue",
                         )
                     )
@@ -316,24 +328,12 @@ def show_latest(show_details: bool = False) -> None:
 
         if synthesis_rationales:
             synth_rationale = synthesis_rationales[0]
-            content = synth_rationale.content
-
-            synth_metadata_parts: list[str] = []
-            if synth_rationale.provider_name:
-                synth_metadata_parts.append(f"Provider: {synth_rationale.provider_name}")
-            if synth_rationale.model_name:
-                synth_metadata_parts.append(f"Model: {synth_rationale.model_name}")
-            if synth_rationale.latency_ms is not None:
-                synth_metadata_parts.append(f"Latency: {synth_rationale.latency_ms}ms")
-            if synth_rationale.attempts is not None:
-                synth_metadata_parts.append(f"Attempts: {synth_rationale.attempts}")
-            if synth_rationale.error:
-                synth_metadata_parts.append(f"[red]Error: {synth_rationale.error}[/red]")
-
-            if synth_metadata_parts:
-                content = "\n".join(synth_metadata_parts) + "\n\n" + content
-
-            console.print(Panel(content, title="AI Synthesis", border_style="green"))
+            synthesis_panel = render_synthesis(
+                recommendation,
+                synth_rationale.raw_data,
+                title="Synthesis",
+            )
+            console.print(synthesis_panel)
             console.print()
 
         verification_report = verification_repo.get_latest_by_run_id(recommendation.run_id)
@@ -412,7 +412,30 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
             from src.ui.cli.verbose_reporter import RichVerboseReporter
 
             verbose_reporter = RichVerboseReporter(console)
-            trace = PipelineTrace(enabled=True, reporter=verbose_reporter)
+
+            class _PrettyVerboseReporter:
+                def __init__(self, inner: RichVerboseReporter) -> None:
+                    self.inner = inner
+
+                def step_start(self, text: str) -> None:
+                    self.inner.step_start(text)
+
+                def step_done(self, text: str) -> None:
+                    self.inner.step_done(text)
+
+                def llm_summary(self, tech: str, news: str, synthesis: str, verify: str) -> None:
+                    self.inner.llm_summary(tech, news, synthesis, verify)
+
+                def panel(self, title: str, body: str) -> None:
+                    if title.startswith("Technical Rationale"):
+                        console.print()
+                        console.print(render_technical_view(body, title=title))
+                        console.print()
+                        return
+
+                    self.inner.panel(title, body)
+
+            trace = PipelineTrace(enabled=True, reporter=_PrettyVerboseReporter(verbose_reporter))
             console.print(f"[cyan]Analyzing {symbol} on {timeframe.value} timeframe...[/cyan]")
             console.print()
         else:
@@ -423,15 +446,20 @@ def analyze(symbol: str, timeframe_str: str = "1h", verbose: bool = False) -> No
         orchestrator = create_orchestrator(trace=trace)
         run_id = orchestrator.run_analysis(symbol=symbol, timeframe=timeframe)
 
-        if not verbose:
-            console.print(f"[green]Analysis complete! Run ID: {run_id}[/green]")
-            console.print()
-            show_latest()
+        recommendation = rec_repo.get_by_run_id(run_id)
+        recommendation_id = recommendation.id if recommendation else None
+
+        console.print("[green]Analysis complete![/green]")
+        console.print(f"[green]Run ID: {run_id}[/green]")
+        if recommendation_id is None:
+            console.print(
+                "[yellow]Recommendation ID: N/A (no saved recommendation for this run)[/yellow]"
+            )
         else:
-            console.print()
-            console.print(f"[green]Analysis complete! Recommendation ID: {run_id}[/green]")
-            console.print()
-            show_latest()
+            console.print(f"[green]Recommendation ID: {recommendation_id}[/green]")
+        console.print()
+
+        show_latest(run_id=run_id)
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")
     except httpx.HTTPStatusError as e:
@@ -636,6 +664,32 @@ def report() -> None:
         console.print(news_table)
         console.print()
 
+    try:
+        with db.get_cursor() as cursor:
+            cursor.execute("PRAGMA table_info(recommendations)")
+            columns = {str(row["name"]) for row in cursor.fetchall()}
+
+        if "reason_codes" not in columns:
+            console.print(
+                "[dim]Reason code diagnostics unavailable: missing recommendations.reason_codes. "
+                "Run init-db to apply migrations.[/dim]"
+            )
+            console.print()
+            return
+
+        with db.get_cursor() as cursor:
+            cursor.execute("SELECT reason_codes FROM recommendations ORDER BY id ASC")
+            reason_code_rows = cursor.fetchall()
+            reason_codes_values = [dict(row).get("reason_codes") for row in reason_code_rows]
+
+        reason_codes_table = generate_reason_codes_table(reason_codes_values, top_n=10)
+        console.print(reason_codes_table)
+        console.print()
+    except Exception:
+        console.print("[dim]Reason code diagnostics unavailable (failed to query database).[/dim]")
+        console.print()
+        return
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Trading Research Assistant CLI")
@@ -650,6 +704,11 @@ def main() -> None:
         "--details",
         action="store_true",
         help="Show detailed rationale for the latest recommendation",
+    )
+    show_latest_parser.add_argument(
+        "--run-id",
+        type=int,
+        help="Show the recommendation associated with a specific run_id",
     )
 
     analyze_parser = subparsers.add_parser("analyze")
@@ -687,7 +746,7 @@ def main() -> None:
     if args.command == "init-db":
         init_db()
     elif args.command == "show-latest":
-        show_latest(show_details=args.details)
+        show_latest(show_details=args.details, run_id=args.run_id)
     elif args.command == "analyze":
         analyze(args.symbol, args.timeframe, verbose=args.verbose)
     elif args.command == "loop":

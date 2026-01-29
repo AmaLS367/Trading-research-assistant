@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.core.models.timeframe import Timeframe
 
@@ -14,3 +14,4 @@ class Recommendation(BaseModel):
     action: str
     brief: str
     confidence: float
+    reason_codes: list[str] = Field(default_factory=list)

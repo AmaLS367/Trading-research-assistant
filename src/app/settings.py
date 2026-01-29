@@ -210,6 +210,19 @@ class Settings(BaseSettings):
         int, Field(alias="RUNTIME_MARKET_DATA_WINDOW_CANDLES")
     ] = 300
 
+    # --- Decision Policy ---
+    decision_min_trade_edge: Annotated[float, Field(alias="DECISION_MIN_TRADE_EDGE")] = 15.0
+    decision_max_no_trade_score: Annotated[float, Field(alias="DECISION_MAX_NO_TRADE_SCORE")] = 40.0
+    decision_crossover_max_age_bars: Annotated[
+        int, Field(alias="DECISION_CROSSOVER_MAX_AGE_BARS")
+    ] = 10
+    decision_atr_pct_low_threshold: Annotated[
+        float, Field(alias="DECISION_ATR_PCT_LOW_THRESHOLD")
+    ] = 0.08
+    decision_max_confidence_when_news_low: Annotated[
+        float, Field(alias="DECISION_MAX_CONFIDENCE_WHEN_NEWS_LOW")
+    ] = 0.65
+
     # --- LLM Last Resort ---
     llm_last_resort_provider: Annotated[str | None, Field(alias="LLM_LAST_RESORT_PROVIDER")] = None
     llm_last_resort_model: Annotated[str | None, Field(alias="LLM_LAST_RESORT_MODEL")] = None

@@ -364,6 +364,7 @@ Provide your analysis as JSON."""
                         timeframe=timeframe,
                         technical_view=technical_view,
                         news_digest=analyzed_news_digest,
+                        indicators=snapshot.get_indicators_for_synthesis(),
                     )
                 )
             latency_seconds_by_stage["synthesis"] = perf_counter() - stage_start_time

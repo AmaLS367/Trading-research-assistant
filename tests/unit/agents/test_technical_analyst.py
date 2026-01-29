@@ -34,7 +34,7 @@ def test_technical_analyst_analyze() -> None:
 
     mock_router = Mock(spec=LlmRouter)
     mock_router.generate.return_value = LlmResponse(
-        text="Market shows bullish momentum with RSI above 70.",
+        text='{"bias":"BULLISH","confidence":0.75,"evidence":["Market shows bullish momentum with RSI above 70."],"contradictions":[],"setup_type":"MOMENTUM","no_trade_flags":[]}',
         provider_name="test_provider",
         model_name="test_model",
         latency_ms=100,
@@ -69,7 +69,7 @@ def test_technical_analyst_output_guard_wrong_pair() -> None:
 
     mock_router = Mock(spec=LlmRouter)
     mock_router.generate.return_value = LlmResponse(
-        text="The EUR/USD pair shows bullish momentum with RSI above 70.",
+        text='{"bias":"BULLISH","confidence":0.7,"evidence":["The EUR/USD pair shows bullish momentum with RSI above 70."],"contradictions":[],"setup_type":null,"no_trade_flags":[]}',
         provider_name="test_provider",
         model_name="test_model",
         latency_ms=100,
@@ -101,7 +101,7 @@ def test_technical_analyst_output_guard_correct_pair() -> None:
 
     mock_router = Mock(spec=LlmRouter)
     mock_router.generate.return_value = LlmResponse(
-        text="The GBP/USD pair shows bullish momentum with RSI above 70.",
+        text='{"bias":"BULLISH","confidence":0.7,"evidence":["The GBP/USD pair shows bullish momentum with RSI above 70."],"contradictions":[],"setup_type":null,"no_trade_flags":[]}',
         provider_name="test_provider",
         model_name="test_model",
         latency_ms=100,
@@ -121,6 +121,6 @@ def test_technical_analyst_output_guard_correct_pair() -> None:
 
     result, llm_response = analyst.analyze(snapshot, "GBPUSD", Timeframe.H1)
 
-    assert result == "The GBP/USD pair shows bullish momentum with RSI above 70."
+    assert "The GBP/USD pair shows bullish momentum with RSI above 70." in result
     assert "Analysis scope" not in result
     assert "ignore those references" not in result

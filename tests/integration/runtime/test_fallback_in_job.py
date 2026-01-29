@@ -8,6 +8,7 @@ from src.core.models.candle import Candle
 from src.core.models.news import NewsDigest
 from src.core.models.timeframe import Timeframe
 from src.data_providers.forex.fallback_provider import FallbackMarketDataProvider
+from src.runtime.jobs.build_features_job import BuildFeaturesJob
 from src.runtime.jobs.run_agents_job import RunAgentsJob
 
 
@@ -104,6 +105,7 @@ def test_job_continues_with_fallback_when_primary_fails() -> None:
         recommendations_repository=recommendations_repo,
         runs_repository=runs_repo,
         rationales_repository=rationales_repo,
+        build_features_job=BuildFeaturesJob(),
     )
 
     with pytest.warns(UserWarning, match="failed.*Falling back"):
@@ -207,6 +209,7 @@ def test_job_uses_primary_when_successful() -> None:
         recommendations_repository=recommendations_repo,
         runs_repository=runs_repo,
         rationales_repository=rationales_repo,
+        build_features_job=BuildFeaturesJob(),
     )
 
     recommendation_id = job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)

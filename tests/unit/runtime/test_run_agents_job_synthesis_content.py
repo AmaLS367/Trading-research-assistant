@@ -6,6 +6,7 @@ from src.core.models.news import NewsDigest
 from src.core.models.rationale import RationaleType
 from src.core.models.recommendation import Recommendation
 from src.core.models.timeframe import Timeframe
+from src.runtime.jobs.build_features_job import BuildFeaturesJob
 from src.runtime.jobs.run_agents_job import RunAgentsJob
 
 
@@ -92,6 +93,7 @@ def test_synthesis_content_includes_system_note_for_low_quality() -> None:
         recommendations_repository=recommendations_repo,
         runs_repository=runs_repo,
         rationales_repository=rationales_repo,
+        build_features_job=BuildFeaturesJob(),
     )
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
@@ -191,6 +193,7 @@ def test_synthesis_content_no_system_note_for_medium_quality() -> None:
         recommendations_repository=recommendations_repo,
         runs_repository=runs_repo,
         rationales_repository=rationales_repo,
+        build_features_job=BuildFeaturesJob(),
     )
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
@@ -290,6 +293,7 @@ def test_synthesis_content_no_system_note_for_high_quality() -> None:
         recommendations_repository=recommendations_repo,
         runs_repository=runs_repo,
         rationales_repository=rationales_repo,
+        build_features_job=BuildFeaturesJob(),
     )
 
     job.run(symbol="EURUSD", timeframe=Timeframe.H1, count=200)
