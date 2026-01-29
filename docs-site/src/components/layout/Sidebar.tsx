@@ -13,26 +13,8 @@ const GROUP_EMOJI: Record<string, string> = {
   'Other': '📄',
 };
 
-const ITEM_EMOJI: Record<string, string> = {
-  overview: '📊',
-  usage_guide: '📑',
-  architecture: '🏗️',
-  env_configuration: '🔧',
-  llm_task_routing: '🤖',
-  logging: '📝',
-  import_rules: '📋',
-  roadmap: '🗺️',
-  safety_policy: '🔒',
-  troubleshooting: '🔧',
-};
-
 function getGroupEmoji(groupTitle: string): string {
   return GROUP_EMOJI[groupTitle] ?? '📄';
-}
-
-function getItemEmoji(slug: string): string {
-  const key = slug.split('/')[0];
-  return ITEM_EMOJI[key] ?? '📄';
 }
 
 interface SidebarProps {
@@ -163,7 +145,6 @@ function SidebarGroup({
                   )
                 }
               >
-                <span className="shrink-0">{getItemEmoji(item.slug)}</span>
                 <span className="truncate">{item.title}</span>
               </NavLink>
             </li>
